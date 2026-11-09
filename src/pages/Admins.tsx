@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Admin, Role, api, fmtDate } from '../api';
 import { Alert, Badge, Card, Field, Toggle, useFlash } from '../ui';
 
-interface Row { id: number; email: string; name: string; role: Role; active: number; created_at: number; last_login: number | null }
+interface Row { id: number; email: string; name: string; role: Role; active: number; created_at: number; last_login: number | null; totp_enabled: number }
 const ROLE_LABEL: Record<Role, string> = { owner: 'Propriétaire (tous les droits)', admin: 'Administrateur', support: 'Support (lecture + notes)' };
 
 export default function Admins({ admin }: { admin: Admin }) {
@@ -21,15 +21,19 @@ export default function Admins({ admin }: { admin: Admin }) {
       <Card title="Équipe d'administration">
         {!rows ? <div className="muted">Chargement…</div> : (
           <div className="table-wrap"><table className="table">
-            <thead><tr><th>Administrateur</th><th>Rôle</th><th>Actif</th><th>Dernière connexion</th><th /></tr></thead>
+            <thead><tr><th>Administrateur</th><th>Rôle</th><th>Actif</th><th>Double authentification</th><th>Dernière connexion</th><th /></tr></thead>
             <tbody>{rows.map((r) => (
               <tr key={r.id} className={r.active ? '' : 'dim'}>
                 <td><strong>{r.name || '—'}</strong>{r.id === admin.id && <Badge tone="indigo">vous</Badge>}<br /><span className="muted small">{r.email}</span></td>
                 <td><select value={r.role} disabled={r.id === admin.id} onChange={(e) => patch(r.id, { role: e.target.value }, 'Rôle modifié')}>
                   {(Object.keys(ROLE_LABEL) as Role[]).map((k) => <option key={k} value={k}>{ROLE_LABEL[k]}</option>)}</select></td>
                 <td><Toggle checked={!!r.active} disabled={r.id === admin.id} onChange={(v) => patch(r.id, { active: v }, v ? 'Accès réactivé' : 'Accès désactivé')} /></td>
+                <td>{r.totp_enabled ? <Badge tone="teal">active</Badge> : <Badge tone="coral">inactive</Badge>}</td>
                 <td>{fmtDate(r.last_login)}</td>
-                <td><button className="btn small" onClick={() => { const p = prompt('Nouveau mot de passe (10 caractères minimum)'); if (p) patch(r.id, { password: p }, 'Mot de passe réinitialisé'); }}>Mot de passe…</button></td>
+                <td><div className="row gap wrap">
+                  <button className="btn small" onClick={() => { const p = prompt('Nouveau mot de passe (10 caractères minimum). Les sessions ouvertes de cette personne seront fermées.'); if (p) patch(r.id, { password: p }, 'Mot de passe réinitialisé'); }}>Mot de passe…</button>
+                  {!!r.totp_enabled && r.id !== admin.id && <button className="btn small danger" onClick={() => { if (confirm(`Retirer la double authentification de ${r.email} ? À faire uniquement si cette personne a perdu son téléphone ; elle devra la réactiver.`)) patch(r.id, { reset_2fa: true }, 'Double authentification retirée'); }}>Retirer la 2FA</button>}
+                </div></td>
               </tr>))}
             </tbody>
           </table></div>

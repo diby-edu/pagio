@@ -51,7 +51,8 @@ export async function aiComplete(ai, system, messages, maxTokens) {
 
 // ---------------------------------------------------------------------------- LibreOffice
 
-const CANDIDATES = [
+// Fonction (et non constante) : SOFFICE_PATH peut venir du fichier .env, chargé après l'import de ce module.
+const candidates = () => [
   process.env.SOFFICE_PATH,
   'soffice', 'libreoffice',
   // Windows : soffice.exe (application graphique) n'écrit rien sur la sortie standard, donc « --version »
@@ -65,7 +66,7 @@ const CANDIDATES = [
 let sofficePath = null;
 
 export async function detectLibreOffice() {
-  for (const c of CANDIDATES) {
+  for (const c of candidates()) {
     const ok = await new Promise((res) => execFile(c, ['--version'], { timeout: 20_000 }, (err, out) => res(!err && /LibreOffice/i.test(String(out)))));
     if (ok) { sofficePath = c; return c; }
   }

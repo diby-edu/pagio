@@ -1,23 +1,7 @@
 // Tests de l'API (node --test) : base en mémoire, aucun réseau externe.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { openDb } from '../src/db.js';
-import { hashPassword } from '../src/security.js';
-import { createApp } from '../src/app.js';
-
-async function boot() {
-  const db = openDb(':memory:');
-  db.prepare("INSERT INTO admins (email, name, password_hash, role, created_at) VALUES ('owner@test.fr', 'O', ?, 'owner', ?)").run(hashPassword('motdepasse-admin'), Date.now());
-  db.prepare("INSERT INTO admins (email, name, password_hash, role, created_at) VALUES ('support@test.fr', 'S', ?, 'support', ?)").run(hashPassword('motdepasse-support'), Date.now());
-  const server = createApp({ db, secret: 'test-secret' }).listen(0);
-  await new Promise((r) => server.once('listening', r));
-  const base = `http://127.0.0.1:${server.address().port}`;
-  const call = async (method, path, body, token) => {
-    const r = await fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
-    return { status: r.status, json: await r.json().catch(() => ({})) };
-  };
-  return { server, call };
-}
+import { boot } from './helpers.js';
 
 test('parcours complet : config, inscription, administration, quotas, événements', async () => {
   const { server, call } = await boot();

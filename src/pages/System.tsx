@@ -24,7 +24,7 @@ export default function System() {
             <span>LibreOffice</span><b>{s.libreoffice ? '✔ installé' : '✘ absent'}</b>
             <span>Base de données</span><b>{(s.db_bytes / 1048576).toFixed(2)} Mo</b>
           </div>
-          <p className="muted small"><code>{s.db_file}</code> — sauvegardez ce fichier régulièrement (voir docs/SERVEUR.md).</p>
+          <p className="muted small"><code>{s.db_file}</code> — sauvegardé chaque jour (voir la page Sauvegardes).</p>
         </Card>
         <Card title="Volumes">
           <div className="kv">{Object.entries(s.counts).map(([k, v]) => <Fragment key={k}><span>{k}</span><b>{fmtNum(v)}</b></Fragment>)}</div>

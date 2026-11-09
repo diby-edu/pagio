@@ -13,6 +13,7 @@ import Audit from './pages/Audit';
 import Admins from './pages/Admins';
 import System from './pages/System';
 import Account from './pages/Account';
+import Backups from './pages/Backups';
 
 type Page = { id: string; label: string; icon: string; min: Admin['role']; el: (a: Admin) => JSX.Element };
 const RANK = { support: 1, admin: 2, owner: 3 } as const;
@@ -28,8 +29,9 @@ const PAGES: Page[] = [
   { id: 'events', label: 'Événements', icon: '≡', min: 'support', el: () => <Events /> },
   { id: 'audit', label: "Journal d'audit", icon: '⌂', min: 'admin', el: () => <Audit /> },
   { id: 'admins', label: 'Administrateurs', icon: '⚑', min: 'owner', el: (a) => <Admins admin={a} /> },
+  { id: 'backups', label: 'Sauvegardes', icon: '⛃', min: 'admin', el: (a) => <Backups admin={a} /> },
   { id: 'system', label: 'Système', icon: '⛁', min: 'admin', el: () => <System /> },
-  { id: 'account', label: 'Mon compte', icon: '☺', min: 'support', el: (a) => <Account admin={a} /> },
+  { id: 'account', label: 'Mon compte et sécurité', icon: '☺', min: 'support', el: (a) => <Account admin={a} /> },
 ];
 
 export default function App() {
@@ -64,7 +66,10 @@ export default function App() {
         </nav>
         <div className="sidebar-foot">
           <div className="who"><strong>{admin.name || admin.email}</strong><span>{admin.email} · {admin.role}</span></div>
-          <button className="btn ghost small" onClick={() => { session.token = null; setAdmin(null); }}>Se déconnecter</button>
+          <button className="btn ghost small" onClick={() => {
+            // La session est fermée côté serveur : le jeton ne peut plus servir, même s'il a été copié.
+            api('POST', '/api/admin/logout').catch(() => {}).finally(() => { session.token = null; setAdmin(null); });
+          }}>Se déconnecter</button>
           <span className="server-line" title={session.server}>{session.server}</span>
         </div>
       </aside>

@@ -36,8 +36,10 @@ export default function AiSettings() {
         </select></Field>
         <Field label="Adresse de l'API"><input value={ai.base_url} onChange={(e) => setAi({ ...ai, base_url: e.target.value })} /></Field>
         <Field label="Modèle"><input value={ai.model} onChange={(e) => setAi({ ...ai, model: e.target.value })} /></Field>
-        <Field label="Clé d'API" hint={ai.has_key ? 'Une clé est enregistrée. Laissez tel quel pour la conserver.' : 'Aucune clé enregistrée.'}>
-          <input type="password" value={ai.api_key} onChange={(e) => setAi({ ...ai, api_key: e.target.value })} placeholder="sk-…" />
+        {ai.key_error && <Alert tone="warning">La clé enregistrée ne peut plus être déchiffrée (la clé de chiffrement du serveur a changé). Saisissez-la de nouveau.</Alert>}
+        <Field label="Clé d'API" hint={ai.key_from_env ? "La clé vient de la variable AI_API_KEY du serveur : elle remplace celle saisie ici."
+          : ai.has_key ? 'Une clé est enregistrée, chiffrée dans la base. Laissez tel quel pour la conserver.' : 'Aucune clé enregistrée. Elle sera chiffrée dans la base.'}>
+          <input type="password" value={ai.api_key} disabled={ai.key_from_env} onChange={(e) => setAi({ ...ai, api_key: e.target.value })} placeholder="sk-…" />
         </Field>
         <div className="grid2">
           <Field label="Crédits par requête"><input type="number" min={0} value={ai.cost_per_request} onChange={(e) => setAi({ ...ai, cost_per_request: Number(e.target.value) })} /></Field>

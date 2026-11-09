@@ -46,6 +46,18 @@ export default function AppControl() {
           <button className="btn primary" onClick={() => submit(['registration_open', 'conversion_enabled', 'support_email'], 'Services enregistrés')}>Enregistrer</button>
         </Card>
       </div>
+      <Card title="Protection contre les abus">
+        <p className="muted">Ces limites empêchent un robot de saturer le serveur ou de créer des comptes en masse. 0 = illimité.</p>
+        <Toggle checked={s.limits.convert_require_account} onChange={(v) => setS({ ...s, limits: { ...s.limits, convert_require_account: v } })}
+          label={s.limits.convert_require_account ? 'Conversion en ligne réservée aux utilisateurs connectés' : 'Conversion en ligne ouverte aussi sans compte'} />
+        <div className="grid2" style={{ marginTop: 12 }}>
+          <Field label="Conversions par heure, sans compte" hint="Par adresse IP."><input type="number" min={0} value={s.limits.convert_anon_per_hour} onChange={(e) => setS({ ...s, limits: { ...s.limits, convert_anon_per_hour: Number(e.target.value) } })} /></Field>
+          <Field label="Conversions par heure, par compte"><input type="number" min={0} value={s.limits.convert_user_per_hour} onChange={(e) => setS({ ...s, limits: { ...s.limits, convert_user_per_hour: Number(e.target.value) } })} /></Field>
+          <Field label="Taille maximale d'un fichier à convertir (Mo)" hint="De 1 à 100."><input type="number" min={1} max={100} value={s.limits.convert_max_mb} onChange={(e) => setS({ ...s, limits: { ...s.limits, convert_max_mb: Number(e.target.value) } })} /></Field>
+          <Field label="Inscriptions par heure" hint="Par adresse IP."><input type="number" min={0} value={s.limits.register_per_hour} onChange={(e) => setS({ ...s, limits: { ...s.limits, register_per_hour: Number(e.target.value) } })} /></Field>
+        </div>
+        <button className="btn primary" onClick={() => submit(['limits'], 'Limites enregistrées')}>Enregistrer</button>
+      </Card>
     </div>
   );
 }

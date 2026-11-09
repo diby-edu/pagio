@@ -1,7 +1,11 @@
 // Client de l'API d'administration du serveur Pagio.
 
 export type Role = 'owner' | 'admin' | 'support';
-export interface Admin { id: number; email: string; name: string; role: Role }
+export interface Admin { id: number; email: string; name: string; role: Role; totp_enabled?: boolean }
+export interface Limits { convert_require_account: boolean; convert_anon_per_hour: number; convert_user_per_hour: number; convert_max_mb: number; register_per_hour: number }
+export interface BackupSettings { enabled: boolean; hour: number; keep_days: number }
+export interface Backup { name: string; kind: string; day: string; bytes: number; created_at: number }
+export interface AdminSession { id: string; admin_id: number; email: string; name: string; created_at: number; last_seen: number; expires_at: number; ip: string; user_agent: string; current: boolean }
 export interface User {
   id: string; email: string; name: string; plan: 'free' | 'premium'; premium_until: string | null; ai_credits: number;
   tasks_today: number; banned: boolean; created_at: number; last_seen: number | null; total_tasks: number; note: string;
@@ -13,7 +17,9 @@ export interface Settings {
   min_version_code: number; latest_version_name: string; update_url: string; support_email: string;
   conversion_enabled: boolean; registration_open: boolean;
   plans: { free: PlanLimits; premium: PlanLimits };
-  ai: { enabled: boolean; provider: 'openai' | 'anthropic' | 'gemini'; base_url: string; model: string; api_key: string; has_key?: boolean; cost_per_request: number; max_tokens: number };
+  ai: { enabled: boolean; provider: 'openai' | 'anthropic' | 'gemini'; base_url: string; model: string; api_key: string; has_key?: boolean; key_from_env?: boolean; key_error?: boolean; cost_per_request: number; max_tokens: number };
+  limits: Limits;
+  backup: BackupSettings;
 }
 export interface Stats {
   days: number;
@@ -39,7 +45,10 @@ export function defaultServer(): string {
   return 'http://localhost:8787';
 }
 
-export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
+export class ApiError extends Error {
+  /** `data` : réponse complète du serveur (ex. totp_required à la connexion). */
+  constructor(public status: number, message: string, public data: Record<string, unknown> = {}) { super(message); }
+}
 
 export const session = {
   get server() { return defaultServer(); },
@@ -64,9 +73,25 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
   }
   const data = await r.json().catch(() => ({}));
   if (r.status === 401 && path !== '/api/admin/login') { session.token = null; onUnauthorized(); }
-  if (!r.ok) throw new ApiError(r.status, data.error || `Erreur ${r.status}`);
+  if (!r.ok) throw new ApiError(r.status, data.error || `Erreur ${r.status}`, data);
   return data as T;
 }
+
+/** Envoi d'un fichier brut au serveur (import d'une sauvegarde). */
+export async function upload<T>(path: string, file: Blob): Promise<T> {
+  let r: Response;
+  try {
+    r = await fetch(session.server + path, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', Authorization: `Bearer ${session.token}` }, body: file });
+  } catch {
+    throw new ApiError(0, `Serveur injoignable (${session.server}).`);
+  }
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 401) { session.token = null; onUnauthorized(); }
+  if (!r.ok) throw new ApiError(r.status, data.error || `Erreur ${r.status}`, data);
+  return data as T;
+}
+
+export const fmtBytes = (n: number) => n >= 1048576 ? `${(n / 1048576).toFixed(1)} Mo` : `${Math.max(1, Math.round(n / 1024))} Ko`;
 
 export async function download(path: string, filename: string) {
   const r = await fetch(session.server + path, { headers: { Authorization: `Bearer ${session.token}` } });

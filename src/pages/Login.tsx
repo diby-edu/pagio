@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Admin, api, session } from '../api';
+import { Admin, ApiError, api, session } from '../api';
 import { Alert, Field } from '../ui';
 
 export default function Login({ onLogin }: { onLogin: (a: Admin) => void }) {
@@ -8,17 +8,22 @@ export default function Login({ onLogin }: { onLogin: (a: Admin) => void }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Double authentification : le serveur demande le code après avoir validé le mot de passe.
+  const [needCode, setNeedCode] = useState(false);
+  const [code, setCode] = useState('');
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true); setError(null);
     session.server = server.trim() || 'http://localhost:8787';
     try {
-      const r = await api<{ token: string; admin: Admin }>('POST', '/api/admin/login', { email, password });
+      const r = await api<{ token: string; admin: Admin }>('POST', '/api/admin/login', { email, password, ...(needCode ? { code: code.trim() } : {}) });
       session.token = r.token;
       onLogin(r.admin);
     } catch (err) {
-      setError((err as Error).message);
+      const asked = err instanceof ApiError && err.data.totp_required === true;
+      if (asked && !needCode) { setNeedCode(true); setError(null); }
+      else setError((err as Error).message);
     } finally { setBusy(false); }
   }
 
@@ -46,6 +51,11 @@ export default function Login({ onLogin }: { onLogin: (a: Admin) => void }) {
         <Field label="Mot de passe">
           <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </Field>
+        {needCode && (
+          <Field label="Code de double authentification" hint="Code à 6 chiffres de votre application, ou un code de secours.">
+            <input autoFocus autoComplete="one-time-code" inputMode="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123 456" required />
+          </Field>
+        )}
         {error && <Alert>{error}</Alert>}
         <button className="btn primary wide" disabled={busy}>{busy ? 'Connexion…' : 'Se connecter'}</button>
         <p className="muted small">Premier démarrage : l'identifiant et le mot de passe initiaux s'affichent dans la console du serveur

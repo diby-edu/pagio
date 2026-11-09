@@ -7,7 +7,8 @@
   "engines": { "node": ">=22.13" },
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test test/api.test.js"
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\"",
+    "secours": "node --disable-warning=ExperimentalWarning scripts/admin-secours.mjs"
   },
   "dependencies": {
     "express": "^4.21.2"
