@@ -54,6 +54,9 @@ export async function aiComplete(ai, system, messages, maxTokens) {
 const CANDIDATES = [
   process.env.SOFFICE_PATH,
   'soffice', 'libreoffice',
+  // Windows : soffice.exe (application graphique) n'écrit rien sur la sortie standard, donc « --version »
+  // ne permet pas de le détecter ; soffice.com est la variante console du même programme.
+  'C:\\Program Files\\LibreOffice\\program\\soffice.com',
   'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
   '/usr/bin/soffice', '/usr/lib/libreoffice/program/soffice',
   '/Applications/LibreOffice.app/Contents/MacOS/soffice',
@@ -72,7 +75,8 @@ export async function detectLibreOffice() {
 
 export const libreOfficeAvailable = () => sofficePath !== null;
 
-const TARGETS = { pdf: 'pdf', docx: 'docx:"MS Word 2007 XML"', xlsx: 'xlsx', pptx: 'pptx' };
+// Pas de guillemets autour du nom du filtre : execFile transmet l'argument tel quel (aucun shell ne les retire).
+const TARGETS = { pdf: 'pdf', docx: 'docx:MS Word 2007 XML', xlsx: 'xlsx', pptx: 'pptx' };
 
 /** Convertit un fichier dans un dossier temporaire privé, puis supprime tout après lecture. */
 export async function convertWithLibreOffice(buffer, originalName, target) {
@@ -85,7 +89,11 @@ export async function convertWithLibreOffice(buffer, originalName, target) {
   try {
     fs.writeFileSync(input, buffer);
     const args = ['--headless', '--norestore', `-env:UserInstallation=file:///${dir.replace(/\\/g, '/')}/profile`];
-    if (target === 'docx' && /\.pdf$/i.test(safe)) args.push('--infilter=writer_pdf_import');
+    // Un PDF s'ouvre par défaut dans Draw, qui n'exporte ni Word ni PowerPoint : on force le bon module.
+    const isPdf = /\.pdf$/i.test(safe);
+    if (isPdf && target === 'xlsx') throw Object.assign(new Error("LibreOffice ne sait pas convertir un PDF en Excel : utilisez la conversion de l'application"), { status: 400 });
+    if (isPdf && target === 'docx') args.push('--infilter=writer_pdf_import');
+    if (isPdf && target === 'pptx') args.push('--infilter=impress_pdf_import');
     args.push('--convert-to', filter, '--outdir', dir, input);
     await new Promise((res, rej) => execFile(sofficePath, args, { timeout: 180_000 }, (err, _o, stderr) => (err ? rej(new Error(`Conversion impossible : ${stderr || err.message}`)) : res())));
     const outName = safe.replace(/\.[^.]+$/, '') + '.' + target;
