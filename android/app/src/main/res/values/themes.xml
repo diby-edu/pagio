@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Pagio" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/pagio_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <color name="pagio_background">#F7F7FB</color>
+    <color name="pagio_indigo">#5B4BDB</color>
+    <color name="pagio_coral">#FF6B57</color>
+</resources>

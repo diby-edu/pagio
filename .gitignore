@@ -1,0 +1,14 @@
+node_modules/
+dist/
+server/node_modules/
+server/data/
+android/.gradle/
+android/build/
+android/**/build/
+android/local.properties
+android/keystore.properties
+*.jks
+# Livrables binaires et clé de signature : à sauvegarder à part, jamais dans Git
+android/apk/
+android/build-release.log
+launcher/target/

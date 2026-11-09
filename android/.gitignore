@@ -1,0 +1,13 @@
+.gradle/
+build/
+*/build/
+core/*/build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+captures/
+# Ne jamais publier la clé de signature ni ses mots de passe
+keystore.properties
+*.jks
+*.keystore

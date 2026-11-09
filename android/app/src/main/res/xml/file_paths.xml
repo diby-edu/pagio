@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <files-path name="outputs" path="outputs/" />
+    <files-path name="signatures" path="signatures/" />
+    <files-path name="work" path="work/" />
+</paths>

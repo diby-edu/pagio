@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "values": [
+    { "name": "outils dans la référence", "group": "audit", "value": 27, "unit": "outils", "source": "classes Tools$* (classes14.dex)" },
+    { "name": "outils traités hors ligne dans la référence", "group": "audit", "value": 7, "unit": "outils", "source": "Tools$Merge/Split/Rotate/Protect/RepairPdf/ImageToPdf/Ocr.<init> offlineSupport=true" },
+    { "name": "outil premium codé en dur dans la référence", "group": "audit", "value": "ocrpdf", "source": "Tools$OcrPdf.<init> isPremium=1" },
+    { "name": "langues OCR maximum dans la référence", "group": "audit", "value": 3, "unit": "langues", "source": "chaîne max_ocr_languages_alert (split_config.fr.apk)" },
+    { "name": "tâches gratuites par jour dans la référence", "group": "audit", "value": "fournie par le serveur", "estimated": true },
+    { "name": "outils Pagio", "group": "pagio", "value": 40, "unit": "outils", "source": "ToolCatalog.kt" },
+    { "name": "compression extrême : dimension max", "group": "pagio", "value": 1000, "unit": "px", "source": "PdfOptimize.kt CompressionLevel.EXTREME" },
+    { "name": "compression recommandée : dimension max", "group": "pagio", "value": 1600, "unit": "px", "source": "PdfOptimize.kt CompressionLevel.RECOMMENDED" },
+    { "name": "compression légère : dimension max", "group": "pagio", "value": 2400, "unit": "px", "source": "PdfOptimize.kt CompressionLevel.LOW" },
+    { "name": "chiffrement", "group": "pagio", "value": "AES-256", "source": "PdfSecurity.protect" },
+    { "name": "favoris maximum", "group": "pagio", "value": 8, "source": "HomeScreens.kt ToolsScreen" },
+    { "name": "Android minimum", "group": "pagio", "value": 26, "unit": "API", "source": "app/build.gradle.kts minSdk" },
+    { "name": "quota gratuit par défaut", "group": "pagio", "value": 0, "unit": "tâches/jour (0 = illimité)", "source": "server/src/db.js DEFAULT_SETTINGS" },
+    { "name": "crédits IA à l'inscription (gratuit)", "group": "pagio", "value": 20, "unit": "crédits", "source": "server/src/db.js DEFAULT_SETTINGS" }
+  ]
+}

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Les secrets (clés chiffrées, certificats) ne sont jamais sauvegardés : la clé du Keystore ne se restaure pas sur un autre appareil. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="file" path="datastore/" />
+    <exclude domain="file" path="certificates/" />
+        <exclude domain="file" path="work/" />
+</full-backup-content>

@@ -1,0 +1,506 @@
+{
+  "a11y": {
+    "images_without_alt": 0,
+    "landmarks": {},
+    "lang": "fr",
+    "unnamed_controls": 0,
+    "unnamed_examples": []
+  },
+  "assets": {
+    "background_images": [],
+    "fonts": [],
+    "images": [
+      {
+        "alt": "",
+        "h": 150,
+        "src": "http://localhost:8787/favicon.svg",
+        "w": 150
+      }
+    ],
+    "inline_scripts": 0,
+    "requests": [
+      {
+        "bytes": 188385,
+        "type": "script",
+        "url": "http://localhost:8787/assets/index-DbYvS1ie.js"
+      },
+      {
+        "bytes": 9491,
+        "type": "link",
+        "url": "http://localhost:8787/assets/index-BeoZPbhz.css"
+      },
+      {
+        "bytes": 902,
+        "type": "img",
+        "url": "http://localhost:8787/favicon.svg"
+      },
+      {
+        "bytes": 0,
+        "type": "other",
+        "url": "http://localhost:8787/favicon.svg"
+      },
+      {
+        "bytes": 0,
+        "type": "other",
+        "url": "http://localhost:8787/favicon.svg"
+      }
+    ],
+    "scripts": [
+      "http://localhost:8787/assets/index-DbYvS1ie.js"
+    ],
+    "stylesheets": [
+      "http://localhost:8787/assets/index-BeoZPbhz.css"
+    ]
+  },
+  "breakpoints": [
+    {
+      "count": 1,
+      "px": 860,
+      "query": "max-width 860px"
+    },
+    {
+      "count": 1,
+      "px": 900,
+      "query": "max-width 900px"
+    }
+  ],
+  "design": {
+    "backgrounds": [
+      {
+        "count": 4,
+        "value": "#ffffff"
+      },
+      {
+        "count": 1,
+        "value": "#f5f5fa"
+      },
+      {
+        "count": 1,
+        "value": "#5b4bdb"
+      },
+      {
+        "count": 1,
+        "value": "#eeeef8"
+      }
+    ],
+    "css_variables": {
+      "--amber": "#f5a524",
+      "--bg": "#f5f5fa",
+      "--card": "#fff",
+      "--coral": "#ff6b57",
+      "--indigo": "#5b4bdb",
+      "--indigo-d": "#3b2fa8",
+      "--ink": "#14152b",
+      "--line": "#e3e3ee",
+      "--muted": "#5a5b70",
+      "--red": "#e5484d",
+      "--soft": "#eeeef8",
+      "--teal": "#14a37f",
+      "--violet": "#9b51e0"
+    },
+    "font_faces": [],
+    "font_sizes": [
+      {
+        "count": 4,
+        "value": "16px"
+      },
+      {
+        "count": 3,
+        "value": "13px"
+      },
+      {
+        "count": 2,
+        "value": "12px"
+      },
+      {
+        "count": 1,
+        "value": "44px"
+      },
+      {
+        "count": 1,
+        "value": "20px"
+      },
+      {
+        "count": 1,
+        "value": "22px"
+      },
+      {
+        "count": 1,
+        "value": "14px"
+      },
+      {
+        "count": 1,
+        "value": "10.2px"
+      }
+    ],
+    "font_weights": [
+      {
+        "count": 8,
+        "value": "400"
+      },
+      {
+        "count": 4,
+        "value": "600"
+      },
+      {
+        "count": 2,
+        "value": "700"
+      }
+    ],
+    "fonts": [
+      {
+        "count": 13,
+        "value": "Inter, \"Segoe UI\", Roboto, system-ui, sans-serif"
+      },
+      {
+        "count": 1,
+        "value": "ui-monospace, \"Cascadia Code\", Consolas, monospace"
+      }
+    ],
+    "max_widths": [],
+    "radii": [
+      {
+        "count": 4,
+        "value": "10px"
+      },
+      {
+        "count": 1,
+        "value": "20px"
+      },
+      {
+        "count": 1,
+        "value": "22px"
+      },
+      {
+        "count": 1,
+        "value": "5px"
+      }
+    ],
+    "shadows": [
+      {
+        "count": 1,
+        "value": "rgba(0, 0, 0, 0.2) 0px 10px 30px 0px"
+      },
+      {
+        "count": 1,
+        "value": "rgba(20, 21, 43, 0.08) 0px 20px 60px 0px"
+      }
+    ],
+    "spacing": [
+      {
+        "count": 12,
+        "value": "12px"
+      },
+      {
+        "count": 8,
+        "value": "5px"
+      },
+      {
+        "count": 6,
+        "value": "9px"
+      },
+      {
+        "count": 4,
+        "value": "64px"
+      },
+      {
+        "count": 4,
+        "value": "14px"
+      },
+      {
+        "count": 4,
+        "value": "32px"
+      },
+      {
+        "count": 2,
+        "value": "1px"
+      },
+      {
+        "count": 1,
+        "value": "20px"
+      },
+      {
+        "count": 1,
+        "value": "18px"
+      }
+    ],
+    "text_colors": [
+      {
+        "count": 7,
+        "value": "#ffffff"
+      },
+      {
+        "count": 4,
+        "value": "#14152b"
+      },
+      {
+        "count": 3,
+        "value": "#5a5b70"
+      }
+    ]
+  },
+  "forms": [
+    {
+      "action": "",
+      "fields": [
+        {
+          "label": "Adresse du serveur Pagio Par défaut http://localhost:8787 (serveur lancé sur cet",
+          "name": "",
+          "placeholder": "https://admin.votre-domaine.com",
+          "required": false,
+          "tag": "input",
+          "type": "text"
+        },
+        {
+          "label": "E-mail",
+          "name": "",
+          "placeholder": "",
+          "required": true,
+          "tag": "input",
+          "type": "email"
+        },
+        {
+          "label": "Mot de passe",
+          "name": "",
+          "placeholder": "",
+          "required": true,
+          "tag": "input",
+          "type": "password"
+        },
+        {
+          "label": "",
+          "name": "",
+          "placeholder": "",
+          "required": false,
+          "tag": "button",
+          "type": "submit"
+        }
+      ],
+      "method": "get"
+    }
+  ],
+  "headings": [
+    {
+      "level": 1,
+      "text": "Pagio"
+    },
+    {
+      "level": 2,
+      "text": "Connexion administrateur"
+    }
+  ],
+  "health": {
+    "errors": [],
+    "failed_requests": []
+  },
+  "lang": "fr",
+  "layouts": [
+    {
+      "blocks": [],
+      "page_h": 900,
+      "page_w": 1440,
+      "type": {
+        "body": 20,
+        "h1": 44,
+        "h2": 22,
+        "h3": 0
+      },
+      "width": 1440
+    },
+    {
+      "blocks": [],
+      "page_h": 900,
+      "page_w": 390,
+      "type": {
+        "body": 20,
+        "h1": 44,
+        "h2": 22,
+        "h3": 0
+      },
+      "width": 390
+    }
+  ],
+  "links": [],
+  "meta": {
+    "description": "",
+    "icons": [
+      "http://localhost:8787/favicon.svg"
+    ],
+    "og_image": "",
+    "og_title": "",
+    "theme_color": ""
+  },
+  "outline": [
+    {
+      "alt": "",
+      "box": {
+        "h": 72,
+        "w": 72,
+        "x": 64,
+        "y": 278
+      },
+      "color": "#ffffff",
+      "depth": 5,
+      "font": "16px 400",
+      "src": "http://localhost:8787/favicon.svg",
+      "tag": "img"
+    },
+    {
+      "box": {
+        "h": 58,
+        "w": 626,
+        "x": 64,
+        "y": 364
+      },
+      "color": "#ffffff",
+      "depth": 5,
+      "font": "44px 700",
+      "tag": "h1",
+      "text": "Pagio"
+    },
+    {
+      "box": {
+        "h": 27,
+        "w": 626,
+        "x": 64,
+        "y": 436
+      },
+      "color": "#ffffff",
+      "depth": 5,
+      "font": "20px 400",
+      "tag": "p",
+      "text": "Tableau de bord d'administration"
+    },
+    {
+      "box": {
+        "h": 128,
+        "w": 626,
+        "x": 64,
+        "y": 495
+      },
+      "color": "#ffffff",
+      "depth": 5,
+      "display": "block",
+      "font": "16px 400",
+      "tag": "ul"
+    },
+    {
+      "background": "#ffffff",
+      "box": {
+        "h": 507,
+        "w": 420,
+        "x": 887,
+        "y": 197
+      },
+      "class": "login-card",
+      "color": "#14152b",
+      "depth": 4,
+      "display": "flex",
+      "flex": "column",
+      "font": "16px 400",
+      "tag": "form"
+    },
+    {
+      "box": {
+        "h": 30,
+        "w": 356,
+        "x": 919,
+        "y": 229
+      },
+      "color": "#14152b",
+      "depth": 5,
+      "font": "22px 700",
+      "tag": "h2",
+      "text": "Connexion administrateur"
+    },
+    {
+      "background": "#ffffff",
+      "box": {
+        "h": 41,
+        "w": 356,
+        "x": 919,
+        "y": 295
+      },
+      "color": "#14152b",
+      "depth": 6,
+      "font": "16px 400",
+      "name": "",
+      "placeholder": "https://admin.votre-domaine.com",
+      "tag": "input",
+      "type": "text"
+    },
+    {
+      "background": "#ffffff",
+      "box": {
+        "h": 41,
+        "w": 356,
+        "x": 919,
+        "y": 393
+      },
+      "color": "#14152b",
+      "depth": 6,
+      "font": "16px 400",
+      "name": "",
+      "placeholder": "",
+      "tag": "input",
+      "type": "email"
+    },
+    {
+      "background": "#ffffff",
+      "box": {
+        "h": 41,
+        "w": 356,
+        "x": 919,
+        "y": 470
+      },
+      "color": "#14152b",
+      "depth": 6,
+      "font": "16px 400",
+      "name": "",
+      "placeholder": "",
+      "tag": "input",
+      "type": "password"
+    },
+    {
+      "background": "#5b4bdb",
+      "box": {
+        "h": 45,
+        "w": 356,
+        "x": 919,
+        "y": 525
+      },
+      "class": "btn primary wide",
+      "color": "#ffffff",
+      "depth": 5,
+      "font": "14px 600",
+      "tag": "button",
+      "text": "Se connecter"
+    },
+    {
+      "box": {
+        "h": 64,
+        "w": 356,
+        "x": 919,
+        "y": 596
+      },
+      "class": "muted small",
+      "color": "#5a5b70",
+      "depth": 5,
+      "font": "12px 400",
+      "tag": "p",
+      "text": "Premier démarrage : l'identifiant et le mot de passe initiaux s'affichent dans la console du serveur (et dans server/data/premier-admin.txt). Changez-les dès la première connexion."
+    }
+  ],
+  "page": {
+    "h": 900,
+    "w": 1440
+  },
+  "text": "Pagio Tableau de bord d'administration Utilisateurs, offres Premium et crédits IA Activation des outils et limites gratuites Annonces, maintenance et mises à jour obligatoires Statistiques d'usage, erreurs et journal d'audit Connexion administrateur Adresse du serveur Pagio Par défaut http://localhost:8787 (serveur lancé sur cet ordinateur). E-mail Mot de passe Se connecter Premier démarrage : l'identifiant et le mot de passe initiaux s'affichent dans la console du serveur (et dans server/data/premier-admin.txt). Changez-les dès la première connexion.",
+  "title": "Pagio — Administration",
+  "unreadable_stylesheets": 0,
+  "url": "http://localhost:8787/#overview",
+  "viewport": {
+    "h": 900,
+    "w": 1440
+  }
+}

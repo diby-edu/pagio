@@ -1,0 +1,13 @@
+[package]
+name = "pagio-admin"
+version = "1.0.0"
+edition = "2021"
+description = "Lanceur de bureau du serveur et du tableau de bord Pagio"
+
+[[bin]]
+name = "Pagio-Admin"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = "s"
+strip = true

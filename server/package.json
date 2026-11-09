@@ -1,0 +1,17 @@
+{
+  "name": "pagio-server",
+  "version": "1.0.0",
+  "description": "Serveur Pagio : comptes, offres, crédits IA, configuration à distance, statistiques, conversions et API du tableau de bord admin.",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/api.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
