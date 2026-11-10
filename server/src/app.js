@@ -932,8 +932,13 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
 
   // Tableau de bord (fichiers statiques construits par Vite).
   if (distDir && fs.existsSync(distDir)) {
-    app.use(express.static(distDir, { index: 'index.html', maxAge: '1h' }));
-    app.get(/^\/(?!api\/).*/, (req, res) => res.sendFile(path.join(distDir, 'index.html')));
+    // index.html n'est jamais gardé en cache : sinon, après une mise à jour, le navigateur continue d'afficher
+    // l'ancien tableau de bord. Les fichiers de assets/ portent une empreinte dans leur nom : cache long sans risque.
+    app.use(express.static(distDir, {
+      index: 'index.html',
+      setHeaders: (res, file) => res.setHeader('Cache-Control', /[\\/]assets[\\/]/.test(file) ? 'public, max-age=31536000, immutable' : 'no-cache'),
+    }));
+    app.get(/^\/(?!api\/).*/, (req, res) => res.sendFile(path.join(distDir, 'index.html'), { headers: { 'Cache-Control': 'no-cache' } }));
   }
 
   app.use((err, req, res, _next) => {
