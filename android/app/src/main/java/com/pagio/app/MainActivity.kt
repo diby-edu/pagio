@@ -176,11 +176,15 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
             .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_PDF).setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL).build()
         GmsDocumentScanning.getClient(options).getStartScanIntent(context as Activity)
             .addOnSuccessListener { scanner.launch(IntentSenderRequest.Builder(it).build()) }
-            .addOnFailureListener {
+            .addOnFailureListener { e ->
                 // Repli sans services Google : photo simple puis conversion en PDF.
+                // La raison donnée par Google (module non téléchargé, appareil non pris en charge…) est affichée et
+                // remontée aux statistiques : sans elle, l'échec du scanner est impossible à diagnostiquer.
+                val reason = (e.message ?: e.javaClass.simpleName).take(160)
+                c.track("scan_unavailable", mapOf("ok" to false, "error" to reason))
                 val f = File(c.workspace.newTaskDir(), "photo_${System.currentTimeMillis()}.jpg")
                 photoFile.value = f
-                scope.launch { snackbar.showSnackbar(context.getString(R.string.scanner_fallback)) }
+                scope.launch { snackbar.showSnackbar(context.getString(R.string.scanner_fallback) + "\n" + reason) }
                 camera.launch(c.workspace.uriFor(f))
             }
     }
