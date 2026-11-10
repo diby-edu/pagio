@@ -101,6 +101,7 @@ Légende : ✅ livré et testé automatiquement · ☑️ livré, vérifié à l
 | Outils : activer, Premium, limites | ✅ |
 | Offres, quotas, recharge des crédits IA | ✅ |
 | IA : fournisseur, modèle, clé, coût, test | ✅ |
+| IA du serveur avec un vrai fournisseur (OpenAI, `gpt-4.1-mini`) : résumé, conversation, reformulation, décompte des crédits | ✅ essayé en local le 10/11/2026 par l'API ; pas encore depuis l'application sur un téléphone |
 | Maintenance, annonce, version minimale obligatoire, mise à jour | ✅ |
 | Statistiques, événements, avis des utilisateurs | ✅ |
 | Double authentification des administrateurs, codes de secours | ✅ (QR code non essayé avec un vrai téléphone) |
