@@ -73,7 +73,7 @@ export default function Users({ admin }: { admin: Admin }) {
             <tbody>{data.users.map((u) => (
               <tr key={u.id} onClick={() => setSelected(u)}>
                 {canEdit && <td onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={`Sélectionner ${u.email}`} checked={checked.has(u.id)} onChange={(e) => toggle(u.id, e.target.checked)} /></td>}
-                <td><strong>{u.name || '—'}</strong><br /><span className="muted small">{u.email}</span></td>
+                <td><strong>{u.name || '—'}</strong><br /><span className="muted small">{u.email}</span>{u.email_verified && <span className="muted small" title="Adresse e-mail confirmée"> ✓</span>}</td>
                 <td>{u.plan === 'premium' ? <Badge tone="coral">Premium{u.premium_until ? ` → ${u.premium_until}` : ''}</Badge> : <Badge>Gratuit</Badge>}</td>
                 <td>{fmtNum(u.ai_credits)}</td>
                 <td>{u.total_tasks}</td>
@@ -131,7 +131,7 @@ function UserPanel({ user, canEdit, onClose, onChanged, onError }: {
     <div className="drawer-backdrop" onClick={onClose}>
       <aside className="drawer" onClick={(e) => e.stopPropagation()}>
         <header className="card-head"><h3>{user.name || user.email}</h3><button className="btn ghost" onClick={onClose}>✕</button></header>
-        <p className="muted">{user.email}<br />ID : <code>{user.id}</code></p>
+        <p className="muted">{user.email} · {user.email_verified ? 'adresse confirmée' : 'adresse non confirmée'}<br />ID : <code>{user.id}</code></p>
         <div className="kv"><span>Inscrit le</span><b>{fmtDate(user.created_at)}</b><span>Dernière activité</span><b>{fmtDate(user.last_seen)}</b>
           <span>Tâches aujourd'hui</span><b>{user.tasks_today}</b><span>Tâches au total</span><b>{user.total_tasks}</b></div>
         <h4>Offre</h4>

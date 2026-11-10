@@ -90,6 +90,11 @@ const backupTick = () => {
 process.on('unhandledRejection', (e) => { console.error('Erreur non gérée :', e); logServerError(db, 'serveur', e instanceof Error ? e : new Error(String(e))); });
 process.on('uncaughtException', (e) => { console.error('Exception non gérée :', e); logServerError(db, 'serveur', e); });
 
+// Alertes par e-mail (réglages dans le tableau de bord › E-mails) : vérifiées toutes les 10 minutes.
+const alertTick = () => app.locals.sendAlertEmails().catch((e) => logServerError(db, 'email', e));
+setTimeout(alertTick, 60_000).unref();
+setInterval(alertTick, 10 * 60_000).unref();
+
 setTimeout(backupTick, 20_000).unref();
 setInterval(backupTick, 10 * 60_000).unref();
 

@@ -49,6 +49,8 @@ export const DEFAULT_SETTINGS = {
   },
   // Sauvegarde automatique quotidienne de la base.
   backup: { enabled: true, hour: 3, keep_days: 30 },
+  // E-mails automatiques (Brevo). public_url : adresse publique du serveur, utilisée dans les liens envoyés.
+  mail: { enabled: false, api_key: '', from_email: '', from_name: 'Pagio', public_url: '', verify_signup: true, alerts_enabled: false, alerts_to: '' },
 };
 
 /** Tables recopiées lors d'une restauration (les sessions d'administration en cours sont conservées). */
@@ -122,6 +124,9 @@ export function openDb(file) {
   addColumn('admins', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('admins', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('admins', 'recovery_codes', 'TEXT');
+  addColumn('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0');
+  addColumn('users', 'verify_token', 'TEXT');
+  addColumn('users', 'verify_expires', 'INTEGER');
   seedTools(db);
   return db;
 }
@@ -143,11 +148,13 @@ export function getSettings(db) {
   s.backup = { ...DEFAULT_SETTINGS.backup, ...s.backup };
   // La clé d'IA est chiffrée en base ; elle n'est en clair qu'en mémoire, le temps de la requête.
   try { s.ai.api_key = reveal(db, s.ai.api_key); } catch { s.ai.api_key = ''; s.ai.key_error = true; }
+  s.mail = { ...DEFAULT_SETTINGS.mail, ...s.mail };
+  try { s.mail.api_key = reveal(db, s.mail.api_key); } catch { s.mail.api_key = ''; s.mail.key_error = true; }
   return s;
 }
 
 export function setSetting(db, key, value) {
-  if (key === 'ai' && value && typeof value === 'object') value = { ...value, api_key: protect(db, value.api_key) };
+  if ((key === 'ai' || key === 'mail') && value && typeof value === 'object') value = { ...value, api_key: protect(db, value.api_key) };
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
     .run(key, JSON.stringify(value));
 }

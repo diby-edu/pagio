@@ -17,6 +17,7 @@ import Backups from './pages/Backups';
 import Errors from './pages/Errors';
 import Conversions from './pages/Conversions';
 import AiUsage from './pages/AiUsage';
+import Mail from './pages/Mail';
 
 type Go = (page: string) => void;
 type Page = { id: string; label: string; icon: string; min: Admin['role']; el: (a: Admin, go: Go) => JSX.Element };
@@ -31,6 +32,7 @@ const PAGES: Page[] = [
   { id: 'aiusage', label: 'Consommation IA', icon: '◔', min: 'support', el: () => <AiUsage /> },
   { id: 'conversions', label: 'Conversions', icon: '⇄', min: 'support', el: () => <Conversions /> },
   { id: 'app', label: "Pilotage de l'application", icon: '⚙', min: 'admin', el: () => <AppControl /> },
+  { id: 'mail', label: 'E-mails', icon: '@', min: 'admin', el: (a) => <Mail admin={a} /> },
   { id: 'feedback', label: 'Avis et support', icon: '✉', min: 'support', el: () => <Feedback /> },
   { id: 'events', label: 'Événements', icon: '≡', min: 'support', el: () => <Events /> },
   { id: 'errors', label: 'Erreurs du serveur', icon: '⚠', min: 'admin', el: (a) => <Errors admin={a} /> },

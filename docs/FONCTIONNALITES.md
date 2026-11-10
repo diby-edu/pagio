@@ -110,7 +110,8 @@ Légende : ✅ livré et testé automatiquement · ☑️ livré, vérifié à l
 | Limites anti-abus (conversions, inscriptions) | ✅ |
 | Sauvegarde quotidienne, restauration, import / téléchargement | ✅ |
 | Erreurs du serveur, suivi des conversions, consommation IA | ✅ |
-| État de la machine et alertes dans le tableau de bord | ✅ (alertes par e-mail : ⏳) |
+| État de la machine et alertes dans le tableau de bord | ✅ |
+| E-mails automatiques (Brevo) : mot de passe oublié, confirmation d'adresse, alertes du serveur | ✅ testé automatiquement ; refus de Brevo vérifié avec une fausse clé ; **aucun vrai e-mail encore reçu** (clé Brevo à saisir) |
 | Fiche utilisateur détaillée, historique des offres, actions groupées | ✅ |
 | Conversion serveur LibreOffice : Office → PDF, PDF → Word, PDF → PowerPoint | ✅ fichiers valides produits ; fidélité sur documents complexes non évaluée |
 | Conversion serveur PDF → Excel | ✘ impossible avec LibreOffice (l'application garde sa conversion interne) |
@@ -118,7 +119,7 @@ Légende : ✅ livré et testé automatiquement · ☑️ livré, vérifié à l
 ## ⏳ Reste à faire (choix ou comptes de votre part nécessaires)
 
 1. **Paiements Google Play Billing** (abonnements, achats de crédits) — guide : `COMMERCIAL.md`.
-2. **Envoi d'e-mails** (mot de passe oublié automatique, confirmation d'inscription) — un service SMTP à brancher.
+2. **Envoi d'e-mails** : programmé ; reste à saisir la clé Brevo et à valider l'adresse d'expéditeur (page *E-mails*).
 3. **Espace cloud facultatif** et connexion Google Drive / Dropbox / OneDrive.
 4. **Connexion Google / Facebook / SSO** (aujourd'hui : e-mail + mot de passe).
 5. **Widgets d'écran d'accueil**, scanner « compagnon » vers l'ordinateur (présents chez iLovePDF).

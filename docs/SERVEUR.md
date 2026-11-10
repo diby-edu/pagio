@@ -88,7 +88,7 @@ La base du VPS est désormais la base de référence ; celle de l'ordinateur ne 
 ## Variables d'environnement
 
 Voir `server/.env.example` : `PORT`, `DATA_DIR`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `SOFFICE_PATH`, `DIST_DIR`,
-`SECRETS_KEY`, `AI_API_KEY`, `TRUST_PROXY`.
+`SECRETS_KEY`, `AI_API_KEY`, `MAIL_API_KEY`, `PUBLIC_URL`, `TRUST_PROXY`.
 
 Le serveur lit automatiquement le fichier `server/.env` s'il existe (les variables déjà définies par l'hébergeur restent prioritaires).
 Ce fichier n'est jamais versionné.
@@ -157,6 +157,26 @@ Les sessions du compte sont fermées et l'opération est inscrite au journal d'a
 - **Copie hors du serveur** : les sauvegardes sont sur le même disque que la base. Téléchargez-en une régulièrement, ou synchronisez le
   dossier `backups/` vers un autre stockage ; sans cela, la perte du disque emporte aussi les sauvegardes.
 
+## E-mails automatiques
+
+Page *E-mails* du tableau de bord. L'envoi passe par l'API de Brevo (offre gratuite : 300 e-mails par jour).
+
+| Message | Quand | Détail |
+|---|---|---|
+| Nouveau mot de passe | l'utilisateur touche « Mot de passe oublié » dans l'application | lien valable 1 heure, utilisable une fois, vers une page du serveur (`/reinitialiser`) où il choisit son mot de passe |
+| Confirmation d'adresse | à l'inscription (option) | lien valable 7 jours (`/verifier`) ; l'inscription n'est pas bloquée, la fiche de l'utilisateur indique si l'adresse est confirmée |
+| Alertes du serveur | toutes les 10 minutes si une alerte urgente ou à surveiller existe (option) | une même alerte n'est renvoyée qu'une fois par 24 heures tant qu'elle dure |
+
+Mise en route : dans Brevo, validez une adresse d'expéditeur et créez une clé API (*SMTP et API › Clés API*) ; dans la page *E-mails*,
+collez la clé, l'adresse d'expéditeur et l'adresse publique du serveur, activez, enregistrez, puis envoyez un e-mail d'essai.
+
+- La clé Brevo est chiffrée en base comme la clé d'IA et n'est jamais renvoyée au navigateur. `MAIL_API_KEY`, si elle est définie, la remplace.
+- Les liens contiennent un jeton aléatoire dont seule l'empreinte est stockée en base.
+- Sans e-mails activés, rien ne change : les demandes de mot de passe oublié apparaissent dans *Avis et support* et se traitent à la main.
+- Un envoi refusé par Brevo est inscrit dans *Erreurs du serveur* (source « email ») et signalé dans les alertes.
+- Aucune modification de l'application Android n'a été nécessaire : elle affiche le message renvoyé par le serveur.
+- Limite connue : changer son mot de passe ne déconnecte pas les téléphones déjà connectés (jetons valables 90 jours).
+
 ## Surveillance
 
 - **Système** : jauges disque et mémoire, état du serveur, et liste des points à surveiller (disque presque plein, sauvegarde en retard,
@@ -167,7 +187,7 @@ Les sessions du compte sont fermées et l'opération est inscrite au journal d'a
 - **Conversions** : nombre, échecs, durée moyenne, volume, répartition par type, causes d'échec, 100 dernières conversions.
 - **Consommation IA** : requêtes, crédits, échecs, plus gros consommateurs, refus du fournisseur, crédits restant en circulation.
   Le montant facturé se lit chez le fournisseur : fixez-y un plafond de dépense mensuel.
-- Les alertes ne sont pas encore envoyées par e-mail : il faut ouvrir le tableau de bord pour les voir.
+- Les alertes peuvent être envoyées par e-mail (page *E-mails*).
 
 ## Ce que le tableau de bord permet
 
@@ -177,10 +197,11 @@ des offres, usage, conversions et messages, actions groupées sur une sélection
 Outils et limites (activer, réserver au Premium, limites par outil), Offres et crédits (quotas, recharge générale),
 Intelligence artificielle (fournisseur, modèle, clé, coût par requête, test), Pilotage de l'application (maintenance,
 annonce, dernière version, version minimale obligatoire, lien de mise à jour, inscriptions, conversions),
-Consommation IA, Conversions, Avis et support, Événements, Erreurs du serveur, Journal d'audit, Administrateurs, Sauvegardes,
+Consommation IA, Conversions, E-mails (Brevo, confirmation d'adresse, alertes), Avis et support, Événements, Erreurs du serveur, Journal d'audit, Administrateurs, Sauvegardes,
 Système (état de la machine, alertes, purge), Mon compte et sécurité (mot de passe, double authentification, sessions).
 
 ## Tests
 
-`cd server && npm test` lance 11 tests (base en mémoire, aucun réseau) : parcours complet de l'API, sessions, double authentification,
-chiffrement de la clé d'IA, limites, sauvegardes et restauration, surveillance, fiche utilisateur et actions groupées.
+`cd server && npm test` lance 17 tests (base en mémoire, aucun réseau) : parcours complet de l'API, sessions, double authentification,
+chiffrement de la clé d'IA, limites, sauvegardes et restauration, surveillance, fiche utilisateur et actions groupées, e-mails
+(réglages, mot de passe oublié, confirmation d'adresse, alertes).

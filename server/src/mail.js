@@ -1,0 +1,89 @@
+// E-mails automatiques : envoi par l'API de Brevo (aucune bibliothèque à installer), modèles de messages et
+// pages web minimales ouvertes depuis les liens reçus (nouveau mot de passe, confirmation d'adresse).
+import crypto from 'node:crypto';
+
+/** Les jetons envoyés par e-mail ne sont jamais stockés tels quels : seule leur empreinte est en base. */
+export const newToken = () => crypto.randomBytes(32).toString('base64url');
+export const hashToken = (token) => crypto.createHash('sha256').update(String(token)).digest('hex');
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/**
+ * Envoie un message par Brevo. `mail` : réglages (api_key, from_email, from_name).
+ * Lève une erreur lisible si Brevo refuse (clé invalide, expéditeur non validé…).
+ */
+export async function sendWithBrevo(mail, { to, subject, text, html }) {
+  if (!mail.api_key) throw new Error("Clé d'API Brevo manquante");
+  if (!mail.from_email) throw new Error("Adresse d'expéditeur manquante");
+  const r = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST', signal: AbortSignal.timeout(20_000),
+    headers: { 'content-type': 'application/json', accept: 'application/json', 'api-key': mail.api_key },
+    body: JSON.stringify({
+      sender: { email: mail.from_email, name: mail.from_name || 'Pagio' },
+      to: [{ email: to }], subject, textContent: text, htmlContent: html,
+    }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) throw new Error("Brevo ne reconnaît pas cette clé d'API (clé erronée, incomplète ou désactivée)");
+  if (!r.ok) throw new Error(`Brevo a refusé l'envoi : ${j?.message || `erreur ${r.status}`}`);
+  return { id: j.messageId || null };
+}
+
+// ---------------------------------------------------------------------------- Modèles de messages
+
+const layout = (title, bodyHtml) => `<!doctype html><html lang="fr"><body style="margin:0;background:#f4f3fa;font-family:Arial,Helvetica,sans-serif;color:#1c1b2e">
+<div style="max-width:520px;margin:0 auto;padding:24px 16px">
+<div style="background:#ffffff;border-radius:14px;padding:28px">
+<div style="font-size:20px;font-weight:bold;color:#5B4BDB;margin-bottom:18px">Pagio</div>
+<h1 style="font-size:18px;margin:0 0 14px">${esc(title)}</h1>
+${bodyHtml}
+</div>
+<p style="font-size:12px;color:#77758a;text-align:center;margin-top:16px">Message automatique : merci de ne pas y répondre.</p>
+</div></body></html>`;
+
+const button = (url, label) => `<p style="margin:22px 0"><a href="${esc(url)}" style="background:#5B4BDB;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:bold;display:inline-block">${esc(label)}</a></p>
+<p style="font-size:12px;color:#77758a;word-break:break-all">Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br>${esc(url)}</p>`;
+
+export const messages = {
+  reset: (url) => ({
+    subject: 'Pagio : choisissez un nouveau mot de passe',
+    text: `Bonjour,\n\nVous avez demandé à changer le mot de passe de votre compte Pagio.\nOuvrez ce lien pour en choisir un nouveau (valable 1 heure) :\n${url}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez ce message : votre mot de passe reste inchangé.`,
+    html: layout('Choisissez un nouveau mot de passe', `<p>Vous avez demandé à changer le mot de passe de votre compte Pagio. Ce lien est valable 1 heure.</p>${button(url, 'Choisir un nouveau mot de passe')}<p>Si vous n'êtes pas à l'origine de cette demande, ignorez ce message : votre mot de passe reste inchangé.</p>`),
+  }),
+  verify: (url) => ({
+    subject: 'Pagio : confirmez votre adresse e-mail',
+    text: `Bienvenue sur Pagio !\n\nConfirmez votre adresse e-mail en ouvrant ce lien (valable 7 jours) :\n${url}\n\nSi vous n'avez pas créé de compte Pagio, ignorez ce message.`,
+    html: layout('Bienvenue sur Pagio', `<p>Confirmez votre adresse e-mail pour sécuriser votre compte. Ce lien est valable 7 jours.</p>${button(url, 'Confirmer mon adresse')}<p>Si vous n'avez pas créé de compte Pagio, ignorez ce message.</p>`),
+  }),
+  test: () => ({
+    subject: "Pagio : e-mail d'essai",
+    text: "Ceci est un e-mail d'essai envoyé depuis le tableau de bord Pagio. S'il vous parvient, l'envoi d'e-mails fonctionne.",
+    html: layout("E-mail d'essai", "<p>Ceci est un e-mail d'essai envoyé depuis le tableau de bord Pagio. S'il vous parvient, l'envoi d'e-mails fonctionne.</p>"),
+  }),
+  alerts: (list, url) => ({
+    subject: `Pagio : ${list.length} alerte(s) sur le serveur`,
+    text: `Le serveur Pagio signale :\n\n${list.map((a) => `- [${a.level === 'critical' ? 'URGENT' : 'À surveiller'}] ${a.message}`).join('\n')}\n\n${url ? `Tableau de bord : ${url}\n\n` : ''}Chaque alerte n'est renvoyée qu'une fois par jour tant qu'elle dure.`,
+    html: layout('Alertes du serveur', `<ul style="padding-left:18px">${list.map((a) => `<li style="margin-bottom:8px"><b style="color:${a.level === 'critical' ? '#c0392b' : '#b7791f'}">${a.level === 'critical' ? 'Urgent' : 'À surveiller'}</b> : ${esc(a.message)}</li>`).join('')}</ul>${url ? button(url, 'Ouvrir le tableau de bord') : ''}<p style="font-size:12px;color:#77758a">Chaque alerte n'est renvoyée qu'une fois par jour tant qu'elle dure.</p>`),
+  }),
+};
+
+// ---------------------------------------------------------------------------- Pages web ouvertes depuis les e-mails
+// Sans script (la politique de sécurité du serveur les interdit hors du tableau de bord) : simples formulaires.
+
+export const page = (title, bodyHtml) => `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>${esc(title)} – Pagio</title>
+<style>body{margin:0;background:#f4f3fa;font-family:system-ui,Arial,sans-serif;color:#1c1b2e}main{max-width:420px;margin:8vh auto;padding:0 16px}
+.card{background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(40,30,120,.08)}.brand{font-size:22px;font-weight:700;color:#5B4BDB;margin-bottom:16px}
+h1{font-size:19px;margin:0 0 12px}label{display:block;font-size:14px;font-weight:600;margin:14px 0 6px}
+input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #d9d7ea;border-radius:10px;font-size:16px}
+button{margin-top:18px;width:100%;padding:13px;border:0;border-radius:10px;background:#5B4BDB;color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+.err{background:#fdecea;color:#a12a1f;padding:10px 12px;border-radius:10px;margin-bottom:12px}.ok{color:#1d7a4f;font-weight:600}.muted{color:#77758a;font-size:13px}</style></head>
+<body><main><div class="card"><div class="brand">Pagio</div><h1>${esc(title)}</h1>${bodyHtml}</div></main></body></html>`;
+
+export const resetForm = (token, error = '') => page('Nouveau mot de passe', `${error ? `<div class="err">${esc(error)}</div>` : ''}
+<form method="post" action="/reinitialiser"><input type="hidden" name="token" value="${esc(token)}">
+<label for="p1">Nouveau mot de passe</label><input id="p1" name="password" type="password" minlength="8" required autocomplete="new-password">
+<label for="p2">Confirmez-le</label><input id="p2" name="confirm" type="password" minlength="8" required autocomplete="new-password">
+<p class="muted">8 caractères minimum.</p><button type="submit">Enregistrer</button></form>`);
+
+export const messagePage = (title, text, good = true) => page(title, `<p class="${good ? 'ok' : 'err'}">${esc(text)}</p><p class="muted">Vous pouvez fermer cette page et revenir dans l'application Pagio.</p>`);

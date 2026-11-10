@@ -12,6 +12,7 @@ import {
 } from './security.js';
 import { aiComplete, convertWithLibreOffice, libreOfficeAvailable } from './services.js';
 import { listBackups, createBackup, backupPath, restoreBackup, importBackup, verifyBackup } from './backup.js';
+import { sendWithBrevo, messages, newToken, hashToken, resetForm, messagePage } from './mail.js';
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -23,8 +24,9 @@ const emailOk = (e) => typeof e === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.tes
 /**
  * dataDir : dossier des données (sauvegardes dans dataDir/backups) ; sans lui, les sauvegardes sont indisponibles.
  * trustProxy : nombre de proxys de confiance devant le serveur (1 derrière Caddy/Nginx), pour connaître la vraie adresse IP.
+ * sendMail : fonction d'envoi des e-mails (Brevo par défaut ; remplacée dans les tests).
  */
-export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now() }) {
+export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now(), sendMail = sendWithBrevo }) {
   const app = express();
   app.disable('x-powered-by');
   if (trustProxy) app.set('trust proxy', trustProxy);
@@ -47,6 +49,8 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   const loginLimit = rateLimiter(10, 15 * 60_000);
   const registerLimit = rateLimiter(10, HOUR);
   const forgotLimit = rateLimiter(5, HOUR);
+  const resetLimit = rateLimiter(20, HOUR);
+  const resendLimit = rateLimiter(3, HOUR);
   const feedbackLimit = rateLimiter(10, HOUR);
   const eventsLimit = rateLimiter(120, 60_000);
   const convertLimit = rateLimiter(30, HOUR);
@@ -60,7 +64,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   const publicUser = (u) => ({
     id: u.id, email: u.email, name: u.name, plan: u.plan, premium_until: u.premium_until, ai_credits: u.ai_credits,
     tasks_today: u.tasks_day === today() ? u.tasks_count : 0, banned: !!u.banned, created_at: u.created_at, last_seen: u.last_seen,
-    total_tasks: u.total_tasks, note: u.note,
+    total_tasks: u.total_tasks, note: u.note, email_verified: !!u.email_verified,
   });
 
   // Premium expiré → retour automatique à l'offre gratuite.
@@ -118,6 +122,35 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     Number(db.prepare('UPDATE admin_sessions SET revoked = 1 WHERE admin_id = ? AND revoked = 0 AND id != ?').run(adminId, exceptId ?? '').changes);
   // Clé d'IA : la variable d'environnement AI_API_KEY, si elle existe, remplace celle du tableau de bord.
   const aiConfig = (s) => (process.env.AI_API_KEY ? { ...s.ai, api_key: process.env.AI_API_KEY } : s.ai);
+
+  // ------------------------------------------------------------- E-mails automatiques
+  // Clé Brevo : la variable MAIL_API_KEY, si elle existe, remplace celle du tableau de bord.
+  const mailConfig = (s) => (process.env.MAIL_API_KEY ? { ...s.mail, api_key: process.env.MAIL_API_KEY } : s.mail);
+  const mailReady = (s) => { const m = mailConfig(s); return !!(m.enabled && m.api_key && emailOk(m.from_email)); };
+  /** Adresse publique du serveur pour les liens envoyés : réglage, sinon PUBLIC_URL, sinon l'adresse de la requête. */
+  const publicUrl = (s, req) => (s.mail.public_url || process.env.PUBLIC_URL || (req ? `${req.protocol}://${req.get('host')}` : '')).replace(/\/+$/, '');
+  /** Envoie un e-mail sans jamais faire échouer la requête en cours : un refus est inscrit au journal des erreurs. */
+  const deliver = (s, to, message) => Promise.resolve()
+    .then(() => sendMail(mailConfig(s), { to, ...message }))
+    .then(() => true)
+    .catch((e) => { logServerError(db, 'email', e, { path: `envoi à ${String(to).replace(/^(.).*(@.*)$/, '$1***$2')}` }); return false; });
+
+  const sendVerification = (s, u, req) => {
+    const token = newToken();
+    db.prepare('UPDATE users SET verify_token = ?, verify_expires = ? WHERE id = ?').run(hashToken(token), Date.now() + 7 * DAY, u.id);
+    return deliver(s, u.email, messages.verify(`${publicUrl(s, req)}/verifier?token=${token}`));
+  };
+
+  /** Applique un nouveau mot de passe à partir d'un jeton reçu par e-mail. Renvoie un message d'erreur, ou null si c'est fait. */
+  function resetPassword(token, password) {
+    if (!token) return 'Lien invalide.';
+    const u = db.prepare('SELECT id FROM users WHERE reset_token = ? AND reset_expires > ?').get(hashToken(token), Date.now());
+    if (!u) return "Ce lien a expiré ou a déjà été utilisé. Refaites une demande depuis l'application.";
+    if (String(password || '').length < 8) return 'Le mot de passe doit contenir au moins 8 caractères.';
+    // Recevoir le lien prouve aussi que l'adresse appartient bien à l'utilisateur.
+    db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires = NULL, email_verified = 1, verify_token = NULL WHERE id = ?').run(hashPassword(String(password)), u.id);
+    return null;
+  }
 
   /** Vérifie un code de double authentification (application ou code de secours) et le consomme. */
   function checkSecondFactor(a, code) {
@@ -200,6 +233,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     db.prepare('INSERT INTO users (id, email, name, password_hash, ai_credits, created_at) VALUES (?, ?, ?, ?, ?, ?)')
       .run(id, email, String(req.body?.name || '').slice(0, 80), hashPassword(password), s.plans.free.ai_credits || 0, Date.now());
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (mailReady(s) && s.mail.verify_signup) sendVerification(s, u, req);
     ok(res, { token: signToken({ kind: 'user', sub: id }, secret, 90 * 86400), user: publicUser(u) });
   });
 
@@ -213,14 +247,63 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     ok(res, { token: signToken({ kind: 'user', sub: u.id }, secret, 90 * 86400), user: publicUser(effective(u)) });
   });
 
-  // Mot de passe oublié : un jeton de réinitialisation est créé ; l'administrateur (ou un service
-  // d'e-mail branché ici) le transmet. La réponse est identique que l'adresse existe ou non.
+  // Mot de passe oublié. Avec les e-mails activés : un lien valable 1 heure est envoyé. Sinon : la demande est
+  // enregistrée et le support la traite à la main. La réponse est identique que l'adresse existe ou non.
   app.post('/api/auth/forgot', (req, res) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (!forgotLimit(`p:${req.ip}`)) return fail(res, 429, 'Trop de demandes. Réessayez dans une heure.');
-    const u = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-    if (u) db.prepare('UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?').run(crypto.randomBytes(24).toString('hex'), Date.now() + DAY, u.id);
+    const s = getSettings(db);
+    const u = db.prepare('SELECT id, email, banned FROM users WHERE email = ?').get(email);
+    if (mailReady(s)) {
+      if (u && !u.banned) {
+        const token = newToken();
+        db.prepare('UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?').run(hashToken(token), Date.now() + HOUR, u.id);
+        deliver(s, u.email, messages.reset(`${publicUrl(s, req)}/reinitialiser?token=${token}`));
+      }
+      return ok(res, { message: 'Si un compte existe pour cette adresse, un e-mail vient de lui être envoyé avec un lien pour choisir un nouveau mot de passe (pensez à regarder dans les courriers indésirables).' });
+    }
+    if (u) db.prepare('UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?').run(hashToken(newToken()), Date.now() + DAY, u.id);
     ok(res, { message: 'Si un compte existe pour cette adresse, une demande de réinitialisation a été enregistrée. Le support vous contactera.' });
+  });
+
+  app.post('/api/auth/reset', (req, res) => {
+    if (!resetLimit(`x:${req.ip}`)) return fail(res, 429, 'Trop de tentatives. Réessayez dans une heure.');
+    const error = resetPassword(String(req.body?.token || ''), req.body?.password);
+    if (error) return fail(res, 400, error);
+    ok(res, { message: 'Mot de passe modifié. Vous pouvez vous connecter.' });
+  });
+
+  app.post('/api/auth/resend-verification', userAuth(true), async (req, res) => {
+    const s = getSettings(db);
+    if (req.user.email_verified) return ok(res, { message: 'Votre adresse est déjà confirmée.' });
+    if (!mailReady(s)) return fail(res, 503, "L'envoi d'e-mails n'est pas activé sur ce serveur.");
+    if (!resendLimit(`v:${req.user.id}`)) return fail(res, 429, 'Trop de demandes. Réessayez dans une heure.');
+    if (!(await sendVerification(s, req.user, req))) return fail(res, 502, "L'e-mail n'a pas pu être envoyé. Réessayez plus tard.");
+    ok(res, { message: 'Un e-mail de confirmation vient de vous être envoyé.' });
+  });
+
+  // Pages ouvertes depuis les liens reçus par e-mail (formulaires simples, sans script).
+  const html = (res, status, body) => res.status(status).set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).send(body);
+  app.get('/reinitialiser', (req, res) => {
+    const token = String(req.query.token || '');
+    const valid = token && db.prepare('SELECT 1 FROM users WHERE reset_token = ? AND reset_expires > ?').get(hashToken(token), Date.now());
+    if (!valid) return html(res, 400, messagePage('Lien expiré', "Ce lien a expiré ou a déjà été utilisé. Refaites une demande depuis l'application.", false));
+    html(res, 200, resetForm(token));
+  });
+  app.post('/reinitialiser', express.urlencoded({ extended: false, limit: '10kb' }), (req, res) => {
+    if (!resetLimit(`x:${req.ip}`)) return html(res, 429, messagePage('Trop de tentatives', 'Réessayez dans une heure.', false));
+    const { token = '', password = '', confirm = '' } = req.body || {};
+    if (password !== confirm) return html(res, 400, resetForm(token, 'Les deux mots de passe ne sont pas identiques.'));
+    const error = resetPassword(String(token), password);
+    if (error) return html(res, 400, /8 caractères/.test(error) ? resetForm(token, error) : messagePage('Lien expiré', error, false));
+    html(res, 200, messagePage('Mot de passe modifié', 'Votre nouveau mot de passe est enregistré.'));
+  });
+  app.get('/verifier', (req, res) => {
+    const token = String(req.query.token || '');
+    const u = token && db.prepare('SELECT id FROM users WHERE verify_token = ? AND verify_expires > ?').get(hashToken(token), Date.now());
+    if (!u) return html(res, 400, messagePage('Lien expiré', "Ce lien a expiré ou a déjà été utilisé. Demandez un nouvel e-mail de confirmation depuis l'application.", false));
+    db.prepare('UPDATE users SET email_verified = 1, verify_token = NULL, verify_expires = NULL WHERE id = ?').run(u.id);
+    html(res, 200, messagePage('Adresse confirmée', 'Merci, votre adresse e-mail est confirmée.'));
   });
 
   app.get('/api/me', userAuth(true), (req, res) => ok(res, { user: publicUser(req.user) }));
@@ -615,7 +698,13 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   // La clé n'est jamais renvoyée au navigateur : seuls ses 4 derniers caractères sont affichés.
   const masked = (s) => {
     const key = aiConfig(s).api_key;
-    return { ...s, ai: { ...s.ai, api_key: key ? `••••${key.slice(-4)}` : '', has_key: !!key, key_from_env: !!process.env.AI_API_KEY, key_error: !!s.ai.key_error } };
+    const mk = mailConfig(s).api_key;
+    const { mail_alert_state: _state, ...rest } = s;
+    return {
+      ...rest,
+      ai: { ...s.ai, api_key: key ? `••••${key.slice(-4)}` : '', has_key: !!key, key_from_env: !!process.env.AI_API_KEY, key_error: !!s.ai.key_error },
+      mail: { ...s.mail, api_key: mk ? `••••${mk.slice(-4)}` : '', has_key: !!mk, key_from_env: !!process.env.MAIL_API_KEY, key_error: !!s.mail.key_error },
+    };
   };
   const int = (v, min, max, fallback) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(Math.max(n, min), max) : fallback; };
 
@@ -625,7 +714,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const b = req.body || {};
     const current = getSettings(db);
     const allowed = ['maintenance', 'maintenance_message', 'announcement', 'announcement_level', 'min_version_code', 'latest_version_name',
-      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup'];
+      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup', 'mail'];
     const changed = [];
     for (const k of allowed) {
       if (!(k in b)) continue;
@@ -650,12 +739,26 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
         if (typeof b.ai.api_key !== 'string' || b.ai.api_key.startsWith('••••')) v.api_key = current.ai.api_key; // clé inchangée
         if (!['openai', 'anthropic', 'gemini'].includes(v.provider)) return fail(res, 400, 'Fournisseur IA inconnu');
       }
+      if (k === 'mail') {
+        const m = { ...current.mail, ...(v || {}) };
+        const text = (x, max) => String(x ?? '').trim().slice(0, max);
+        v = {
+          enabled: !!m.enabled, from_email: text(m.from_email, 200).toLowerCase(), from_name: text(m.from_name, 80) || 'Pagio',
+          public_url: text(m.public_url, 200).replace(/\/+$/, ''), verify_signup: !!m.verify_signup,
+          alerts_enabled: !!m.alerts_enabled, alerts_to: text(m.alerts_to, 200).toLowerCase(),
+          api_key: typeof b.mail.api_key !== 'string' || b.mail.api_key.startsWith('••••') ? current.mail.api_key : b.mail.api_key.trim(), // clé inchangée
+        };
+        if (v.from_email && !emailOk(v.from_email)) return fail(res, 400, "Adresse d'expéditeur invalide");
+        if (v.alerts_to && !emailOk(v.alerts_to)) return fail(res, 400, 'Adresse de réception des alertes invalide');
+        if (v.public_url && !/^https?:\/\/[^\s/]+/.test(v.public_url)) return fail(res, 400, 'Adresse publique invalide (elle doit commencer par https://)');
+        if (v.enabled && (!v.from_email || !(v.api_key || process.env.MAIL_API_KEY))) return fail(res, 400, "Pour activer les e-mails, renseignez la clé Brevo et l'adresse d'expéditeur");
+      }
       if (k === 'plans') v = { free: { ...current.plans.free, ...(v.free || {}) }, premium: { ...current.plans.premium, ...(v.premium || {}) } };
       if (k === 'min_version_code') v = Math.max(0, Number(v) || 0);
       setSetting(db, k, v);
       changed.push(k);
     }
-    audit(req.admin, 'settings.update', changed.join(','), Object.fromEntries(changed.filter((k) => k !== 'ai').map((k) => [k, b[k]])));
+    audit(req.admin, 'settings.update', changed.join(','), Object.fromEntries(changed.filter((k) => k !== 'ai' && k !== 'mail').map((k) => [k, b[k]])));
     ok(res, { settings: masked(getSettings(db)) });
   });
 
@@ -663,6 +766,18 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const s = getSettings(db);
     try { ok(res, { text: (await aiComplete(aiConfig(s), 'Réponds en une phrase courte.', [{ role: 'user', content: 'Dis bonjour en français.' }], 40)).slice(0, 200) }); }
     catch (e) { fail(res, 502, e.message); }
+  });
+
+  // E-mail d'essai : envoyé avec les réglages enregistrés, à l'adresse indiquée (par défaut celle de l'administrateur).
+  app.post('/api/admin/mail/test', adminAuth('admin'), async (req, res) => {
+    const s = getSettings(db);
+    const to = String(req.body?.to || req.admin.email).trim().toLowerCase();
+    if (!emailOk(to)) return fail(res, 400, 'Adresse de destination invalide');
+    try {
+      await sendMail(mailConfig(s), { to, ...messages.test() });
+      audit(req.admin, 'mail.test', to);
+      ok(res, { message: `E-mail d'essai envoyé à ${to}.` });
+    } catch (e) { fail(res, 502, `Envoi refusé : ${e.message}`); }
   });
 
   // ------------------------------------------------------------- Événements, avis, journal
@@ -871,6 +986,10 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (m.mem_total_mb > 0 && m.mem_free_mb / m.mem_total_mb < 0.08) add('warning', 'memory', `Mémoire presque saturée : ${m.mem_free_mb} Mo libres sur ${m.mem_total_mb} Mo.`, 'system');
     if (s.ai.key_error) add('critical', 'ai_key', "La clé d'IA ne peut plus être déchiffrée : saisissez-la de nouveau.", 'ai');
     else if (s.ai.enabled && !aiConfig(s).api_key && !s.ai.base_url) add('warning', 'ai_key', "L'IA est activée mais aucune clé d'API n'est enregistrée.", 'ai');
+    if (s.mail.key_error) add('critical', 'mail_key', 'La clé Brevo ne peut plus être déchiffrée : saisissez-la de nouveau.', 'mail');
+    else if (!mailReady(s)) add('info', 'mail', 'Les e-mails automatiques ne sont pas activés : les mots de passe oubliés sont à traiter à la main.', 'mail');
+    const mailErrors = db.prepare("SELECT COUNT(*) n FROM server_errors WHERE source = 'email' AND ts >= ?").get(now - DAY).n;
+    if (mailErrors > 0) add('warning', 'mail_errors', `${mailErrors} e-mail(s) n'ont pas pu être envoyés en 24 heures.`, 'errors');
     if (backupsDir) {
       const lastAuto = listBackups(backupsDir).find((b) => b.kind === 'auto');
       if (!s.backup.enabled) add('warning', 'backup', 'La sauvegarde automatique est désactivée.', 'backups');
@@ -895,6 +1014,25 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   }
 
   app.get('/api/admin/alerts', adminAuth(), (req, res) => ok(res, { alerts: alerts() }));
+
+  /**
+   * Envoie par e-mail les alertes urgentes ou à surveiller. Une même alerte n'est renvoyée qu'une fois par 24 heures
+   * tant qu'elle dure. Appelée régulièrement par server.js ; renvoie le nombre d'alertes envoyées.
+   */
+  app.locals.sendAlertEmails = async () => {
+    const s = getSettings(db);
+    if (!mailReady(s) || !s.mail.alerts_enabled || !emailOk(s.mail.alerts_to)) return 0;
+    const now = Date.now();
+    const state = s.mail_alert_state && typeof s.mail_alert_state === 'object' ? s.mail_alert_state : {};
+    // Les soucis d'e-mail eux-mêmes et la double authentification (rappel permanent) ne sont pas envoyés par e-mail.
+    const active = alerts().filter((a) => a.level !== 'info' && !['mail_errors', 'mail_key', 'two_factor'].includes(a.code));
+    const due = active.filter((a) => !state[a.code] || now - state[a.code] > DAY);
+    // Une alerte disparue est oubliée : si elle revient, elle sera signalée de nouveau tout de suite.
+    const next = Object.fromEntries(active.filter((a) => state[a.code] && !due.includes(a)).map((a) => [a.code, state[a.code]]));
+    if (due.length && await deliver(s, s.mail.alerts_to, messages.alerts(due, publicUrl(s, null)))) for (const a of due) next[a.code] = now;
+    if (JSON.stringify(next) !== JSON.stringify(state)) setSetting(db, 'mail_alert_state', next);
+    return due.length;
+  };
 
   app.get('/api/admin/system', adminAuth('admin'), (req, res) => {
     const file = db.prepare('PRAGMA database_list').all()[0]?.file;

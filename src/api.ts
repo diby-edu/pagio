@@ -4,11 +4,12 @@ export type Role = 'owner' | 'admin' | 'support';
 export interface Admin { id: number; email: string; name: string; role: Role; totp_enabled?: boolean }
 export interface Limits { convert_require_account: boolean; convert_anon_per_hour: number; convert_user_per_hour: number; convert_max_mb: number; register_per_hour: number }
 export interface BackupSettings { enabled: boolean; hour: number; keep_days: number }
+export interface MailSettings { enabled: boolean; api_key: string; has_key?: boolean; key_from_env?: boolean; key_error?: boolean; from_email: string; from_name: string; public_url: string; verify_signup: boolean; alerts_enabled: boolean; alerts_to: string }
 export interface Backup { name: string; kind: string; day: string; bytes: number; created_at: number }
 export interface AdminSession { id: string; admin_id: number; email: string; name: string; created_at: number; last_seen: number; expires_at: number; ip: string; user_agent: string; current: boolean }
 export interface User {
   id: string; email: string; name: string; plan: 'free' | 'premium'; premium_until: string | null; ai_credits: number;
-  tasks_today: number; banned: boolean; created_at: number; last_seen: number | null; total_tasks: number; note: string;
+  tasks_today: number; banned: boolean; created_at: number; last_seen: number | null; total_tasks: number; note: string; email_verified?: boolean;
 }
 export interface Tool { id: string; enabled: boolean; premium: boolean; max_files: number; max_mb: number; runs_30d: number }
 export interface PlanLimits { daily_tasks: number; max_files: number; max_mb: number; ai_credits: number }
@@ -20,6 +21,7 @@ export interface Settings {
   ai: { enabled: boolean; provider: 'openai' | 'anthropic' | 'gemini'; base_url: string; model: string; api_key: string; has_key?: boolean; key_from_env?: boolean; key_error?: boolean; cost_per_request: number; max_tokens: number };
   limits: Limits;
   backup: BackupSettings;
+  mail: MailSettings;
 }
 export interface Stats {
   days: number;
