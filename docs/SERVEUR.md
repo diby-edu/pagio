@@ -51,6 +51,30 @@ Railway, Render ou Fly.io (avec un volume persistant pour `/data`).
 Puis compilez l'application avec cette adresse :
 `./gradlew assembleRelease -Ppagio.serverUrl=https://api.pagio.app`
 
+## Installation en service (depuis le 10/11/2026)
+
+| Élément | Valeur |
+|---|---|
+| Adresse | `https://pagio.hebergementci.com` (tableau de bord et API) |
+| Machine | VPS Ubuntu 22.04, partagé avec d'autres sites : ne toucher ni à leur Nginx, ni à PM2, ni au Node.js du système |
+| Conteneur Docker | `pagio` (image `pagio-server:latest`), redémarrage automatique, mémoire limitée à 1,2 Go |
+| Port | `127.0.0.1:8787` uniquement (jamais ouvert au public ; le pare-feu n'a pas été modifié) |
+| Code | `/var/www/pagio/app` (copie des fichiers suivis par Git) |
+| Données | `/var/www/pagio/data` : `pagio.db`, `jwt-secret.key`, `secrets.key`, `backups/` |
+| Nginx | un seul fichier, `/etc/nginx/sites-available/pagio` (modèle : `server/deploy/nginx-pagio.conf`) |
+| HTTPS | certificat Let's Encrypt géré par Certbot, renouvelé automatiquement |
+| Réglage | `TRUST_PROXY=1` |
+
+Mettre à jour le serveur après une modification du code (à lancer depuis l'ordinateur, dossier du projet) :
+
+```
+git archive HEAD package.json package-lock.json index.html vite.config.ts tsconfig.json src public server | ssh root@72.62.148.170 "tar -x -C /var/www/pagio/app"
+ssh root@72.62.148.170 "cd /var/www/pagio/app && docker build -f server/Dockerfile -t pagio-server:latest . && docker rm -f pagio && docker run -d --name pagio --restart unless-stopped --memory 1200m -p 127.0.0.1:8787:8787 -v /var/www/pagio/data:/data -e TRUST_PROXY=1 pagio-server:latest"
+```
+
+Créez d'abord une sauvegarde manuelle dans le tableau de bord. Les données ne sont pas dans le conteneur : elles survivent à son remplacement.
+La base du VPS est désormais la base de référence ; celle de l'ordinateur ne sert plus qu'aux essais.
+
 ## Base de données
 
 - **SQLite** intégré à Node.js : un seul fichier, `DATA_DIR/pagio.db`, aucune installation. Il supporte confortablement
