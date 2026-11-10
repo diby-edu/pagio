@@ -14,23 +14,30 @@ import Admins from './pages/Admins';
 import System from './pages/System';
 import Account from './pages/Account';
 import Backups from './pages/Backups';
+import Errors from './pages/Errors';
+import Conversions from './pages/Conversions';
+import AiUsage from './pages/AiUsage';
 
-type Page = { id: string; label: string; icon: string; min: Admin['role']; el: (a: Admin) => JSX.Element };
+type Go = (page: string) => void;
+type Page = { id: string; label: string; icon: string; min: Admin['role']; el: (a: Admin, go: Go) => JSX.Element };
 const RANK = { support: 1, admin: 2, owner: 3 } as const;
 
 const PAGES: Page[] = [
-  { id: 'overview', label: "Vue d'ensemble", icon: '◧', min: 'support', el: () => <Overview /> },
+  { id: 'overview', label: "Vue d'ensemble", icon: '◧', min: 'support', el: (_a, go) => <Overview go={go} /> },
   { id: 'users', label: 'Utilisateurs', icon: '◉', min: 'support', el: (a) => <Users admin={a} /> },
   { id: 'tools', label: 'Outils et limites', icon: '▦', min: 'support', el: (a) => <Tools admin={a} /> },
   { id: 'plans', label: 'Offres et crédits', icon: '★', min: 'admin', el: () => <Plans /> },
   { id: 'ai', label: 'Intelligence artificielle', icon: '✦', min: 'admin', el: () => <AiSettings /> },
+  { id: 'aiusage', label: 'Consommation IA', icon: '◔', min: 'support', el: () => <AiUsage /> },
+  { id: 'conversions', label: 'Conversions', icon: '⇄', min: 'support', el: () => <Conversions /> },
   { id: 'app', label: "Pilotage de l'application", icon: '⚙', min: 'admin', el: () => <AppControl /> },
   { id: 'feedback', label: 'Avis et support', icon: '✉', min: 'support', el: () => <Feedback /> },
   { id: 'events', label: 'Événements', icon: '≡', min: 'support', el: () => <Events /> },
+  { id: 'errors', label: 'Erreurs du serveur', icon: '⚠', min: 'admin', el: (a) => <Errors admin={a} /> },
   { id: 'audit', label: "Journal d'audit", icon: '⌂', min: 'admin', el: () => <Audit /> },
   { id: 'admins', label: 'Administrateurs', icon: '⚑', min: 'owner', el: (a) => <Admins admin={a} /> },
   { id: 'backups', label: 'Sauvegardes', icon: '⛃', min: 'admin', el: (a) => <Backups admin={a} /> },
-  { id: 'system', label: 'Système', icon: '⛁', min: 'admin', el: () => <System /> },
+  { id: 'system', label: 'Système', icon: '⛁', min: 'admin', el: (_a, go) => <System go={go} /> },
   { id: 'account', label: 'Mon compte et sécurité', icon: '☺', min: 'support', el: (a) => <Account admin={a} /> },
 ];
 
@@ -46,6 +53,12 @@ export default function App() {
     api<{ admin: Admin }>('GET', '/api/admin/me').then((r) => setAdmin(r.admin)).catch(() => setAdmin(null)).finally(() => setChecking(false));
   }, []);
   useEffect(() => { location.hash = page; setMenuOpen(false); }, [page]);
+  // Une adresse saisie ou un retour arrière du navigateur change aussi de page.
+  useEffect(() => {
+    const onHash = () => setPage(location.hash.slice(1) || 'overview');
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   if (checking) return <div className="splash">Connexion…</div>;
   if (!admin) return <Login onLogin={setAdmin} />;
@@ -78,7 +91,7 @@ export default function App() {
           <button className="btn ghost menu-btn" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">☰</button>
           <h1>{current.label}</h1>
         </header>
-        <div className="page">{current.el(admin)}</div>
+        <div className="page">{current.el(admin, setPage)}</div>
       </main>
     </div>
   );

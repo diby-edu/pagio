@@ -52,7 +52,16 @@ export const DEFAULT_SETTINGS = {
 };
 
 /** Tables recopiées lors d'une restauration (les sessions d'administration en cours sont conservées). */
-export const DATA_TABLES = ['admins', 'users', 'settings', 'tools', 'events', 'ai_usage', 'conversions', 'feedback', 'audit'];
+export const DATA_TABLES = ['admins', 'users', 'settings', 'tools', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'plan_history', 'server_errors'];
+
+/** Inscrit une erreur du serveur au journal consultable dans le tableau de bord. Ne lève jamais d'erreur. */
+export function logServerError(db, source, error, context = {}) {
+  try {
+    db.prepare('INSERT INTO server_errors (ts, source, message, stack, method, path, status) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+      Date.now(), String(source).slice(0, 40), String(error?.message ?? error).slice(0, 1000), error?.stack ? String(error.stack).slice(0, 4000) : null,
+      context.method ?? null, context.path ? String(context.path).slice(0, 300) : null, context.status ?? null);
+  } catch { /* la journalisation ne doit jamais faire tomber le serveur */ }
+}
 
 export function openDb(file) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -94,6 +103,16 @@ export function openDb(file) {
       id TEXT PRIMARY KEY, admin_id INTEGER NOT NULL, created_at INTEGER NOT NULL, last_seen INTEGER NOT NULL,
       expires_at INTEGER NOT NULL, ip TEXT, user_agent TEXT, revoked INTEGER NOT NULL DEFAULT 0);
     CREATE INDEX IF NOT EXISTS idx_admin_sessions_admin ON admin_sessions(admin_id);
+    CREATE TABLE IF NOT EXISTS plan_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, user_id TEXT NOT NULL, actor TEXT,
+      old_plan TEXT, new_plan TEXT, premium_until TEXT, reason TEXT);
+    CREATE INDEX IF NOT EXISTS idx_plan_history_user ON plan_history(user_id);
+    CREATE TABLE IF NOT EXISTS server_errors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, source TEXT NOT NULL, message TEXT NOT NULL,
+      stack TEXT, method TEXT, path TEXT, status INTEGER);
+    CREATE INDEX IF NOT EXISTS idx_server_errors_ts ON server_errors(ts);
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_ts ON ai_usage(ts);
+    CREATE INDEX IF NOT EXISTS idx_conversions_ts ON conversions(ts);
   `);
   // Évolutions du schéma : colonnes ajoutées aux bases créées par une version précédente.
   const addColumn = (table, column, definition) => {

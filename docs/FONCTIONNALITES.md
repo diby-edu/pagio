@@ -103,6 +103,16 @@ Légende : ✅ livré et testé automatiquement · ☑️ livré, vérifié à l
 | IA : fournisseur, modèle, clé, coût, test | ✅ |
 | Maintenance, annonce, version minimale obligatoire, mise à jour | ✅ |
 | Statistiques, événements, avis des utilisateurs | ✅ |
+| Double authentification des administrateurs, codes de secours | ✅ (QR code non essayé avec un vrai téléphone) |
+| Sessions d'administration visibles et révocables | ✅ |
+| Clé d'IA et secrets chiffrés dans la base | ✅ |
+| Limites anti-abus (conversions, inscriptions) | ✅ |
+| Sauvegarde quotidienne, restauration, import / téléchargement | ✅ |
+| Erreurs du serveur, suivi des conversions, consommation IA | ✅ |
+| État de la machine et alertes dans le tableau de bord | ✅ (alertes par e-mail : ⏳) |
+| Fiche utilisateur détaillée, historique des offres, actions groupées | ✅ |
+| Conversion serveur LibreOffice : Office → PDF, PDF → Word, PDF → PowerPoint | ✅ fichiers valides produits ; fidélité sur documents complexes non évaluée |
+| Conversion serveur PDF → Excel | ✘ impossible avec LibreOffice (l'application garde sa conversion interne) |
 
 ## ⏳ Reste à faire (choix ou comptes de votre part nécessaires)
 

@@ -3,8 +3,9 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { TOOL_IDS, getSettings, setSetting, protect, reveal } from './db.js';
+import { TOOL_IDS, getSettings, setSetting, protect, reveal, logServerError } from './db.js';
 import {
   hashPassword, verifyPassword, signToken, verifyToken, rateLimiter,
   newTotpSecret, verifyTotp, totpUri, newRecoveryCodes, hashRecoveryCode,
@@ -66,10 +67,16 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   const effective = (u) => {
     if (u && u.plan === 'premium' && u.premium_until && u.premium_until < today()) {
       db.prepare("UPDATE users SET plan = 'free' WHERE id = ?").run(u.id);
+      planChange(u.id, null, 'premium', 'free', null, 'Premium arrivé à échéance');
       u.plan = 'free';
     }
     return u;
   };
+
+  /** Historique des offres : chaque passage Gratuit ↔ Premium ou changement d'échéance est conservé. */
+  const planChange = (userId, actor, oldPlan, newPlan, until, reason) =>
+    db.prepare('INSERT INTO plan_history (ts, user_id, actor, old_plan, new_plan, premium_until, reason) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(Date.now(), userId, actor ?? null, oldPlan, newPlan, until ?? null, reason ?? null);
 
   const bearer = (req) => (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || null;
 
@@ -256,6 +263,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     } catch (e) {
       db.prepare('INSERT INTO ai_usage (ts, user_id, chars_in, chars_out, credits, provider, ok, error) VALUES (?, ?, ?, 0, 0, ?, 0, ?)')
         .run(Date.now(), u.id, charsIn, s.ai.provider, String(e.message).slice(0, 500));
+      logServerError(db, 'ia', e, { method: req.method, path: req.path, status: 502 });
       fail(res, 502, `Le fournisseur d'IA a refusé la demande : ${e.message}`);
     }
   });
@@ -296,6 +304,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     } catch (e) {
       db.prepare('INSERT INTO conversions (ts, user_id, source_ext, target, bytes, ms, ok, error) VALUES (?, ?, ?, ?, ?, ?, 0, ?)')
         .run(Date.now(), req.user?.id ?? null, path.extname(name).slice(1, 10), target, req.body.length, Date.now() - t0, String(e.message).slice(0, 500));
+      if (!e.status || e.status >= 500) logServerError(db, 'conversion', e, { method: req.method, path: req.path, status: e.status || 500 });
       fail(res, e.status || 500, e.message);
     } finally {
       runningConversions--;
@@ -461,6 +470,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const plan = req.body?.plan === 'premium' ? 'premium' : 'free';
     db.prepare('INSERT INTO users (id, email, name, password_hash, plan, ai_credits, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(id, email, String(req.body?.name || '').slice(0, 80), hashPassword(password), plan, s.plans[plan].ai_credits || 0, Date.now());
+    if (plan === 'premium') planChange(id, req.admin.email, 'free', 'premium', null, 'Compte créé en Premium');
     audit(req.admin, 'user.create', email, { plan });
     ok(res, { user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id)) });
   });
@@ -486,6 +496,9 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const keys = Object.keys(changes);
     if (keys.length === 0) return fail(res, 400, 'Aucune modification');
     db.prepare(`UPDATE users SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...keys.map((k) => changes[k]), u.id);
+    const newPlan = changes.plan ?? u.plan;
+    const newUntil = 'premium_until' in changes ? changes.premium_until : u.premium_until;
+    if (newPlan !== u.plan || newUntil !== u.premium_until) planChange(u.id, req.admin.email, u.plan, newPlan, newUntil, b.reason ? String(b.reason).slice(0, 200) : null);
     const logged = { ...changes }; if (logged.password_hash) { delete logged.password_hash; logged.password = 'réinitialisé'; }
     audit(req.admin, 'user.update', u.email, logged);
     ok(res, { user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(u.id)) });
@@ -497,6 +510,67 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
     audit(req.admin, 'user.delete', u.email);
     ok(res, { deleted: true });
+  });
+
+  // Fiche complète d'un utilisateur : compte, historique des offres, activité, IA, conversions, messages au support.
+  app.get('/api/admin/users/:id', adminAuth(), (req, res) => {
+    const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    if (!u) return fail(res, 404, 'Utilisateur introuvable');
+    const since30 = Date.now() - 30 * DAY;
+    ok(res, {
+      user: publicUser(u),
+      reset_pending: !!(u.reset_token && u.reset_expires > Date.now()),
+      plan_history: db.prepare('SELECT ts, actor, old_plan, new_plan, premium_until, reason FROM plan_history WHERE user_id = ? ORDER BY ts DESC LIMIT 100').all(u.id),
+      events: db.prepare('SELECT ts, name, tool, ok, app_version FROM events WHERE user_id = ? ORDER BY ts DESC LIMIT 100').all(u.id),
+      top_tools: db.prepare("SELECT tool, COUNT(*) runs, SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) errors FROM events WHERE user_id = ? AND name = 'tool_run' AND tool IS NOT NULL GROUP BY tool ORDER BY runs DESC LIMIT 8").all(u.id),
+      ai: db.prepare('SELECT ts, credits, chars_in, chars_out, provider, ok, error FROM ai_usage WHERE user_id = ? ORDER BY ts DESC LIMIT 50').all(u.id),
+      ai_30d: db.prepare('SELECT COUNT(*) requests, COALESCE(SUM(credits), 0) credits FROM ai_usage WHERE user_id = ? AND ts >= ?').get(u.id, since30),
+      conversions: db.prepare('SELECT ts, source_ext, target, bytes, ms, ok, error FROM conversions WHERE user_id = ? ORDER BY ts DESC LIMIT 50').all(u.id),
+      feedback: db.prepare('SELECT id, ts, kind, message, status FROM feedback WHERE user_id = ? ORDER BY ts DESC LIMIT 20').all(u.id),
+      devices: db.prepare('SELECT device_id, MAX(app_version) app_version, MAX(ts) last_ts FROM events WHERE user_id = ? AND device_id IS NOT NULL GROUP BY device_id ORDER BY last_ts DESC LIMIT 10').all(u.id),
+    });
+  });
+
+  // Actions groupées sur une sélection d'utilisateurs (500 au plus par appel), en une seule transaction.
+  app.post('/api/admin/users/bulk', adminAuth('admin'), (req, res) => {
+    const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.map(String))].slice(0, 500) : [];
+    const action = String(req.body?.action || '');
+    if (ids.length === 0) return fail(res, 400, 'Aucun utilisateur sélectionné');
+    if (!['premium', 'free', 'ban', 'unban', 'add_credits', 'delete'].includes(action)) return fail(res, 400, 'Action inconnue');
+    const until = req.body?.premium_until ? String(req.body.premium_until).slice(0, 10) : null;
+    if (until && !/^\d{4}-\d{2}-\d{2}$/.test(until)) return fail(res, 400, 'Date de fin invalide');
+    const credits = Math.round(Number(req.body?.credits) || 0);
+    if (action === 'add_credits' && credits === 0) return fail(res, 400, 'Indiquez un nombre de crédits');
+    let done = 0;
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const id of ids) {
+        const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        if (!u) continue;
+        if (action === 'premium') {
+          db.prepare("UPDATE users SET plan = 'premium', premium_until = ? WHERE id = ?").run(until, id);
+          if (u.plan !== 'premium' || u.premium_until !== until) planChange(id, req.admin.email, u.plan, 'premium', until, 'Action groupée');
+        } else if (action === 'free') {
+          db.prepare("UPDATE users SET plan = 'free', premium_until = NULL WHERE id = ?").run(id);
+          if (u.plan !== 'free') planChange(id, req.admin.email, u.plan, 'free', null, 'Action groupée');
+        } else if (action === 'ban' || action === 'unban') {
+          db.prepare('UPDATE users SET banned = ? WHERE id = ?').run(action === 'ban' ? 1 : 0, id);
+        } else if (action === 'add_credits') {
+          db.prepare('UPDATE users SET ai_credits = MAX(0, ai_credits + ?) WHERE id = ?').run(credits, id);
+        } else if (action === 'delete') {
+          db.prepare('DELETE FROM users WHERE id = ?').run(id);
+          db.prepare('UPDATE events SET user_id = NULL WHERE user_id = ?').run(id);
+        }
+        done++;
+      }
+      db.exec('COMMIT');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      logServerError(db, 'admin', e, { method: req.method, path: req.path, status: 500 });
+      return fail(res, 500, `Action annulée, rien n'a été modifié : ${e.message}`);
+    }
+    audit(req.admin, `users.bulk_${action}`, null, { count: done, premium_until: until ?? undefined, credits: action === 'add_credits' ? credits : undefined });
+    ok(res, { updated: done });
   });
 
   app.get('/api/admin/users/:id/activity', adminAuth(), (req, res) => {
@@ -719,14 +793,119 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     } catch (e) { fail(res, 400, `Restauration impossible, rien n'a été modifié : ${e.message}`); }
   });
 
-  // ------------------------------------------------------------- Système
+  // ------------------------------------------------------------- Surveillance : erreurs, conversions, IA
+  const period = (req) => { const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 365); return { days, since: Date.now() - days * DAY }; };
+  const dayOf = "strftime('%Y-%m-%d', ts / 1000, 'unixepoch')";
+
+  app.get('/api/admin/errors', adminAuth('admin'), (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 100, 500);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const source = req.query.source ? String(req.query.source) : null;
+    const where = source ? 'WHERE source = ?' : '';
+    const p = source ? [source] : [];
+    ok(res, {
+      total: db.prepare(`SELECT COUNT(*) n FROM server_errors ${where}`).get(...p).n,
+      last_24h: db.prepare('SELECT COUNT(*) n FROM server_errors WHERE ts >= ?').get(Date.now() - DAY).n,
+      by_source: db.prepare('SELECT source, COUNT(*) n, MAX(ts) last_ts FROM server_errors GROUP BY source ORDER BY n DESC').all(),
+      errors: db.prepare(`SELECT * FROM server_errors ${where} ORDER BY ts DESC LIMIT ? OFFSET ?`).all(...p, limit, offset),
+    });
+  });
+
+  app.delete('/api/admin/errors', adminAuth('owner'), (req, res) => {
+    const r = db.prepare('DELETE FROM server_errors').run();
+    audit(req.admin, 'errors.clear', null, { deleted: Number(r.changes) });
+    ok(res, { deleted: Number(r.changes) });
+  });
+
+  app.get('/api/admin/conversions', adminAuth(), (req, res) => {
+    const { days, since } = period(req);
+    ok(res, {
+      days, libreoffice: libreOfficeAvailable(), running: runningConversions,
+      totals: db.prepare('SELECT COUNT(*) total, COALESCE(SUM(ok), 0) ok, COALESCE(SUM(bytes), 0) bytes, COALESCE(ROUND(AVG(CASE WHEN ok = 1 THEN ms END)), 0) avg_ms, COALESCE(MAX(CASE WHEN ok = 1 THEN ms END), 0) max_ms FROM conversions WHERE ts >= ?').get(since),
+      by_type: db.prepare("SELECT source_ext, target, COUNT(*) total, SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) failed, ROUND(AVG(CASE WHEN ok = 1 THEN ms END)) avg_ms FROM conversions WHERE ts >= ? GROUP BY source_ext, target ORDER BY total DESC").all(since),
+      daily: db.prepare(`SELECT ${dayOf} day, COUNT(*) total, SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) failed FROM conversions WHERE ts >= ? GROUP BY day ORDER BY day`).all(since),
+      top_errors: db.prepare('SELECT error, COUNT(*) n, MAX(ts) last_ts FROM conversions WHERE ok = 0 AND ts >= ? GROUP BY error ORDER BY n DESC LIMIT 10').all(since),
+      recent: db.prepare('SELECT c.ts, c.source_ext, c.target, c.bytes, c.ms, c.ok, c.error, u.email FROM conversions c LEFT JOIN users u ON u.id = c.user_id WHERE c.ts >= ? ORDER BY c.ts DESC LIMIT 100').all(since),
+    });
+  });
+
+  app.get('/api/admin/ai-usage', adminAuth(), (req, res) => {
+    const { days, since } = period(req);
+    const s = getSettings(db);
+    ok(res, {
+      days, enabled: !!s.ai.enabled, provider: s.ai.provider, model: s.ai.model, cost_per_request: s.ai.cost_per_request,
+      totals: db.prepare('SELECT COUNT(*) requests, COALESCE(SUM(ok), 0) ok, COALESCE(SUM(credits), 0) credits, COALESCE(SUM(chars_in), 0) chars_in, COALESCE(SUM(chars_out), 0) chars_out, COUNT(DISTINCT user_id) users FROM ai_usage WHERE ts >= ?').get(since),
+      daily: db.prepare(`SELECT ${dayOf} day, COUNT(*) requests, COALESCE(SUM(credits), 0) credits, SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) failed FROM ai_usage WHERE ts >= ? GROUP BY day ORDER BY day`).all(since),
+      top_users: db.prepare('SELECT a.user_id, u.email, u.plan, u.ai_credits credits_left, COUNT(*) requests, COALESCE(SUM(a.credits), 0) credits, COALESCE(SUM(a.chars_in), 0) chars_in FROM ai_usage a LEFT JOIN users u ON u.id = a.user_id WHERE a.ts >= ? GROUP BY a.user_id ORDER BY credits DESC, requests DESC LIMIT 20').all(since),
+      top_errors: db.prepare('SELECT error, COUNT(*) n, MAX(ts) last_ts FROM ai_usage WHERE ok = 0 AND ts >= ? GROUP BY error ORDER BY n DESC LIMIT 10').all(since),
+      credits_outstanding: db.prepare('SELECT COALESCE(SUM(ai_credits), 0) n FROM users').get().n,
+      users_out_of_credits: db.prepare('SELECT COUNT(*) n FROM users WHERE ai_credits < ?').get(Math.max(1, Number(s.ai.cost_per_request) || 1)).n,
+    });
+  });
+
+  // ------------------------------------------------------------- Système : état de la machine et alertes
+  function machine() {
+    let disk = null;
+    try {
+      const st = fs.statfsSync(dataDir || process.cwd());
+      disk = { total_mb: Math.round((st.blocks * st.bsize) / 1048576), free_mb: Math.round((st.bavail * st.bsize) / 1048576) };
+    } catch { /* indisponible sur ce système */ }
+    return {
+      disk, cpus: os.cpus().length, load: os.loadavg().map((n) => Math.round(n * 100) / 100), platform: `${os.type()} ${os.release()}`,
+      mem_total_mb: Math.round(os.totalmem() / 1048576), mem_free_mb: Math.round(os.freemem() / 1048576),
+    };
+  }
+
+  /** Points à surveiller, du plus grave au moins grave. `page` : page du tableau de bord où agir. */
+  function alerts() {
+    const s = getSettings(db);
+    const m = machine();
+    const out = [];
+    const add = (level, code, message, page) => out.push({ level, code, message, page });
+    const now = Date.now();
+    if (m.disk && m.disk.total_mb > 0) {
+      const pct = Math.round((m.disk.free_mb / m.disk.total_mb) * 100);
+      if (pct < 10 || m.disk.free_mb < 500) add('critical', 'disk', `Disque presque plein : ${pct} % libre (${m.disk.free_mb} Mo). Le serveur s'arrêtera s'il est saturé.`, 'system');
+      else if (pct < 20) add('warning', 'disk', `Espace disque faible : ${pct} % libre.`, 'system');
+    }
+    if (m.mem_total_mb > 0 && m.mem_free_mb / m.mem_total_mb < 0.08) add('warning', 'memory', `Mémoire presque saturée : ${m.mem_free_mb} Mo libres sur ${m.mem_total_mb} Mo.`, 'system');
+    if (s.ai.key_error) add('critical', 'ai_key', "La clé d'IA ne peut plus être déchiffrée : saisissez-la de nouveau.", 'ai');
+    else if (s.ai.enabled && !aiConfig(s).api_key && !s.ai.base_url) add('warning', 'ai_key', "L'IA est activée mais aucune clé d'API n'est enregistrée.", 'ai');
+    if (backupsDir) {
+      const lastAuto = listBackups(backupsDir).find((b) => b.kind === 'auto');
+      if (!s.backup.enabled) add('warning', 'backup', 'La sauvegarde automatique est désactivée.', 'backups');
+      else if (!lastAuto && now - startedAt > DAY) add('warning', 'backup', 'Aucune sauvegarde automatique n\'a encore été créée.', 'backups');
+      else if (lastAuto && now - lastAuto.created_at > 36 * HOUR) add('warning', 'backup', `Dernière sauvegarde automatique il y a ${Math.round((now - lastAuto.created_at) / HOUR)} heures.`, 'backups');
+    }
+    if (s.conversion_enabled && !libreOfficeAvailable()) add('warning', 'libreoffice', 'La conversion en ligne est activée mais LibreOffice n\'est pas installé sur le serveur.', 'app');
+    const errors24 = db.prepare('SELECT COUNT(*) n FROM server_errors WHERE ts >= ?').get(now - DAY).n;
+    if (errors24 >= 20) add('critical', 'errors', `${errors24} erreurs du serveur sur les dernières 24 heures.`, 'errors');
+    else if (errors24 > 0) add('warning', 'errors', `${errors24} erreur(s) du serveur sur les dernières 24 heures.`, 'errors');
+    const conv = db.prepare('SELECT COUNT(*) total, SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) failed FROM conversions WHERE ts >= ?').get(now - DAY);
+    if (conv.total >= 5 && conv.failed / conv.total > 0.3) add('warning', 'conversions', `${conv.failed} conversions sur ${conv.total} ont échoué en 24 heures.`, 'conversions');
+    const ai = db.prepare('SELECT COUNT(*) total, SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) failed FROM ai_usage WHERE ts >= ?').get(now - DAY);
+    if (ai.total >= 5 && ai.failed / ai.total > 0.3) add('warning', 'ai_failures', `${ai.failed} requêtes IA sur ${ai.total} ont échoué en 24 heures (clé, quota ou modèle à vérifier).`, 'aiusage');
+    const no2fa = db.prepare("SELECT COUNT(*) n FROM admins WHERE active = 1 AND role IN ('owner', 'admin') AND totp_enabled = 0").get().n;
+    if (no2fa > 0) add('warning', 'two_factor', `${no2fa} administrateur(s) sans double authentification.`, 'account');
+    if (s.maintenance) add('info', 'maintenance', "Le mode maintenance est actif : l'application est bloquée pour les utilisateurs.", 'app');
+    const open = db.prepare("SELECT COUNT(*) n FROM feedback WHERE status = 'nouveau'").get().n;
+    if (open > 0) add('info', 'feedback', `${open} message(s) d'utilisateurs en attente de réponse.`, 'feedback');
+    const rank = { critical: 0, warning: 1, info: 2 };
+    return out.sort((a, b) => rank[a.level] - rank[b.level]);
+  }
+
+  app.get('/api/admin/alerts', adminAuth(), (req, res) => ok(res, { alerts: alerts() }));
+
   app.get('/api/admin/system', adminAuth('admin'), (req, res) => {
     const file = db.prepare('PRAGMA database_list').all()[0]?.file;
     ok(res, {
       node: process.version, uptime_s: Math.round((Date.now() - startedAt) / 1000),
-      db_file: file, db_bytes: file && fs.existsSync(file) ? fs.statSync(file).size : 0,
+      // Taille réelle : fichier principal + journal des écritures récentes (mode WAL).
+      db_file: file, db_bytes: file ? [file, `${file}-wal`].reduce((n, f) => n + (fs.existsSync(f) ? fs.statSync(f).size : 0), 0) : 0,
       libreoffice: libreOfficeAvailable(), memory_mb: Math.round(process.memoryUsage().rss / 1048576),
-      counts: Object.fromEntries(['users', 'events', 'ai_usage', 'conversions', 'feedback', 'audit'].map((t) => [t, db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n])),
+      machine: machine(), alerts: alerts(),
+      backups: backupsDir ? { count: listBackups(backupsDir).length, bytes: listBackups(backupsDir).reduce((n, b) => n + b.bytes, 0) } : null,
+      counts: Object.fromEntries(['users', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'server_errors'].map((t) => [t, db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n])),
     });
   });
 
@@ -759,7 +938,9 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
 
   app.use((err, req, res, _next) => {
     if (err?.type === 'entity.too.large') return fail(res, 413, 'Fichier trop volumineux');
+    if (err?.type === 'entity.parse.failed') return fail(res, 400, 'Requête illisible (JSON invalide)');
     console.error(err);
+    logServerError(db, 'serveur', err, { method: req.method, path: req.path, status: 500 });
     fail(res, 500, 'Erreur interne du serveur');
   });
   return app;

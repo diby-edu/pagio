@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openDb, getSettings, setSecretsKey, encryptStoredSecrets } from './db.js';
+import { openDb, getSettings, setSecretsKey, encryptStoredSecrets, logServerError } from './db.js';
 import { hashPassword, randomPassword, deriveKey } from './security.js';
 import { detectLibreOffice } from './services.js';
 import { createApp } from './app.js';
@@ -82,9 +82,14 @@ const backupTick = () => {
     }
   } catch (e) {
     console.error('Sauvegarde automatique en échec :', e.message);
+    logServerError(db, 'sauvegarde', e);
     db.prepare('INSERT INTO audit (ts, admin_email, action, target, details) VALUES (?, NULL, ?, NULL, ?)').run(Date.now(), 'backup.auto_failed', JSON.stringify({ error: String(e.message).slice(0, 300) }));
   }
 };
+// Une erreur imprévue hors d'une requête est inscrite au journal au lieu d'arrêter le serveur.
+process.on('unhandledRejection', (e) => { console.error('Erreur non gérée :', e); logServerError(db, 'serveur', e instanceof Error ? e : new Error(String(e))); });
+process.on('uncaughtException', (e) => { console.error('Exception non gérée :', e); logServerError(db, 'serveur', e); });
+
 setTimeout(backupTick, 20_000).unref();
 setInterval(backupTick, 10 * 60_000).unref();
 

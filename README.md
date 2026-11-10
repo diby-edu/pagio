@@ -6,11 +6,11 @@ l'OCR, des analyses documentaires hors ligne et une IA générative au choix. El
 
 | Livrable | Emplacement |
 |---|---|
-| APK release signée | `deliverables/application.apk` |
-| APK debug | `deliverables/application-debug.apk` |
-| Bundle Google Play | `deliverables/application.aab` |
-| Code source complet | `deliverables/application-source.zip` |
-| Clé de signature (à garder secrète) | `deliverables/cle-de-signature/` |
+| APK release signée | `android/apk/application.apk` |
+| APK debug | `android/apk/application-debug.apk` |
+| Bundle Google Play | `android/apk/application.aab` |
+| Code source complet | ce dossier (dépôt Git local) |
+| Clé de signature (à garder secrète, hors Git) | `android/apk/cle-de-signature/` |
 | Rapport d'audit d'iLovePDF | `docs/AUDIT.md` |
 | Fonctionnalités livrées / restantes | `docs/FONCTIONNALITES.md` |
 | Rapport de tests | `docs/RAPPORT-DE-TESTS.md` |
@@ -113,11 +113,11 @@ Pour Google Play, générez plutôt un bundle : `./gradlew bundleRelease` → `a
 
 ## 9. Signature de l'APK
 
-La clé vous appartient : `deliverables/cle-de-signature/pagio-release.jks` et son mot de passe dans `MOT-DE-PASSE.txt`.
+La clé vous appartient : `android/apk/cle-de-signature/pagio-release.jks` et son mot de passe dans `MOT-DE-PASSE.txt`.
 Gradle lit `android/keystore.properties` (jamais versionné) :
 
 ```
-storeFile=../deliverables/cle-de-signature/pagio-release.jks
+storeFile=apk/cle-de-signature/pagio-release.jks
 storePassword=...
 keyAlias=pagio
 keyPassword=...

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Stats, TOOL_LABELS, api, fmtNum } from '../api';
 import { Alert, BarChart, Card, Empty, Kpi } from '../ui';
+import { AlertList, useAlerts } from './AlertList';
 
-export default function Overview() {
+export default function Overview({ go }: { go?: (page: string) => void }) {
+  const alerts = useAlerts();
   const [days, setDays] = useState(30);
   const [s, setS] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +21,7 @@ export default function Overview() {
 
   return (
     <div className="stack">
+      <AlertList alerts={alerts.filter((a) => a.level !== 'info')} go={go} />
       <div className="row gap">
         {[7, 30, 90, 365].map((d) => <button key={d} className={`chip ${d === days ? 'on' : ''}`} onClick={() => setDays(d)}>{d} jours</button>)}
       </div>

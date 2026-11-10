@@ -21,7 +21,7 @@ export async function boot({ secretsKey } = {}) {
   };
   /** Envoi d'un fichier brut (conversion, import de sauvegarde). */
   const raw = (method, url, body, token) => fetch(base + url, { method, headers: { 'content-type': 'application/octet-stream', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body });
-  const server = { close() { http.close(); fs.rmSync(dataDir, { recursive: true, force: true }); } };
+  const server = { base, close() { http.close(); fs.rmSync(dataDir, { recursive: true, force: true }); } };
   return { server, call, raw, db, dataDir };
 }
 
