@@ -313,6 +313,9 @@
     <string name="run_tool">Run: %1$s</string>
     <string name="save">Save</string>
     <string name="scanner_fallback">Smart scanner unavailable: simple photo instead.</string>
+    <string name="scanner_closed">The scanner closed without a document.</string>
+    <string name="scanner_use_photo">Simple photo</string>
+    <string name="scanner_downloading">Downloading the scanner (first time only)…</string>
     <string name="search">Search</string>
     <string name="search_hint_ocr">No results. For a scanned document, run OCR first.</string>
     <string name="search_in_doc">Search the document</string>

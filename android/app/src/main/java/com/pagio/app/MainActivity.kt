@@ -34,6 +34,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,6 +60,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.google.android.gms.common.moduleinstall.InstallStatusListener
+import com.google.android.gms.common.moduleinstall.ModuleInstall
+import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
+import com.google.android.gms.common.moduleinstall.ModuleInstallStatusUpdate
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
@@ -153,8 +158,27 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
     }
 
     // --- Scanner (ML Kit : détection des bords, recadrage, filtres) ------------------------
+    val photoFile = remember { mutableStateOf<File?>(null) }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val f = photoFile.value
+        if (ok && f != null) { Handoff.files = listOf(PickedFile(f, f.name, f.length(), "image/jpeg")); nav.navigate("tool/images_to_pdf") }
+    }
+    fun takePhoto() {
+        val f = File(c.workspace.newTaskDir(), "photo_${System.currentTimeMillis()}.jpg")
+        photoFile.value = f
+        camera.launch(c.workspace.uriFor(f))
+    }
     val scanner = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
-        if (res.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
+        if (res.resultCode != Activity.RESULT_OK) {
+            // Fermé sans résultat : abandon volontaire, ou écran d'erreur des services Google (« Une erreur s'est
+            // produite »), que l'application ne peut pas distinguer. On propose donc la photo simple sans l'imposer.
+            c.track("scan_closed", mapOf("ok" to false))
+            scope.launch {
+                val r = snackbar.showSnackbar(context.getString(R.string.scanner_closed), context.getString(R.string.scanner_use_photo))
+                if (r == SnackbarResult.ActionPerformed) takePhoto()
+            }
+            return@rememberLauncherForActivityResult
+        }
         val result = GmsDocumentScanningResult.fromActivityResultIntent(res.data) ?: return@rememberLauncherForActivityResult
         scope.launch {
             val pdf = result.pdf ?: return@launch
@@ -166,27 +190,48 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
             nav.navigate(viewerRoute(target))
         }
     }
-    val photoFile = remember { mutableStateOf<File?>(null) }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-        val f = photoFile.value
-        if (ok && f != null) { Handoff.files = listOf(PickedFile(f, f.name, f.length(), "image/jpeg")); nav.navigate("tool/images_to_pdf") }
-    }
     fun startScan() {
+        val activity = context as Activity
         val options = GmsDocumentScannerOptions.Builder().setGalleryImportAllowed(true).setPageLimit(100)
             .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_PDF).setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL).build()
-        GmsDocumentScanning.getClient(options).getStartScanIntent(context as Activity)
-            .addOnSuccessListener { scanner.launch(IntentSenderRequest.Builder(it).build()) }
-            .addOnFailureListener { e ->
-                // Repli sans services Google : photo simple puis conversion en PDF.
-                // La raison donnée par Google (module non téléchargé, appareil non pris en charge…) est affichée et
-                // remontée aux statistiques : sans elle, l'échec du scanner est impossible à diagnostiquer.
-                val reason = (e.message ?: e.javaClass.simpleName).take(160)
-                c.track("scan_unavailable", mapOf("ok" to false, "error" to reason))
-                val f = File(c.workspace.newTaskDir(), "photo_${System.currentTimeMillis()}.jpg")
-                photoFile.value = f
-                scope.launch { snackbar.showSnackbar(context.getString(R.string.scanner_fallback) + "\n" + reason) }
-                camera.launch(c.workspace.uriFor(f))
+        val client = GmsDocumentScanning.getClient(options)
+        // Repli : photo simple puis conversion en PDF. La raison est affichée et remontée aux statistiques :
+        // sans elle, l'échec du scanner est impossible à diagnostiquer.
+        fun fallback(reason: String) {
+            c.track("scan_unavailable", mapOf("ok" to false, "error" to reason.take(160)))
+            scope.launch { snackbar.showSnackbar(context.getString(R.string.scanner_fallback) + "\n" + reason.take(160)) }
+            takePhoto()
+        }
+        fun open() {
+            client.getStartScanIntent(activity)
+                .addOnSuccessListener { scanner.launch(IntentSenderRequest.Builder(it).build()) }
+                .addOnFailureListener { e -> fallback(e.message ?: e.javaClass.simpleName) }
+        }
+        // Le scanner est un module que les services Google Play téléchargent à la première utilisation. On le demande
+        // nous-mêmes avant d'ouvrir l'écran de Google : en cas d'échec, on connaît la raison au lieu d'un écran muet.
+        val modules = ModuleInstall.getClient(activity)
+        modules.areModulesAvailable(client)
+            .addOnSuccessListener { availability ->
+                if (availability.areModulesAvailable()) { open(); return@addOnSuccessListener }
+                scope.launch { snackbar.showSnackbar(context.getString(R.string.scanner_downloading)) }
+                val listener = object : InstallStatusListener {
+                    override fun onInstallStatusUpdated(update: ModuleInstallStatusUpdate) {
+                        when (update.installState) {
+                            ModuleInstallStatusUpdate.InstallState.STATE_COMPLETED -> { modules.unregisterListener(this); open() }
+                            ModuleInstallStatusUpdate.InstallState.STATE_FAILED, ModuleInstallStatusUpdate.InstallState.STATE_CANCELED -> {
+                                modules.unregisterListener(this)
+                                fallback("module Google non installé (code ${update.errorCode})")
+                            }
+                            else -> Unit
+                        }
+                    }
+                }
+                modules.installModules(ModuleInstallRequest.newBuilder().addApi(client).setListener(listener).build())
+                    .addOnSuccessListener { if (it.areModulesAlreadyInstalled()) { modules.unregisterListener(listener); open() } }
+                    .addOnFailureListener { e -> modules.unregisterListener(listener); fallback(e.message ?: e.javaClass.simpleName) }
             }
+            // Vérification impossible (services Google absents ou trop anciens) : on tente l'ouverture directe.
+            .addOnFailureListener { open() }
     }
 
     fun openTool(t: Tool) {

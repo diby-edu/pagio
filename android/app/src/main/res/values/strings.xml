@@ -313,6 +313,9 @@
     <string name="run_tool">Lancer : %1$s</string>
     <string name="save">Enregistrer</string>
     <string name="scanner_fallback">Scanner intelligent indisponible : prise de photo simple.</string>
+    <string name="scanner_closed">Le scanner s\'est fermé sans document.</string>
+    <string name="scanner_use_photo">Photo simple</string>
+    <string name="scanner_downloading">Téléchargement du scanner (une seule fois)…</string>
     <string name="search">Rechercher</string>
     <string name="search_hint_ocr">Aucun résultat. Pour un document scanné, lancez d\'abord l\'OCR.</string>
     <string name="search_in_doc">Rechercher dans le document</string>
