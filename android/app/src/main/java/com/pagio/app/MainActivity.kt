@@ -83,6 +83,7 @@ import com.pagio.app.ui.settings.AiSettingsScreen
 import com.pagio.app.ui.settings.ServerSettingsScreen
 import com.pagio.app.ui.settings.SettingsScreen
 import com.pagio.app.ui.theme.PagioTheme
+import com.pagio.app.ui.scan.ScanScreen
 import com.pagio.app.ui.tool.Handoff
 import com.pagio.app.ui.tool.ToolScreen
 import com.pagio.app.ui.viewer.ViewerScreen
@@ -158,24 +159,14 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
     }
 
     // --- Scanner (ML Kit : détection des bords, recadrage, filtres) ------------------------
-    val photoFile = remember { mutableStateOf<File?>(null) }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-        val f = photoFile.value
-        if (ok && f != null) { Handoff.files = listOf(PickedFile(f, f.name, f.length(), "image/jpeg")); nav.navigate("tool/images_to_pdf") }
-    }
-    fun takePhoto() {
-        val f = File(c.workspace.newTaskDir(), "photo_${System.currentTimeMillis()}.jpg")
-        photoFile.value = f
-        camera.launch(c.workspace.uriFor(f))
-    }
     val scanner = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
         if (res.resultCode != Activity.RESULT_OK) {
             // Fermé sans résultat : abandon volontaire, ou écran d'erreur des services Google (« Une erreur s'est
-            // produite »), que l'application ne peut pas distinguer. On propose donc la photo simple sans l'imposer.
+            // produite »), que l'application ne peut pas distinguer. On propose donc le scanner de Pagio sans l'imposer.
             c.track("scan_closed", mapOf("ok" to false))
             scope.launch {
-                val r = snackbar.showSnackbar(context.getString(R.string.scanner_closed), context.getString(R.string.scanner_use_photo))
-                if (r == SnackbarResult.ActionPerformed) takePhoto()
+                val r = snackbar.showSnackbar(context.getString(R.string.scanner_closed), context.getString(R.string.scanner_use_pagio))
+                if (r == SnackbarResult.ActionPerformed) nav.navigate("scan")
             }
             return@rememberLauncherForActivityResult
         }
@@ -195,40 +186,42 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
         val options = GmsDocumentScannerOptions.Builder().setGalleryImportAllowed(true).setPageLimit(100)
             .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_PDF).setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL).build()
         val client = GmsDocumentScanning.getClient(options)
-        // Repli : photo simple puis conversion en PDF. La raison est affichée et remontée aux statistiques :
-        // sans elle, l'échec du scanner est impossible à diagnostiquer.
+        // Relais : le scanner de Pagio (détection des bords intégrée, sans services Google). La raison est remontée
+        // aux statistiques : sans elle, l'échec du scanner de Google est impossible à diagnostiquer.
         fun fallback(reason: String) {
             c.track("scan_unavailable", mapOf("ok" to false, "error" to reason.take(160)))
-            scope.launch { snackbar.showSnackbar(context.getString(R.string.scanner_fallback) + "\n" + reason.take(160)) }
-            takePhoto()
+            nav.navigate("scan")
         }
         fun open() {
             client.getStartScanIntent(activity)
                 .addOnSuccessListener { scanner.launch(IntentSenderRequest.Builder(it).build()) }
                 .addOnFailureListener { e -> fallback(e.message ?: e.javaClass.simpleName) }
         }
-        // Le scanner est un module que les services Google Play téléchargent à la première utilisation. On le demande
-        // nous-mêmes avant d'ouvrir l'écran de Google : en cas d'échec, on connaît la raison au lieu d'un écran muet.
+        // Le scanner de Google est un module que les services Google Play téléchargent à part. S'il n'est pas là, on
+        // n'attend pas : le scanner de Pagio s'ouvre tout de suite et le téléchargement est demandé en arrière-plan,
+        // pour une prochaine fois. Sur certains téléphones ce téléchargement échoue toujours (code 8 constaté).
         val modules = ModuleInstall.getClient(activity)
         modules.areModulesAvailable(client)
             .addOnSuccessListener { availability ->
                 if (availability.areModulesAvailable()) { open(); return@addOnSuccessListener }
-                scope.launch { snackbar.showSnackbar(context.getString(R.string.scanner_downloading)) }
+                nav.navigate("scan")
                 val listener = object : InstallStatusListener {
                     override fun onInstallStatusUpdated(update: ModuleInstallStatusUpdate) {
                         when (update.installState) {
-                            ModuleInstallStatusUpdate.InstallState.STATE_COMPLETED -> { modules.unregisterListener(this); open() }
+                            ModuleInstallStatusUpdate.InstallState.STATE_COMPLETED -> modules.unregisterListener(this)
                             ModuleInstallStatusUpdate.InstallState.STATE_FAILED, ModuleInstallStatusUpdate.InstallState.STATE_CANCELED -> {
                                 modules.unregisterListener(this)
-                                fallback("module Google non installé (code ${update.errorCode})")
+                                c.track("scan_unavailable", mapOf("ok" to false, "error" to "module Google non installé (code ${update.errorCode})"))
                             }
                             else -> Unit
                         }
                     }
                 }
                 modules.installModules(ModuleInstallRequest.newBuilder().addApi(client).setListener(listener).build())
-                    .addOnSuccessListener { if (it.areModulesAlreadyInstalled()) { modules.unregisterListener(listener); open() } }
-                    .addOnFailureListener { e -> modules.unregisterListener(listener); fallback(e.message ?: e.javaClass.simpleName) }
+                    .addOnFailureListener { e ->
+                        modules.unregisterListener(listener)
+                        c.track("scan_unavailable", mapOf("ok" to false, "error" to (e.message ?: e.javaClass.simpleName).take(160)))
+                    }
             }
             // Vérification impossible (services Google absents ou trop anciens) : on tente l'ouverture directe.
             .addOnFailureListener { open() }
@@ -287,6 +280,7 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
             composable("ai") { AiSettingsScreen { nav.popBackStack() } }
             composable("server") { ServerSettingsScreen { nav.popBackStack() } }
             composable("about") { AboutScreen { nav.popBackStack() } }
+            composable("scan") { ScanScreen(onBack = { nav.popBackStack() }, onDone = { f -> nav.popBackStack(); nav.navigate(viewerRoute(f)) }) }
             composable("viewer?path={path}", arguments = listOf(navArgument("path") { type = NavType.StringType })) { entry ->
                 val path = URLDecoder.decode(entry.arguments?.getString("path") ?: "", "UTF-8")
                 ViewerScreen(File(path), onBack = { nav.popBackStack() }, onTool = ::openTool)
