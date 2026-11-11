@@ -111,7 +111,7 @@ Légende : ✅ livré et testé automatiquement · ☑️ livré, vérifié à l
 | Sauvegarde quotidienne, restauration, import / téléchargement | ✅ |
 | Erreurs du serveur, suivi des conversions, consommation IA | ✅ |
 | État de la machine et alertes dans le tableau de bord | ✅ |
-| E-mails automatiques (Brevo) : mot de passe oublié, confirmation d'adresse, alertes du serveur | ✅ testé automatiquement ; refus de Brevo vérifié avec une fausse clé ; e-mail d'essai réellement reçu le 10/11/2026 (Brevo configuré sur le serveur en ligne) ; mot de passe oublié et confirmation pas encore essayés depuis un téléphone |
+| E-mails automatiques (Brevo) : mot de passe oublié, confirmation d'adresse, alertes du serveur | ✅ testé automatiquement ; refus de Brevo vérifié avec une fausse clé ; **Brevo pas encore configuré sur le serveur en ligne** : aucun e-mail réel n'a donc été envoyé ni reçu ; mot de passe oublié et confirmation pas encore essayés depuis un téléphone |
 | Fiche utilisateur détaillée, historique des offres, actions groupées | ✅ |
 | Conversion serveur LibreOffice : Office → PDF, PDF → Word, PDF → PowerPoint | ✅ fichiers valides produits ; fidélité sur documents complexes non évaluée |
 | Conversion serveur PDF → Excel | ✘ impossible avec LibreOffice (l'application garde sa conversion interne) |
