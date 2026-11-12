@@ -335,6 +335,15 @@
     <string name="scan_unreadable">Cette photo est illisible. Réessayez.</string>
     <string name="scan_failed">Le traitement a échoué. Réessayez avec une autre photo.</string>
     <string name="scan_no_camera">Aucun appareil photo disponible : choisissez une image.</string>
+    <string name="scan_frame_hint">Placez le document dans le cadre, bien à plat.</string>
+    <string name="scan_hold">Document détecté : ne bougez plus…</string>
+    <string name="scan_ready">Document détecté : appuyez sur le déclencheur.</string>
+    <string name="scan_auto_capture">Capture auto</string>
+    <string name="scan_shutter">Prendre la photo</string>
+    <string name="scan_permission">Pagio a besoin de l’appareil photo pour scanner un document.</string>
+    <string name="scan_allow">Autoriser l’appareil photo</string>
+    <string name="scan_recrop">Ajuster les bords</string>
+    <string name="scan_finish_n">Terminer (%1$d)</string>
     <string name="search">Rechercher</string>
     <string name="search_hint_ocr">Aucun résultat. Pour un document scanné, lancez d\'abord l\'OCR.</string>
     <string name="search_in_doc">Rechercher dans le document</string>

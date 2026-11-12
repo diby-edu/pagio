@@ -13,6 +13,7 @@ mlkitTextRecognition = "16.0.1"
 mlkitLanguageId = "17.0.6"
 mlkitTranslate = "17.0.3"
 docScanner = "16.0.0"
+camerax = "1.4.2"
 bouncycastle = "1.78.1"
 reorderable = "2.4.3"
 junit = "4.13.2"
@@ -41,6 +42,10 @@ pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
 mlkit-language-id = { group = "com.google.mlkit", name = "language-id", version.ref = "mlkitLanguageId" }
 mlkit-translate = { group = "com.google.mlkit", name = "translate", version.ref = "mlkitTranslate" }
+androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camerax" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 mlkit-document-scanner = { group = "com.google.android.gms", name = "play-services-mlkit-document-scanner", version.ref = "docScanner" }
 bouncycastle-pkix = { group = "org.bouncycastle", name = "bcpkix-jdk15to18", version.ref = "bouncycastle" }
 bouncycastle-prov = { group = "org.bouncycastle", name = "bcprov-jdk15to18", version.ref = "bouncycastle" }

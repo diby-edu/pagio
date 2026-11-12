@@ -15,7 +15,7 @@ Légende : ✅ livré et testé automatiquement · ☑️ livré, vérifié à l
 | Réparer | ✅ | reconstruction de la structure, pages illisibles signalées |
 | Images → PDF (une ou plusieurs) | ✅ | taille de page, orientation auto, marges, rotation EXIF |
 | Créer un PDF | ✅ | vierge, ligné, quadrillé, à points, couleurs |
-| Scanner | ⚠️ | scanner de Google (ML Kit) quand il est disponible ; sinon **scanner de Pagio** intégré, sans services Google : détection des bords, coins ajustables au doigt, redressement, filtres (document, noir et blanc, gris), plusieurs pages. Détection testée automatiquement (8 tests) ; parcours complet essayé sur téléphone virtuel le 11/11/2026 ; pas encore essayé sur un vrai document avec un vrai téléphone |
+| Scanner | ⚠️ | scanner de Google (ML Kit) quand le téléphone le permet ; sinon **scanner de Pagio** intégré (CameraX, aucun service Google) : appareil photo en direct avec un cadre qui suit la feuille, capture automatique ou manuelle, coins ajustables au doigt, redressement, filtres (document, noir et blanc, gris), plusieurs pages. Détection des bords testée automatiquement (10 tests sur photos simulées) ; parcours complet essayé sur téléphone virtuel le 12/11/2026 ; pas encore essayé sur une vraie feuille avec un vrai téléphone. Permission « appareil photo » demandée au premier scan |
 | Numéros de page, filigranes, en-têtes et pieds | ✅ | positions, formats, opacité, mosaïque, couche, variables {n} {p} {date} |
 
 ## B. Conversions

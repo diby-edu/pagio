@@ -60,6 +60,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.common.moduleinstall.InstallStatusListener
 import com.google.android.gms.common.moduleinstall.ModuleInstall
 import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
@@ -183,6 +185,12 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
     }
     fun startScan() {
         val activity = context as Activity
+        // Sans services Google Play utilisables (téléphone sans Google, services désactivés ou trop anciens), toute
+        // tentative ferait apparaître une alerte de Google « Activer les services Google Play ». On ne les sollicite
+        // donc pas : le scanner de Pagio s'ouvre directement.
+        if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(activity) != ConnectionResult.SUCCESS) {
+            nav.navigate("scan"); return
+        }
         val options = GmsDocumentScannerOptions.Builder().setGalleryImportAllowed(true).setPageLimit(100)
             .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_PDF).setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL).build()
         val client = GmsDocumentScanning.getClient(options)
@@ -223,8 +231,8 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
                         c.track("scan_unavailable", mapOf("ok" to false, "error" to (e.message ?: e.javaClass.simpleName).take(160)))
                     }
             }
-            // Vérification impossible (services Google absents ou trop anciens) : on tente l'ouverture directe.
-            .addOnFailureListener { open() }
+            // Vérification impossible : inutile d'insister auprès de Google, le scanner de Pagio prend le relais.
+            .addOnFailureListener { e -> fallback(e.message ?: e.javaClass.simpleName) }
     }
 
     fun openTool(t: Tool) {

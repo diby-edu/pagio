@@ -50,13 +50,252 @@ object DocScan {
     fun detect(pixels: IntArray, w: Int, h: Int): Quad? {
         if (w < 16 || h < 16 || pixels.size < w * h) return null
         val lum = blur(IntArray(w * h) { luminance(pixels[it]) }, w, h)
+        // Méthode principale : les quatre bords droits de la feuille. Elle marche aussi quand la feuille n'est guère
+        // plus claire que la table. Les deux méthodes par zones ne servent que si elle ne trouve rien.
+        edgeQuad(lum, w, h)?.let { return it }
         val candidates = ArrayList<Pair<Quad, Float>>()
         candidate(brightMask(lum), w, h)?.let { candidates += it }
         candidate(borderDifferenceMask(pixels, w, h), w, h)?.let { candidates += it }
         return candidates.maxByOrNull { it.second }?.first
     }
 
-    // ------------------------------------------------------------------ Détection
+    // ------------------------------------------------------------------ Détection par les bords droits
+
+    /** Droite repérée dans l'image : x·cos + y·sin = rho, [theta] étant l'angle (en degrés) de sa perpendiculaire. */
+    private class Line(val theta: Int, val rho: Float, val votes: Int = 0) {
+        val cos = Math.cos(Math.toRadians(theta.toDouble())).toFloat()
+        val sin = Math.sin(Math.toRadians(theta.toDouble())).toFloat()
+    }
+
+    private fun angleGap(a: Int, b: Int): Int { val d = abs(a - b) % 180; return min(d, 180 - d) }
+
+    /**
+     * Cherche les contours (changements brusques de luminosité), en tire les droites les plus marquées (transformée
+     * de Hough), puis retient le quadrilatère dont les quatre côtés suivent le mieux de vrais contours.
+     */
+    private fun edgeQuad(source: IntArray, w: Int, h: Int): Quad? {
+        val n = w * h
+        // Lissage supplémentaire : sans lui, un bord légèrement incliné apparaît comme un escalier de segments
+        // horizontaux, et sa direction mesurée est fausse de plusieurs degrés.
+        val lum = blur(source, w, h)
+        val mag = IntArray(n); val ang = ShortArray(n)
+        val hist = IntArray(512)
+        for (y in 1 until h - 1) for (x in 1 until w - 1) {
+            val i = y * w + x
+            val gx = (lum[i - w + 1] + 2 * lum[i + 1] + lum[i + w + 1]) - (lum[i - w - 1] + 2 * lum[i - 1] + lum[i + w - 1])
+            val gy = (lum[i + w - 1] + 2 * lum[i + w] + lum[i + w + 1]) - (lum[i - w - 1] + 2 * lum[i - w] + lum[i - w + 1])
+            val m = abs(gx) + abs(gy)
+            mag[i] = m; hist[min(511, m / 4)]++
+            if (m > 0) { var a = Math.toDegrees(Math.atan2(gy.toDouble(), gx.toDouble())).roundToInt() % 180; if (a < 0) a += 180; ang[i] = a.toShort() }
+        }
+        // Seuil : les 20 % de pixels les plus contrastés, mais jamais en dessous d'un contraste franc.
+        var acc = 0; var bucket = 511; val keep = (n * 0.20f).toInt()
+        while (bucket > 0) { acc += hist[bucket]; if (acc > keep) break; bucket-- }
+        // Plafonné : sur une page pleine de texte, le texte ne doit pas faire oublier le bord peu contrasté d'une
+        // feuille blanche posée sur une table claire.
+        val threshold = (bucket * 4).coerceIn(24, 48)
+
+        val rhoMax = hypot(w.toFloat(), h.toFloat()).toInt() + 2
+        val rhoBins = 2 * rhoMax + 1
+        val raw = IntArray(180 * rhoBins)
+        val cosT = FloatArray(180) { Math.cos(Math.toRadians(it.toDouble())).toFloat() }
+        val sinT = FloatArray(180) { Math.sin(Math.toRadians(it.toDouble())).toFloat() }
+        for (y in 1 until h - 1) for (x in 1 until w - 1) {
+            val i = y * w + x
+            if (mag[i] < threshold) continue
+            // Chaque pixel de contour ne vote que pour les droites alignées avec lui : beaucoup moins de fausses droites.
+            for (d in -3..3) {
+                val t = (ang[i] + d + 180) % 180
+                raw[t * rhoBins + (x * cosT[t] + y * sinT[t]).roundToInt() + rhoMax]++
+            }
+        }
+        // Un bord incliné ne tombe jamais exactement dans une seule case : ses votes s'étalent sur les cases voisines.
+        // On additionne donc chaque case avec ses voisines avant de chercher les droites les plus marquées.
+        val votes = IntArray(raw.size)
+        for (t in 0 until 180) for (r in 2 until rhoBins - 2) {
+            var sum = 0
+            for (dt in -1..1) { val tt = t + dt; if (tt < 0 || tt >= 180) continue; val base = tt * rhoBins + r; sum += raw[base - 2] + raw[base - 1] + raw[base] + raw[base + 1] + raw[base + 2] }
+            votes[t * rhoBins + r] = sum
+        }
+        // Les droites les plus votées, sans doublons (une même droite peut se lire avec theta et theta + 180).
+        val minVotes = max(60, min(w, h) / 2)
+        val cells = ArrayList<Int>()
+        for (c in votes.indices) if (votes[c] >= minVotes) cells += c
+        cells.sortByDescending { votes[it] }
+        val found = ArrayList<Line>()
+        for (c in cells) {
+            if (found.size >= 60) break
+            val t = c / rhoBins; val r = (c % rhoBins - rhoMax).toFloat()
+            val duplicate = found.any { l ->
+                if (angleGap(l.theta, t) > 8) false
+                else abs(if (abs(l.theta - t) > 90) -l.rho - r else l.rho - r) < 10f
+            }
+            if (!duplicate) found += Line(t, r, votes[c])
+        }
+        // Un texte imprimé produit des dizaines de droites parallèles. Par direction, on ne garde donc que les deux
+        // plus marquées et les deux plus extérieures : les bords de la feuille entourent toujours le texte.
+        val lines = ArrayList<Line>()
+        val cx = w / 2f; val cy = h / 2f
+        for (line in found) {
+            val family = found.filter { angleGap(it.theta, line.theta) <= 10 }
+            // Les droites faibles d'une famille (reflets, bouts de lettres alignés par hasard) ne comptent pas.
+            val floor = family.maxOf { it.votes } * 0.3f
+            if (line.votes < floor) continue
+            val strong = family.filter { it.votes >= floor }
+            // Écart de chaque droite au centre de l'image, mesuré le long de la perpendiculaire de la droite étudiée.
+            fun offset(m: Line) = (m.rho - (cx * m.cos + cy * m.sin)) * (m.cos * line.cos + m.sin * line.sin)
+            val own = offset(line)
+            val outermost = strong.none { offset(it) < own - 0.5f } || strong.none { offset(it) > own + 0.5f }
+            val amongStrongest = strong.count { it.votes > line.votes } < 2
+            if (outermost || amongStrongest) lines += line
+        }
+        lines.sortByDescending { it.votes }
+        while (lines.size > 20) lines.removeAt(lines.size - 1)
+        if (lines.size < 4) return null
+
+        // Paires de droites à peu près parallèles (côtés opposés), puis deux paires qui se croisent franchement.
+        val pairs = ArrayList<Pair<Line, Line>>()
+        for (i in lines.indices) for (j in i + 1 until lines.size) if (angleGap(lines[i].theta, lines[j].theta) <= 30) pairs += lines[i] to lines[j]
+        var best: List<Pair<Float, Float>>? = null; var bestScore = 0f
+        val supportCache = HashMap<Long, FloatArray>()
+        for (i in pairs.indices) for (j in i + 1 until pairs.size) {
+            val (a1, a2) = pairs[i]; val (b1, b2) = pairs[j]
+            if (a1 === b1 || a1 === b2 || a2 === b1 || a2 === b2) continue
+            if (angleGap(a1.theta, b1.theta) < 40 || angleGap(a2.theta, b2.theta) < 40) continue
+            val raw = listOf(cross(a1, b1) ?: continue, cross(a1, b2) ?: continue, cross(a2, b2) ?: continue, cross(a2, b1) ?: continue)
+            if (raw.any { it.first < -0.06f * w || it.first > 1.06f * w || it.second < -0.06f * h || it.second > 1.06f * h }) continue
+            val q = order(raw)
+            val area = polygonArea(q)
+            if (area < n * 0.10f) continue
+            if (!plausible(q)) continue
+            var sum = 0f; var weakest = 1f; var gaps = 0
+            for (k in 0 until 4) {
+                val p1 = q[k]; val p2 = q[(k + 1) % 4]
+                val key = (p1.first.roundToInt().toLong() shl 48) or ((p1.second.roundToInt().toLong() and 0xFFFF) shl 32) or
+                    ((p2.first.roundToInt().toLong() and 0xFFFF) shl 16) or (p2.second.roundToInt().toLong() and 0xFFFF)
+                val s = supportCache.getOrPut(key) { sideSupport(p1, p2, mag, ang, threshold, w, h) }
+                sum += s[0]; if (s[0] < weakest) weakest = s[0]
+                if (s[1] < 0.25f) gaps++
+            }
+            val mean = sum / 4f
+            if (weakest < 0.45f || mean < 0.6f) continue
+            // Un vrai bord de feuille est visible sur toute sa longueur. Un cadre trop grand (calé sur le bord de la
+            // table ou une veine du bois) a des côtés qui dépassent dans le vide : on tolère un seul côté troué,
+            // par exemple caché par un doigt.
+            if (gaps > 1) continue
+            // À qualité de contour égale, le plus grand cadre l'emporte : les lignes de texte dessinent des cadres plus petits.
+            val score = area * mean * mean
+            if (score > bestScore) { bestScore = score; best = q }
+        }
+        val rough = best ?: return null
+        val q = refine(rough, mag, ang, threshold, w, h)
+        fun c(p: Pair<Float, Float>) = Corner((p.first / (w - 1f)).coerceIn(0f, 1f), (p.second / (h - 1f)).coerceIn(0f, 1f))
+        return Quad(c(q[0]), c(q[1]), c(q[2]), c(q[3])).takeIf { it.isConvex }
+    }
+
+    /**
+     * Recale chaque côté sur les pixels de contour qui le bordent (droite des moindres carrés), puis recalcule les
+     * coins. La transformée de Hough donne un cadre au degré et au pixel près ; ceci gagne la précision restante.
+     */
+    private fun refine(q: List<Pair<Float, Float>>, mag: IntArray, ang: ShortArray, threshold: Int, w: Int, h: Int): List<Pair<Float, Float>> {
+        // Chaque côté ajusté : un point (mx, my) et une direction (ux, uy).
+        val fitted = ArrayList<FloatArray>()
+        for (k in 0 until 4) {
+            val p1 = q[k]; val p2 = q[(k + 1) % 4]
+            val dx = p2.first - p1.first; val dy = p2.second - p1.second
+            val length = hypot(dx, dy)
+            val ux = dx / length; val uy = dy / length; val nx = -uy; val ny = ux
+            var normal = (Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble())).roundToInt() + 90) % 180; if (normal < 0) normal += 180
+            var sx = 0.0; var sy = 0.0; var count = 0
+            val xs = ArrayList<Float>(); val ys = ArrayList<Float>()
+            val steps = length.toInt()
+            // On s'écarte des coins : les pixels du côté voisin y fausseraient l'ajustement.
+            for (i in (steps * 0.08f).toInt()..(steps * 0.92f).toInt()) {
+                val bx = p1.first + ux * i; val by = p1.second + uy * i
+                var bestMag = 0; var bestX = 0f; var bestY = 0f
+                for (o in -4..4) {
+                    val xx = (bx + nx * o).roundToInt(); val yy = (by + ny * o).roundToInt()
+                    if (xx < 1 || yy < 1 || xx >= w - 1 || yy >= h - 1) continue
+                    val j = yy * w + xx
+                    if (mag[j] >= threshold && mag[j] > bestMag && angleGap(ang[j].toInt(), normal) <= 20) { bestMag = mag[j]; bestX = xx.toFloat(); bestY = yy.toFloat() }
+                }
+                if (bestMag > 0) { xs += bestX; ys += bestY; sx += bestX; sy += bestY; count++ }
+            }
+            if (count < 8) { fitted += floatArrayOf((p1.first + p2.first) / 2f, (p1.second + p2.second) / 2f, ux, uy); continue }
+            val mx = (sx / count).toFloat(); val my = (sy / count).toFloat()
+            var sxx = 0.0; var sxy = 0.0; var syy = 0.0
+            for (i in 0 until count) { val a = xs[i] - mx; val b = ys[i] - my; sxx += a * a; sxy += a * b; syy += b * b }
+            // Direction principale du nuage de points (axe de plus grande dispersion).
+            val theta = 0.5 * Math.atan2(2 * sxy, sxx - syy)
+            fitted += floatArrayOf(mx, my, Math.cos(theta).toFloat(), Math.sin(theta).toFloat())
+        }
+        val out = ArrayList<Pair<Float, Float>>()
+        for (k in 0 until 4) {
+            // Le coin k est à la rencontre du côté précédent et du côté k.
+            val a = fitted[(k + 3) % 4]; val b = fitted[k]
+            val det = a[2] * b[3] - a[3] * b[2]
+            if (abs(det) < 1e-4f) return q
+            val t = ((b[0] - a[0]) * b[3] - (b[1] - a[1]) * b[2]) / det
+            val x = a[0] + a[2] * t; val y = a[1] + a[3] * t
+            // Garde-fou : un ajustement qui déplace un coin de plus de 12 pixels est une erreur, on garde le cadre initial.
+            if (hypot(x - q[k].first, y - q[k].second) > 12f) return q
+            out += x to y
+        }
+        return out
+    }
+
+    private fun cross(a: Line, b: Line): Pair<Float, Float>? {
+        val det = a.cos * b.sin - a.sin * b.cos
+        if (abs(det) < 1e-4f) return null
+        return ((a.rho * b.sin - a.sin * b.rho) / det) to ((a.cos * b.rho - a.rho * b.cos) / det)
+    }
+
+    /** Écarte les formes qu'une feuille ne prend pas : côtés opposés trop inégaux, angles trop fermés ou trop ouverts. */
+    private fun plausible(q: List<Pair<Float, Float>>): Boolean {
+        fun len(i: Int) = hypot(q[(i + 1) % 4].first - q[i].first, q[(i + 1) % 4].second - q[i].second)
+        val l = FloatArray(4) { len(it) }
+        if (l.any { it < 8f }) return false
+        if (max(l[0], l[2]) > 2.5f * min(l[0], l[2]) || max(l[1], l[3]) > 2.5f * min(l[1], l[3])) return false
+        for (i in 0 until 4) {
+            val p = q[i]; val a = q[(i + 3) % 4]; val b = q[(i + 1) % 4]
+            val ux = a.first - p.first; val uy = a.second - p.second; val vx = b.first - p.first; val vy = b.second - p.second
+            val cosine = (ux * vx + uy * vy) / (hypot(ux, uy) * hypot(vx, vy))
+            if (abs(cosine) > 0.64f) return false   // angle hors de 50°–130°
+        }
+        return true
+    }
+
+    /**
+     * Part d'un côté qui longe réellement un contour de même direction (0 = aucun, 1 = tout le côté), suivie de la
+     * même mesure sur son cinquième le moins bien couvert.
+     */
+    private fun sideSupport(p1: Pair<Float, Float>, p2: Pair<Float, Float>, mag: IntArray, ang: ShortArray, threshold: Int, w: Int, h: Int): FloatArray {
+        val dx = p2.first - p1.first; val dy = p2.second - p1.second
+        val length = hypot(dx, dy)
+        val samples = min(80, max(10, length.toInt()))
+        val fifths = IntArray(5); val fifthSizes = IntArray(5)
+        var normal = (Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble())).roundToInt() + 90) % 180; if (normal < 0) normal += 180
+        val nx = -dy / length; val ny = dx / length
+        var hit = 0
+        for (k in 0 until samples) {
+            val t = (k + 0.5f) / samples
+            val x = p1.first + dx * t; val y = p1.second + dy * t
+            var found = false
+            for (o in -3..3) {
+                val xx = (x + nx * o).roundToInt(); val yy = (y + ny * o).roundToInt()
+                if (xx < 1 || yy < 1 || xx >= w - 1 || yy >= h - 1) continue
+                val i = yy * w + xx
+                if (mag[i] >= threshold && angleGap(ang[i].toInt(), normal) <= 20) { found = true; break }
+            }
+            val part = min(4, k * 5 / samples); fifthSizes[part]++
+            if (found) { hit++; fifths[part]++ }
+        }
+        var worst = 1f
+        for (i in 0 until 5) if (fifthSizes[i] > 0) worst = min(worst, fifths[i].toFloat() / fifthSizes[i])
+        return floatArrayOf(hit.toFloat() / samples, worst)
+    }
+
+    // ------------------------------------------------------------------ Détection par zones (secours)
 
     private fun luminance(c: Int): Int = (((c shr 16) and 0xFF) * 299 + ((c shr 8) and 0xFF) * 587 + (c and 0xFF) * 114) / 1000
 

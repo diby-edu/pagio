@@ -65,6 +65,30 @@ class DocScanTest {
         assertNotNull(q); assertCorners(corners, q!!)
     }
 
+    /** Cas difficile et courant : feuille blanche sur une table claire, avec beaucoup de texte. */
+    @Test fun whitePaperOnLightTable() {
+        val corners = listOf(55f to 45f, 245f to 60f, 255f to 355f, 45f to 345f)
+        val q = DocScan.detect(photo(corners, rgb(196, 190, 180), rgb(238, 238, 234)), w, h)
+        assertNotNull(q); assertCorners(corners, q!!)
+    }
+
+    /** Table en bois veiné (rayures sombres et claires) et éclairage inégal. */
+    @Test fun paperOnStripedTableWithUnevenLight() {
+        val corners = listOf(70f to 70f, 235f to 55f, 250f to 330f, 60f to 345f)
+        val base = photo(corners, rgb(120, 90, 60), rgb(235, 235, 230))
+        val px = IntArray(w * h) { i ->
+            val x = i % w; val y = i / w
+            val onPaper = inside(corners, x.toFloat(), y.toFloat())
+            val vein = if (!onPaper && (y + x / 7) % 23 < 3) -35 else 0
+            val light = 100 - (x + y) * 45 / (w + h)          // plus sombre vers le bas à droite
+            val c = base[i]
+            fun ch(v: Int) = ((v + vein) * light / 100).coerceIn(0, 255)
+            rgb(ch((c shr 16) and 0xFF), ch((c shr 8) and 0xFF), ch(c and 0xFF))
+        }
+        val q = DocScan.detect(px, w, h)
+        assertNotNull(q); assertCorners(corners, q!!)
+    }
+
     @Test fun nothingToFindOnUniformImage() {
         assertNull(DocScan.detect(IntArray(w * h) { rgb(128, 128, 128) }, w, h))
     }

@@ -335,6 +335,15 @@
     <string name="scan_unreadable">This photo cannot be read. Try again.</string>
     <string name="scan_failed">Processing failed. Try again with another photo.</string>
     <string name="scan_no_camera">No camera available: choose an image.</string>
+    <string name="scan_frame_hint">Place the document in the frame, lying flat.</string>
+    <string name="scan_hold">Document detected: hold still…</string>
+    <string name="scan_ready">Document detected: press the shutter.</string>
+    <string name="scan_auto_capture">Auto capture</string>
+    <string name="scan_shutter">Take the photo</string>
+    <string name="scan_permission">Pagio needs the camera to scan a document.</string>
+    <string name="scan_allow">Allow the camera</string>
+    <string name="scan_recrop">Adjust the edges</string>
+    <string name="scan_finish_n">Finish (%1$d)</string>
     <string name="search">Search</string>
     <string name="search_hint_ocr">No results. For a scanned document, run OCR first.</string>
     <string name="search_in_doc">Search the document</string>
