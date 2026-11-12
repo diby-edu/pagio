@@ -89,6 +89,25 @@ class DocScanTest {
         assertNotNull(q); assertCorners(corners, q!!)
     }
 
+    @Test fun wholeSheetInFrameIsSure() {
+        val corners = listOf(60f to 50f, 250f to 70f, 265f to 350f, 40f to 330f)
+        val d = DocScan.locate(photo(corners, rgb(60, 45, 35), rgb(235, 235, 230)), w, h)
+        assertNotNull(d); assertTrue("feuille entière et nette : la capture automatique doit être permise", d!!.sure)
+    }
+
+    /** Feuille à moitié hors de l'image : on peut proposer un cadre, mais jamais photographier tout seul. */
+    @Test fun sheetCutByTheFrameIsNeverSure() {
+        val corners = listOf(150f to 60f, 380f to 60f, 380f to 340f, 150f to 340f)
+        val d = DocScan.locate(photo(corners, rgb(60, 45, 35), rgb(235, 235, 230)), w, h)
+        assertTrue("feuille coupée : pas de capture automatique", d == null || !d.sure)
+    }
+
+    @Test fun sheetTouchingTheEdgeIsNeverSure() {
+        val corners = listOf(2f to 50f, 220f to 50f, 220f to 340f, 2f to 340f)
+        val d = DocScan.locate(photo(corners, rgb(60, 45, 35), rgb(235, 235, 230)), w, h)
+        assertTrue("feuille collée au bord : pas de capture automatique", d == null || !d.sure)
+    }
+
     @Test fun nothingToFindOnUniformImage() {
         assertNull(DocScan.detect(IntArray(w * h) { rgb(128, 128, 128) }, w, h))
     }

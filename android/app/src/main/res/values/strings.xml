@@ -337,6 +337,7 @@
     <string name="scan_no_camera">Aucun appareil photo disponible : choisissez une image.</string>
     <string name="scan_frame_hint">Placez le document dans le cadre, bien à plat.</string>
     <string name="scan_hold">Document détecté : ne bougez plus…</string>
+    <string name="scan_unsure">Montrez la feuille entière, avec ses quatre bords.</string>
     <string name="scan_ready">Document détecté : appuyez sur le déclencheur.</string>
     <string name="scan_auto_capture">Capture auto</string>
     <string name="scan_shutter">Prendre la photo</string>

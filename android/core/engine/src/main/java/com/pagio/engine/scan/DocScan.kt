@@ -34,6 +34,12 @@ data class Quad(val tl: Corner, val tr: Corner, val br: Corner, val bl: Corner) 
     }
 }
 
+/**
+ * Résultat d'une détection. [sure] n'est vrai que si les quatre bords de la feuille sont visibles d'un bout à
+ * l'autre et nettement à l'intérieur de l'image : c'est la condition pour photographier sans demander à l'utilisateur.
+ */
+data class Detection(val quad: Quad, val sure: Boolean)
+
 enum class ScanFilter { ORIGINAL, DOCUMENT, GRAY, BLACK_WHITE }
 
 /**
@@ -47,7 +53,10 @@ object DocScan {
      * Deux hypothèses sont essayées : la feuille est plus claire que le fond, ou elle diffère de la couleur
      * dominante des bords de l'image. Renvoie null si rien de crédible : l'utilisateur place alors les coins.
      */
-    fun detect(pixels: IntArray, w: Int, h: Int): Quad? {
+    fun detect(pixels: IntArray, w: Int, h: Int): Quad? = locate(pixels, w, h)?.quad
+
+    /** Comme [detect], avec en plus le degré de certitude (voir [Detection]). */
+    fun locate(pixels: IntArray, w: Int, h: Int): Detection? {
         if (w < 16 || h < 16 || pixels.size < w * h) return null
         val lum = blur(IntArray(w * h) { luminance(pixels[it]) }, w, h)
         // Méthode principale : les quatre bords droits de la feuille. Elle marche aussi quand la feuille n'est guère
@@ -56,7 +65,8 @@ object DocScan {
         val candidates = ArrayList<Pair<Quad, Float>>()
         candidate(brightMask(lum), w, h)?.let { candidates += it }
         candidate(borderDifferenceMask(pixels, w, h), w, h)?.let { candidates += it }
-        return candidates.maxByOrNull { it.second }?.first
+        // Les méthodes par zones devinent une forme approximative : jamais assez sûres pour déclencher seules.
+        return candidates.maxByOrNull { it.second }?.first?.let { Detection(it, false) }
     }
 
     // ------------------------------------------------------------------ Détection par les bords droits
@@ -73,7 +83,7 @@ object DocScan {
      * Cherche les contours (changements brusques de luminosité), en tire les droites les plus marquées (transformée
      * de Hough), puis retient le quadrilatère dont les quatre côtés suivent le mieux de vrais contours.
      */
-    private fun edgeQuad(source: IntArray, w: Int, h: Int): Quad? {
+    private fun edgeQuad(source: IntArray, w: Int, h: Int): Detection? {
         val n = w * h
         // Lissage supplémentaire : sans lui, un bord légèrement incliné apparaît comme un escalier de segments
         // horizontaux, et sa direction mesurée est fausse de plusieurs degrés.
@@ -156,7 +166,7 @@ object DocScan {
         // Paires de droites à peu près parallèles (côtés opposés), puis deux paires qui se croisent franchement.
         val pairs = ArrayList<Pair<Line, Line>>()
         for (i in lines.indices) for (j in i + 1 until lines.size) if (angleGap(lines[i].theta, lines[j].theta) <= 30) pairs += lines[i] to lines[j]
-        var best: List<Pair<Float, Float>>? = null; var bestScore = 0f
+        var best: List<Pair<Float, Float>>? = null; var bestScore = 0f; var bestMean = 0f; var bestComplete = 0f
         val supportCache = HashMap<Long, FloatArray>()
         for (i in pairs.indices) for (j in i + 1 until pairs.size) {
             val (a1, a2) = pairs[i]; val (b1, b2) = pairs[j]
@@ -168,7 +178,7 @@ object DocScan {
             val area = polygonArea(q)
             if (area < n * 0.10f) continue
             if (!plausible(q)) continue
-            var sum = 0f; var weakest = 1f; var gaps = 0
+            var sum = 0f; var weakest = 1f; var gaps = 0; var complete = 1f
             for (k in 0 until 4) {
                 val p1 = q[k]; val p2 = q[(k + 1) % 4]
                 val key = (p1.first.roundToInt().toLong() shl 48) or ((p1.second.roundToInt().toLong() and 0xFFFF) shl 32) or
@@ -176,6 +186,7 @@ object DocScan {
                 val s = supportCache.getOrPut(key) { sideSupport(p1, p2, mag, ang, threshold, w, h) }
                 sum += s[0]; if (s[0] < weakest) weakest = s[0]
                 if (s[1] < 0.25f) gaps++
+                if (s[1] < complete) complete = s[1]
             }
             val mean = sum / 4f
             if (weakest < 0.45f || mean < 0.6f) continue
@@ -185,12 +196,21 @@ object DocScan {
             if (gaps > 1) continue
             // À qualité de contour égale, le plus grand cadre l'emporte : les lignes de texte dessinent des cadres plus petits.
             val score = area * mean * mean
-            if (score > bestScore) { bestScore = score; best = q }
+            if (score > bestScore) { bestScore = score; best = q; bestMean = mean; bestComplete = complete }
         }
         val rough = best ?: return null
         val q = refine(rough, mag, ang, threshold, w, h)
         fun c(p: Pair<Float, Float>) = Corner((p.first / (w - 1f)).coerceIn(0f, 1f), (p.second / (h - 1f)).coerceIn(0f, 1f))
-        return Quad(c(q[0]), c(q[1]), c(q[2]), c(q[3])).takeIf { it.isConvex }
+        val quad = Quad(c(q[0]), c(q[1]), c(q[2]), c(q[3])).takeIf { it.isConvex } ?: return null
+        // Sûr : contours nets sur presque toute la longueur de chaque côté, aucun côté interrompu, et aucun coin collé
+        // au bord de l'image (une feuille coupée par le cadrage a forcément un coin au bord).
+        val inFrame = q.all { it.first > w * 0.03f && it.first < w * 0.97f && it.second > h * 0.03f && it.second < h * 0.97f }
+        val large = polygonArea(q) >= n * 0.18f
+        // La qualité est remesurée sur le cadre ajusté : le cadre brut, un peu décalé, la sous-estimerait.
+        var mean = 0f; var complete = 1f
+        for (k in 0 until 4) { val s = sideSupport(q[k], q[(k + 1) % 4], mag, ang, threshold, w, h); mean += s[0] / 4f; complete = min(complete, s[1]) }
+        mean = max(mean, bestMean); complete = max(complete, bestComplete)
+        return Detection(quad, mean >= 0.8f && complete >= 0.5f && inFrame && large)
     }
 
     /**

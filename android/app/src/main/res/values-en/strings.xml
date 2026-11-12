@@ -337,6 +337,7 @@
     <string name="scan_no_camera">No camera available: choose an image.</string>
     <string name="scan_frame_hint">Place the document in the frame, lying flat.</string>
     <string name="scan_hold">Document detected: hold still…</string>
+    <string name="scan_unsure">Show the whole sheet, with its four edges.</string>
     <string name="scan_ready">Document detected: press the shutter.</string>
     <string name="scan_auto_capture">Auto capture</string>
     <string name="scan_shutter">Take the photo</string>

@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -161,18 +162,28 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
     }
 
     // --- Scanner (ML Kit : détection des bords, recadrage, filtres) ------------------------
+    // Heure du dernier scan réussi [0] et du dernier appui sur « Scanner » [1].
+    val scanTimes = remember { longArrayOf(0L, 0L) }
     val scanner = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
         if (res.resultCode != Activity.RESULT_OK) {
+            // Un scan vient de réussir : ce second retour « sans document » (double appui, écran de Google fermé
+            // en deux temps) ne doit pas afficher de message d'échec par-dessus le document obtenu.
+            if (System.currentTimeMillis() - scanTimes[0] < 8000) return@rememberLauncherForActivityResult
             // Fermé sans résultat : abandon volontaire, ou écran d'erreur des services Google (« Une erreur s'est
             // produite »), que l'application ne peut pas distinguer. On propose donc le scanner de Pagio sans l'imposer.
             c.track("scan_closed", mapOf("ok" to false))
             scope.launch {
-                val r = snackbar.showSnackbar(context.getString(R.string.scanner_closed), context.getString(R.string.scanner_use_pagio))
+                // Durée courte imposée : un message doté d'un bouton reste sinon affiché sans fin, et se retrouvait
+                // encore à l'écran après un scan réussi fait juste ensuite.
+                val r = snackbar.showSnackbar(context.getString(R.string.scanner_closed), context.getString(R.string.scanner_use_pagio), duration = SnackbarDuration.Short)
                 if (r == SnackbarResult.ActionPerformed) nav.navigate("scan")
             }
             return@rememberLauncherForActivityResult
         }
         val result = GmsDocumentScanningResult.fromActivityResultIntent(res.data) ?: return@rememberLauncherForActivityResult
+        // Scan réussi : un éventuel message « fermé sans document » n'a plus lieu d'être.
+        scanTimes[0] = System.currentTimeMillis()
+        snackbar.currentSnackbarData?.dismiss()
         scope.launch {
             val pdf = result.pdf ?: return@launch
             val picked = c.workspace.import(pdf.uri, c.workspace.newOutputDir())
@@ -185,6 +196,10 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
     }
     fun startScan() {
         val activity = context as Activity
+        // Deux appuis rapprochés ouvriraient deux scanners l'un sur l'autre : le second est ignoré.
+        val tapped = System.currentTimeMillis()
+        if (tapped - scanTimes[1] < 1500) return
+        scanTimes[1] = tapped
         // Sans services Google Play utilisables (téléphone sans Google, services désactivés ou trop anciens), toute
         // tentative ferait apparaître une alerte de Google « Activer les services Google Play ». On ne les sollicite
         // donc pas : le scanner de Pagio s'ouvre directement.

@@ -121,7 +121,7 @@ fun ScanScreen(onBack: () -> Unit, onDone: (File) -> Unit) {
     var problem by remember { mutableStateOf<String?>(null) }
     var auto by rememberSaveable { mutableStateOf(true) }
     var shutter by remember { mutableIntStateOf(0) }
-    var inFrame by remember { mutableStateOf(false) }
+    var inFrame by remember { mutableIntStateOf(0) }
     var cameraBroken by remember { mutableStateOf(false) }
 
     var granted by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
@@ -230,7 +230,7 @@ fun ScanScreen(onBack: () -> Unit, onDone: (File) -> Unit) {
                 when (step) {
                     Step.CAMERA -> {
                         Text(
-                            stringResource(if (inFrame) (if (auto) R.string.scan_hold else R.string.scan_ready) else R.string.scan_frame_hint),
+                            stringResource(when { inFrame == 2 && auto -> R.string.scan_hold; inFrame == 2 -> R.string.scan_ready; inFrame == 1 -> R.string.scan_unsure; else -> R.string.scan_frame_hint }),
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
                         )

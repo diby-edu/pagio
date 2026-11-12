@@ -88,12 +88,14 @@ private fun blend(a: Quad, b: Quad): Quad {
 
 /**
  * Appareil photo en direct : l'image défile, le cadre suit la feuille, et la photo est prise à la demande
- * ([shutter] augmente à chaque appui sur le déclencheur) ou toute seule quand le cadre est stable ([auto]).
+ * ([shutter] augmente à chaque appui sur le déclencheur) ou toute seule ([auto]), mais seulement quand la feuille
+ * est entière dans l'image, ses quatre bords nets, et le cadre immobile depuis une seconde et demie.
+ * [onDetected] reçoit 0 (rien), 1 (cadre incertain, affiché en blanc) ou 2 (cadre sûr, affiché en vert).
  */
 @Composable
 fun LiveCamera(
     workDir: File, auto: Boolean, shutter: Int, modifier: Modifier = Modifier,
-    onDetected: (Boolean) -> Unit, onPhoto: (File) -> Unit, onFailure: () -> Unit,
+    onDetected: (Int) -> Unit, onPhoto: (File) -> Unit, onFailure: () -> Unit,
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
@@ -101,6 +103,7 @@ fun LiveCamera(
     val previewView = remember { PreviewView(context).apply { scaleType = PreviewView.ScaleType.FIT_CENTER; implementationMode = PreviewView.ImplementationMode.COMPATIBLE } }
     val capture = remember { ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY).build() }
     var quad by remember { mutableStateOf<Quad?>(null) }
+    var sure by remember { mutableStateOf(false) }
     var ratio by remember { mutableFloatStateOf(3f / 4f) }
     var ready by remember { mutableStateOf(false) }
     val autoNow by rememberUpdatedState(auto)
@@ -108,7 +111,7 @@ fun LiveCamera(
     val failure by rememberUpdatedState(onFailure)
     val detected by rememberUpdatedState(onDetected)
     // État du suivi, modifié uniquement sur le fil principal.
-    val track = remember { object { var steady = 0; var misses = 0; var taking = false } }
+    val track = remember { object { var misses = 0; var doubts = 0; var taking = false; var anchor: Quad? = null; var since = 0L } }
 
     fun take() {
         if (track.taking || !ready) return
@@ -143,23 +146,30 @@ fun LiveCamera(
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888).build()
                 analysis.setAnalyzer(executor) { image ->
-                    val result = runCatching { val f = readFrame(image); Triple(DocScan.detect(f.pixels, f.width, f.height), f.width, f.height) }.getOrNull()
+                    val result = runCatching { val f = readFrame(image); Triple(DocScan.locate(f.pixels, f.width, f.height), f.width, f.height) }.getOrNull()
                     image.close()
                     if (result != null) main.execute {
                         val (found, fw, fh) = result
                         ratio = fw.toFloat() / fh
                         val previous = quad
+                        val now = System.currentTimeMillis()
                         if (found == null) {
                             // Quelques images sans détection ne font pas disparaître le cadre : il clignoterait.
-                            if (++track.misses > 3) { quad = null; track.steady = 0 }
+                            if (++track.misses > 3) { quad = null; sure = false; track.anchor = null }
                         } else {
                             track.misses = 0
-                            if (previous != null && distance(previous, found) < 0.05f) { quad = blend(previous, found); track.steady++ }
-                            else { quad = found; track.steady = 0 }
+                            quad = if (previous != null && distance(previous, found.quad) < 0.05f) blend(previous, found.quad) else found.quad
+                            if (found.sure) {
+                                track.doubts = 0; sure = true
+                                // Le chronomètre repart dès que le cadre s'éloigne de sa position de départ : on mesure
+                                // une vraie immobilité, pas une lente dérive pendant que l'utilisateur cherche son cadrage.
+                                val anchor = track.anchor
+                                if (anchor == null || distance(anchor, found.quad) > 0.03f) { track.anchor = found.quad; track.since = now }
+                            } else if (++track.doubts > 2) { sure = false; track.anchor = null }
                         }
-                        detected(quad != null)
-                        // Cadre immobile depuis une dizaine d'images (environ une seconde) : la photo part toute seule.
-                        if (autoNow && track.steady >= 10 && !track.taking) { track.steady = 0; take() }
+                        detected(if (quad == null) 0 else if (sure) 2 else 1)
+                        // Photo automatique : uniquement sur un cadre sûr, resté immobile une seconde et demie.
+                        if (autoNow && sure && track.anchor != null && now - track.since >= 1500 && !track.taking) { track.anchor = null; take() }
                     }
                 }
                 p.unbindAll()
@@ -180,9 +190,11 @@ fun LiveCamera(
             val ox = (size.width - shownW) / 2f; val oy = (size.height - shownH) / 2f
             val pts = q.corners.map { Offset(ox + it.x * shownW, oy + it.y * shownH) }
             val path = Path().apply { moveTo(pts[0].x, pts[0].y); for (i in 1..3) lineTo(pts[i].x, pts[i].y); close() }
-            drawPath(path, accent.copy(alpha = 0.22f))
-            drawPath(path, accent, style = Stroke(width = 3.dp.toPx()))
-            pts.forEach { drawCircle(Color.White, 7.dp.toPx(), it); drawCircle(accent, 5.dp.toPx(), it) }
+            // Vert : feuille entière et nette, la photo peut partir. Blanc : cadre proposé, encore incertain.
+            val color = if (sure) Color(0xFF2EBD6B) else Color.White
+            drawPath(path, color.copy(alpha = if (sure) 0.22f else 0.10f))
+            drawPath(path, color, style = Stroke(width = (if (sure) 4 else 2).dp.toPx()))
+            pts.forEach { drawCircle(Color.White, 7.dp.toPx(), it); drawCircle(if (sure) color else accent, 5.dp.toPx(), it) }
         }
     }
 }
