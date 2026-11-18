@@ -175,7 +175,9 @@ collez la clé, l'adresse d'expéditeur et l'adresse publique du serveur, active
 - Sans e-mails activés, rien ne change : les demandes de mot de passe oublié apparaissent dans *Avis et support* et se traitent à la main.
 - Un envoi refusé par Brevo est inscrit dans *Erreurs du serveur* (source « email ») et signalé dans les alertes.
 - Aucune modification de l'application Android n'a été nécessaire : elle affiche le message renvoyé par le serveur.
-- Limite connue : changer son mot de passe ne déconnecte pas les téléphones déjà connectés (jetons valables 90 jours).
+- Un nouveau mot de passe (lien « mot de passe oublié » ou changement par un administrateur) déconnecte aussitôt tous les
+  téléphones connectés au compte : les badges émis avant le changement sont refusés (colonne `users.tokens_valid_after`).
+  L'application efface alors son badge et demande de se reconnecter.
 
 ## Surveillance
 
@@ -202,6 +204,6 @@ Système (état de la machine, alertes, purge), Mon compte et sécurité (mot de
 
 ## Tests
 
-`cd server && npm test` lance 17 tests (base en mémoire, aucun réseau) : parcours complet de l'API, sessions, double authentification,
+`cd server && npm test` lance 20 tests (base en mémoire, aucun réseau) : parcours complet de l'API, sessions, double authentification,
 chiffrement de la clé d'IA, limites, sauvegardes et restauration, surveillance, fiche utilisateur et actions groupées, e-mails
 (réglages, mot de passe oublié, confirmation d'adresse, alertes).

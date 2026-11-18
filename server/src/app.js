@@ -82,13 +82,17 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     db.prepare('INSERT INTO plan_history (ts, user_id, actor, old_plan, new_plan, premium_until, reason) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(Date.now(), userId, actor ?? null, oldPlan, newPlan, until ?? null, reason ?? null);
 
+  // Les badges sont datés à la seconde près : on arrondit pour qu'une connexion faite juste après reste valable.
+  const validAfterNow = () => Math.floor(Date.now() / 1000) * 1000;
   const bearer = (req) => (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || null;
 
   function userAuth(required) {
     return (req, res, next) => {
       const p = verifyToken(bearer(req), secret);
       if (p?.kind === 'user') {
-        const u = db.prepare('SELECT * FROM users WHERE id = ?').get(p.sub);
+        let u = db.prepare('SELECT * FROM users WHERE id = ?').get(p.sub);
+        // Badge émis avant un changement de mot de passe : il ne vaut plus rien, le téléphone doit se reconnecter.
+        if (u && (p.iat || 0) * 1000 < (u.tokens_valid_after || 0)) u = null;
         if (u && !u.banned) {
           req.user = effective(u);
           db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Date.now(), u.id);
@@ -148,7 +152,9 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (!u) return "Ce lien a expiré ou a déjà été utilisé. Refaites une demande depuis l'application.";
     if (String(password || '').length < 8) return 'Le mot de passe doit contenir au moins 8 caractères.';
     // Recevoir le lien prouve aussi que l'adresse appartient bien à l'utilisateur.
-    db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires = NULL, email_verified = 1, verify_token = NULL WHERE id = ?').run(hashPassword(String(password)), u.id);
+    // Le nouveau mot de passe déconnecte tous les téléphones : un voleur du compte perd l'accès tout de suite.
+    db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires = NULL, email_verified = 1, verify_token = NULL, tokens_valid_after = ? WHERE id = ?')
+      .run(hashPassword(String(password)), validAfterNow(), u.id);
     return null;
   }
 
@@ -575,6 +581,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (b.password) {
       if (String(b.password).length < 8) return fail(res, 400, 'Mot de passe : 8 caractères minimum');
       changes.password_hash = hashPassword(String(b.password));
+      changes.tokens_valid_after = validAfterNow();
     }
     const keys = Object.keys(changes);
     if (keys.length === 0) return fail(res, 400, 'Aucune modification');
@@ -582,7 +589,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const newPlan = changes.plan ?? u.plan;
     const newUntil = 'premium_until' in changes ? changes.premium_until : u.premium_until;
     if (newPlan !== u.plan || newUntil !== u.premium_until) planChange(u.id, req.admin.email, u.plan, newPlan, newUntil, b.reason ? String(b.reason).slice(0, 200) : null);
-    const logged = { ...changes }; if (logged.password_hash) { delete logged.password_hash; logged.password = 'réinitialisé'; }
+    const logged = { ...changes }; delete logged.tokens_valid_after; if (logged.password_hash) { delete logged.password_hash; logged.password = 'réinitialisé'; }
     audit(req.admin, 'user.update', u.email, logged);
     ok(res, { user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(u.id)) });
   });

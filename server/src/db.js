@@ -125,6 +125,8 @@ export function openDb(file) {
   addColumn('admins', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('admins', 'recovery_codes', 'TEXT');
   addColumn('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0');
+  // Moment (ms) avant lequel les badges de connexion de ce compte ne valent plus : nouveau mot de passe, etc.
+  addColumn('users', 'tokens_valid_after', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('users', 'verify_token', 'TEXT');
   addColumn('users', 'verify_expires', 'INTEGER');
   seedTools(db);
