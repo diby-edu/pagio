@@ -125,6 +125,14 @@
     <string name="d_verify_sign">Contrôlez l\'intégrité des signatures numériques</string>
     <string name="d_watermark">Texte ou image, position, transparence</string>
     <string name="delete">Supprimer</string>
+    <string name="more_options">Plus d’options</string>
+    <string name="rename">Renommer</string>
+    <string name="renamed_to">Renommé : %1$s</string>
+    <string name="rename_failed">Impossible de renommer ce fichier.</string>
+    <string name="delete_file_title">Supprimer ce document ?</string>
+    <string name="delete_file_text">« %1$s » sera effacé du téléphone. Cette action est définitive.</string>
+    <string name="clear_history_title">Vider la liste ?</string>
+    <string name="clear_history_text">La liste de vos opérations sera effacée. Les documents ne seront plus visibles ici, mais ceux déjà enregistrés dans Téléchargements ou partagés restent intacts.</string>
     <string name="delete_account">Supprimer mon compte</string>
     <string name="delete_account_d">Votre compte et ses données seront supprimés du serveur. Les fichiers sur ce téléphone sont conservés. Action définitive.</string>
     <string name="digital_sign_info">La signature numérique garantit que le document n\'a pas été modifié après signature. Un certificat auto-signé prouve l\'intégrité ; pour une valeur juridique qualifiée, importez un certificat délivré par une autorité.</string>
@@ -315,6 +323,10 @@
     <string name="scanner_closed">Le scanner s\'est fermé sans document.</string>
     <string name="scanner_use_pagio">Scanner Pagio</string>
     <string name="scan_title">Scanner</string>
+    <string name="scan_name_title">Nommer le document</string>
+    <string name="scan_name_label">Nom du document</string>
+    <string name="scan_name_pages">%1$d page(s) numérisée(s)</string>
+    <string name="scan_saved_as">Enregistré dans Fichiers : %1$s</string>
     <string name="scan_title_pages">Scanner · page %1$d</string>
     <string name="scan_gallery">Choisir une image</string>
     <string name="scan_retake">Reprendre la photo</string>

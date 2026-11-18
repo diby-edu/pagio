@@ -125,6 +125,14 @@
     <string name="d_verify_sign">Check digital signature integrity</string>
     <string name="d_watermark">Text or image, position, transparency</string>
     <string name="delete">Delete</string>
+    <string name="more_options">More options</string>
+    <string name="rename">Rename</string>
+    <string name="renamed_to">Renamed: %1$s</string>
+    <string name="rename_failed">This file could not be renamed.</string>
+    <string name="delete_file_title">Delete this document?</string>
+    <string name="delete_file_text">“%1$s” will be erased from the phone. This cannot be undone.</string>
+    <string name="clear_history_title">Clear the list?</string>
+    <string name="clear_history_text">Your activity list will be cleared. The documents will no longer appear here, but those already saved in Downloads or shared stay intact.</string>
     <string name="delete_account">Delete my account</string>
     <string name="delete_account_d">Your account and its data will be deleted from the server. Files on this phone are kept. This cannot be undone.</string>
     <string name="digital_sign_info">A digital signature guarantees the document hasn\'t changed since signing. A self-signed certificate proves integrity; for qualified legal value, import a certificate from an authority.</string>
@@ -315,6 +323,10 @@
     <string name="scanner_closed">The scanner closed without a document.</string>
     <string name="scanner_use_pagio">Pagio scanner</string>
     <string name="scan_title">Scanner</string>
+    <string name="scan_name_title">Name the document</string>
+    <string name="scan_name_label">Document name</string>
+    <string name="scan_name_pages">%1$d page(s) scanned</string>
+    <string name="scan_saved_as">Saved in Files: %1$s</string>
     <string name="scan_title_pages">Scanner · page %1$d</string>
     <string name="scan_gallery">Choose an image</string>
     <string name="scan_retake">Retake photo</string>

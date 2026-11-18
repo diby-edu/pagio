@@ -71,6 +71,24 @@ class HistoryDb(context: Context) : SQLiteOpenHelper(context, "pagio.db", null, 
             refresh(); id
         }
 
+    /**
+     * Renomme un fichier produit (même dossier, même extension) et met l'historique à jour.
+     * Si le nom est déjà pris, « (2) », « (3) »… sont ajoutés. Renvoie le nouveau fichier, ou null en cas d'échec.
+     */
+    suspend fun renameOutput(id: Long, file: File, newBase: String): File? = withContext(Dispatchers.IO) {
+        val entry = _entries.value.firstOrNull { it.id == id } ?: return@withContext null
+        val ext = file.extension.let { if (it.isEmpty()) "" else ".$it" }
+        var target = File(file.parentFile, newBase + ext); var i = 2
+        while (target.exists() && target.absolutePath != file.absolutePath) { target = File(file.parentFile, "$newBase ($i)$ext"); i++ }
+        if (target.absolutePath != file.absolutePath && !file.renameTo(target)) return@withContext null
+        val outputs = entry.outputs.map { if (it.absolutePath == file.absolutePath) target else it }
+        writableDatabase.update("history", ContentValues().apply {
+            put("outputs", JSONArray(outputs.map { it.absolutePath }).toString())
+            if (entry.outputs.size == 1) put("title", target.name)
+        }, "id = ?", arrayOf(id.toString()))
+        refresh(); target
+    }
+
     suspend fun delete(id: Long, deleteFiles: Boolean) = withContext(Dispatchers.IO) {
         if (deleteFiles) _entries.value.firstOrNull { it.id == id }?.outputs?.forEach { it.delete() }
         writableDatabase.delete("history", "id = ?", arrayOf(id.toString()))

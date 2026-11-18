@@ -44,6 +44,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -86,7 +90,9 @@ import com.pagio.app.ui.settings.AiSettingsScreen
 import com.pagio.app.ui.settings.ServerSettingsScreen
 import com.pagio.app.ui.settings.SettingsScreen
 import com.pagio.app.ui.theme.PagioTheme
+import com.pagio.app.ui.scan.ScanNameDialog
 import com.pagio.app.ui.scan.ScanScreen
+import com.pagio.app.ui.scan.renameScan
 import com.pagio.app.ui.tool.Handoff
 import com.pagio.app.ui.tool.ToolScreen
 import com.pagio.app.ui.viewer.ViewerScreen
@@ -162,6 +168,11 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
     }
 
     // --- Scanner (ML Kit : détection des bords, recadrage, filtres) ------------------------
+    // Scan validé en attente de son nom : chemin du PDF et nombre de pages. Conservé si Android ferme l'application.
+    var namingPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var namingPages by rememberSaveable { mutableIntStateOf(0) }
+    fun askScanName(file: File, pages: Int) { namingPages = pages; namingPath = file.absolutePath }
+
     // Heure du dernier scan réussi [0] et du dernier appui sur « Scanner » [1].
     val scanTimes = remember { longArrayOf(0L, 0L) }
     val scanner = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
@@ -187,11 +198,8 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
         scope.launch {
             val pdf = result.pdf ?: return@launch
             val picked = c.workspace.import(pdf.uri, c.workspace.newOutputDir())
-            val target = File(picked.file.parentFile, "scan_" + java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.ROOT).format(java.util.Date()) + ".pdf")
-            picked.file.renameTo(target)
-            c.history.add("scan", target.name, true, emptyList(), listOf(target), "${pdf.pageCount} page(s) numérisée(s)", 0)
-            c.track("scan", mapOf("pages" to pdf.pageCount))
-            nav.navigate(viewerRoute(target))
+            c.track("scan", mapOf("pages" to pdf.pageCount, "engine" to "google"))
+            askScanName(picked.file, pdf.pageCount)
         }
     }
     fun startScan() {
@@ -303,7 +311,7 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
             composable("ai") { AiSettingsScreen { nav.popBackStack() } }
             composable("server") { ServerSettingsScreen { nav.popBackStack() } }
             composable("about") { AboutScreen { nav.popBackStack() } }
-            composable("scan") { ScanScreen(onBack = { nav.popBackStack() }, onDone = { f -> nav.popBackStack(); nav.navigate(viewerRoute(f)) }) }
+            composable("scan") { ScanScreen(onBack = { nav.popBackStack() }, onDone = { f, n -> nav.popBackStack(); askScanName(f, n) }) }
             composable("viewer?path={path}", arguments = listOf(navArgument("path") { type = NavType.StringType })) { entry ->
                 val path = URLDecoder.decode(entry.arguments?.getString("path") ?: "", "UTF-8")
                 ViewerScreen(File(path), onBack = { nav.popBackStack() }, onTool = ::openTool)
@@ -320,6 +328,21 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
                     Screen.ASSISTANT -> AssistantScreen(tool, back) { nav.navigate("ai") }
                     else -> ToolScreen(tool, back, open, cont)
                 }
+            }
+        }
+    }
+
+    // Après chaque scan : nommer le document, l'enregistrer dans Fichiers, puis y aller.
+    namingPath?.let { path ->
+        ScanNameDialog(namingPages) { name ->
+            namingPath = null
+            scope.launch {
+                val source = File(path)
+                if (!source.exists()) return@launch
+                val saved = withContext(Dispatchers.IO) { renameScan(source, name) }
+                c.history.add("scan", saved.name, true, emptyList(), listOf(saved), "${namingPages} page(s) numérisée(s)", 0)
+                nav.navigate("files") { popUpTo("home") { saveState = true }; launchSingleTop = true }
+                snackbar.showSnackbar(context.getString(R.string.scan_saved_as, saved.name), duration = SnackbarDuration.Short)
             }
         }
     }

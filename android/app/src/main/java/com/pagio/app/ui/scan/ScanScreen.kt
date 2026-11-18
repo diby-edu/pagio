@@ -101,7 +101,7 @@ private enum class Step { CAMERA, CROP, PREVIEW }
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScanScreen(onBack: () -> Unit, onDone: (File) -> Unit) {
+fun ScanScreen(onBack: () -> Unit, onDone: (File, Int) -> Unit) {
     val context = LocalContext.current
     val c = context.container
     val scope = rememberCoroutineScope()
@@ -180,10 +180,10 @@ fun ScanScreen(onBack: () -> Unit, onDone: (File) -> Unit) {
             val target = File(c.workspace.newOutputDir(), "scan_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ROOT).format(Date()) + ".pdf")
             val r = withContext(Dispatchers.IO) { runCatching { PdfCreate.imagesToPdf(pages.toList(), ImagePdfOptions(), target) } }
             if (r.isFailure) { busy = false; backToCamera(); problem = context.getString(R.string.scan_failed); return@launch }
-            c.history.add("scan", target.name, true, emptyList(), listOf(target), "${pages.size} page(s) numérisée(s)", System.currentTimeMillis() - started)
-            c.track("scan", mapOf("pages" to pages.size, "engine" to "pagio"))
+            // L'historique (écran Fichiers) est rempli après que l'utilisateur a nommé le document.
+            c.track("scan", mapOf("pages" to pages.size, "engine" to "pagio", "ms" to (System.currentTimeMillis() - started)))
             busy = false
-            onDone(target)
+            onDone(target, pages.size)
         }
     }
 

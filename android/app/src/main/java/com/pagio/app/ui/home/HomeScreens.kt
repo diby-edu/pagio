@@ -27,12 +27,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DriveFileRenameOutline
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -226,6 +234,41 @@ fun FilesScreen(onOpenFile: (File) -> Unit, onTool: (Tool) -> Unit) {
     val history by c.history.entries.collectAsState()
     val scope = rememberCoroutineScope()
     val fmt = remember { SimpleDateFormat("dd MMM yyyy · HH:mm", Locale.FRANCE) }
+    var menuFor by remember { mutableStateOf<Long?>(null) }
+    var renaming by remember { mutableStateOf<Pair<Long, File>?>(null) }
+    var deleting by remember { mutableStateOf<com.pagio.app.data.HistoryEntry?>(null) }
+    var clearing by remember { mutableStateOf(false) }
+
+    renaming?.let { (id, file) ->
+        RenameDialog(file, onDismiss = { renaming = null }) { name ->
+            renaming = null
+            scope.launch {
+                val done = c.history.renameOutput(id, file, name)
+                android.widget.Toast.makeText(ctx, if (done != null) ctx.getString(R.string.renamed_to, done.name) else ctx.getString(R.string.rename_failed), android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    deleting?.let { e ->
+        val names = e.existingOutputs.joinToString(", ") { it.name }.ifEmpty { e.title }
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text(stringResource(R.string.delete_file_title)) },
+            text = { Text(stringResource(R.string.delete_file_text, names)) },
+            confirmButton = {
+                TextButton(onClick = { deleting = null; scope.launch { c.history.delete(e.id, deleteFiles = true) } }) {
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    if (clearing) AlertDialog(
+        onDismissRequest = { clearing = false },
+        title = { Text(stringResource(R.string.clear_history_title)) },
+        text = { Text(stringResource(R.string.clear_history_text)) },
+        confirmButton = { TextButton(onClick = { clearing = false; scope.launch { c.history.clear(deleteFiles = false) } }) { Text(stringResource(R.string.clear_history)) } },
+        dismissButton = { TextButton(onClick = { clearing = false }) { Text(stringResource(R.string.cancel)) } },
+    )
     androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -233,7 +276,7 @@ fun FilesScreen(onOpenFile: (File) -> Unit, onTool: (Tool) -> Unit) {
                     Text(stringResource(R.string.nav_files), style = MaterialTheme.typography.headlineMedium)
                     Text(stringResource(R.string.files_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (history.isNotEmpty()) TextButton(onClick = { scope.launch { c.history.clear(deleteFiles = false) } }) { Text(stringResource(R.string.clear_history)) }
+                if (history.isNotEmpty()) TextButton(onClick = { clearing = true }) { Text(stringResource(R.string.clear_history)) }
             }
         }
         if (history.isEmpty()) item {
@@ -252,7 +295,28 @@ fun FilesScreen(onOpenFile: (File) -> Unit, onTool: (Tool) -> Unit) {
                             Text(tool?.let { stringResource(it.title) } ?: e.toolId, style = MaterialTheme.typography.titleSmall)
                             Text(fmt.format(e.createdAt) + " · " + (e.durationMs / 1000.0).let { "%.1f s".format(Locale.FRANCE, it) }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        IconButton(onClick = { scope.launch { c.history.delete(e.id, deleteFiles = true) } }) { Icon(Icons.Outlined.Close, stringResource(R.string.delete)) }
+                        // Plus de croix qui supprimait d'un seul appui : un menu, et une confirmation avant de supprimer.
+                        Box {
+                            IconButton(onClick = { menuFor = e.id }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.more_options)) }
+                            DropdownMenu(expanded = menuFor == e.id, onDismissRequest = { menuFor = null }) {
+                                val files = e.existingOutputs
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.rename)) }, leadingIcon = { Icon(Icons.Outlined.DriveFileRenameOutline, null) },
+                                    enabled = files.size == 1,
+                                    onClick = { menuFor = null; renaming = e.id to files.first() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.share)) }, leadingIcon = { Icon(Icons.Outlined.Share, null) },
+                                    enabled = files.isNotEmpty(),
+                                    onClick = { menuFor = null; runCatching { ctx.startActivity(c.workspace.shareIntent(files)) } },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = { menuFor = null; deleting = e },
+                                )
+                            }
+                        }
                     }
                     Text(e.message ?: "", style = MaterialTheme.typography.bodySmall, color = if (e.success) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
                     e.existingOutputs.forEach { f ->
@@ -268,4 +332,30 @@ fun FilesScreen(onOpenFile: (File) -> Unit, onTool: (Tool) -> Unit) {
             }
         }
     }
+}
+
+/** Renommer un fichier : seul le nom est modifiable, l'extension (.pdf, .docx…) est conservée. */
+@Composable
+private fun RenameDialog(file: File, onDismiss: () -> Unit, onRename: (String) -> Unit) {
+    val current = file.nameWithoutExtension
+    var value by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(current, androidx.compose.ui.text.TextRange(0, current.length))) }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    val clean = com.pagio.app.ui.scan.cleanFileName(value.text, current)
+    val submit = { if (clean != current) onRename(clean) else onDismiss() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.rename)) },
+        text = {
+            OutlinedTextField(
+                value, { value = it }, Modifier.focusRequester(focus), singleLine = true,
+                label = { Text(stringResource(R.string.scan_name_label)) },
+                suffix = { if (file.extension.isNotEmpty()) Text("." + file.extension) },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { submit() }),
+            )
+        },
+        confirmButton = { TextButton(onClick = submit, enabled = value.text.isNotBlank()) { Text(stringResource(R.string.rename)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
