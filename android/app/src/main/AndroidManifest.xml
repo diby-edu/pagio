@@ -32,11 +32,15 @@
         android:theme="@style/Theme.Pagio"
         tools:targetApi="36">
 
+        <!-- configChanges : tourner le téléphone, sortir le clavier ou plier l'écran ne recrée pas l'écran. Sans cela,
+             Android effaçait les travaux en cours (annotations de l'éditeur, fenêtres ouvertes, texte saisi).
+             L'interface Compose s'adapte d'elle-même à la nouvelle taille. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density"
             android:theme="@style/Theme.Pagio">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
