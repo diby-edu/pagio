@@ -10,6 +10,8 @@ export default function Admins({ admin }: { admin: Admin }) {
   const [error, setError] = useState<string | null>(null);
   const [flash, show] = useFlash();
   const [email, setEmail] = useState(''); const [name, setName] = useState(''); const [password, setPassword] = useState(''); const [role, setRole] = useState<Role>('support');
+  // Nouveau mot de passe d'un collègue : saisi dans un champ masqué (une fenêtre prompt() l'affichait en clair).
+  const [resetFor, setResetFor] = useState<number | null>(null); const [resetPw, setResetPw] = useState('');
   const load = () => api<{ admins: Row[] }>('GET', '/api/admin/admins').then((r) => setRows(r.admins)).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
   const patch = async (id: number, body: object, msg: string) => { try { await api('PATCH', `/api/admin/admins/${id}`, body); show(msg); load(); } catch (e) { show((e as Error).message, 'error'); } };
@@ -31,7 +33,15 @@ export default function Admins({ admin }: { admin: Admin }) {
                 <td>{r.totp_enabled ? <Badge tone="teal">active</Badge> : <Badge tone="coral">inactive</Badge>}</td>
                 <td>{fmtDate(r.last_login)}</td>
                 <td><div className="row gap wrap">
-                  <button className="btn small" onClick={() => { const p = prompt('Nouveau mot de passe (10 caractères minimum). Les sessions ouvertes de cette personne seront fermées.'); if (p) patch(r.id, { password: p }, 'Mot de passe réinitialisé'); }}>Mot de passe…</button>
+                  {resetFor === r.id ? (<>
+                    <input type="password" autoComplete="new-password" aria-label={`Nouveau mot de passe pour ${r.email}`} placeholder="Nouveau (10+)" autoFocus
+                      value={resetPw} onChange={(e) => setResetPw(e.target.value)} />
+                    <button className="btn small primary" disabled={resetPw.length < 10}
+                      onClick={() => { patch(r.id, { password: resetPw }, 'Mot de passe réinitialisé, sessions de cette personne fermées'); setResetFor(null); setResetPw(''); }}>Valider</button>
+                    <button className="btn small ghost" onClick={() => { setResetFor(null); setResetPw(''); }}>Annuler</button>
+                  </>) : (
+                    <button className="btn small" onClick={() => { setResetFor(r.id); setResetPw(''); }}>Mot de passe…</button>
+                  )}
                   {!!r.totp_enabled && r.id !== admin.id && <button className="btn small danger" onClick={() => { if (confirm(`Retirer la double authentification de ${r.email} ? À faire uniquement si cette personne a perdu son téléphone ; elle devra la réactiver.`)) patch(r.id, { reset_2fa: true }, 'Double authentification retirée'); }}>Retirer la 2FA</button>}
                 </div></td>
               </tr>))}
@@ -43,7 +53,7 @@ export default function Admins({ admin }: { admin: Admin }) {
         <div className="grid2">
           <Field label="E-mail"><input value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
           <Field label="Nom"><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-          <Field label="Mot de passe initial" hint="10 caractères minimum."><input value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+          <Field label="Mot de passe initial" hint="10 caractères minimum."><input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
           <Field label="Rôle"><select value={role} onChange={(e) => setRole(e.target.value as Role)}>{(Object.keys(ROLE_LABEL) as Role[]).map((k) => <option key={k} value={k}>{ROLE_LABEL[k]}</option>)}</select></Field>
         </div>
         <button className="btn primary" onClick={async () => {

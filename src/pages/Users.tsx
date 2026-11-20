@@ -162,7 +162,7 @@ function UserPanel({ user, canEdit, onClose, onChanged, onError }: {
         {canEdit && <>
           <h4>Sécurité</h4>
           <div className="row gap wrap">
-            <input type="text" placeholder="Nouveau mot de passe (8+)" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input type="password" autoComplete="new-password" aria-label="Nouveau mot de passe" placeholder="Nouveau mot de passe (8+)" value={password} onChange={(e) => setPassword(e.target.value)} />
             <button className="btn" disabled={password.length < 8} onClick={() => { patch({ password }, 'Mot de passe réinitialisé'); setPassword(''); }}>Réinitialiser</button>
           </div>
           <div className="row gap wrap" style={{ marginTop: 12 }}>
@@ -214,7 +214,7 @@ function CreateUser({ onClose, onCreated }: { onClose: () => void; onCreated: ()
         <header className="card-head"><h3>Nouvel utilisateur</h3><button className="btn ghost" onClick={onClose}>✕</button></header>
         <Field label="E-mail"><input value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Nom"><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-        <Field label="Mot de passe" hint="8 caractères minimum, à communiquer à l'utilisateur."><input value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+        <Field label="Mot de passe" hint="8 caractères minimum, à communiquer à l'utilisateur."><input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
         <Field label="Offre"><select value={plan} onChange={(e) => setPlan(e.target.value)}><option value="free">Gratuit</option><option value="premium">Premium</option></select></Field>
         {error && <Alert>{error}</Alert>}
         <button className="btn primary wide" onClick={async () => {

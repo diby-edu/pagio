@@ -49,27 +49,44 @@ Hébergeurs adaptés : un petit VPS (2 Go de RAM suffisent pour démarrer : OVHc
 Railway, Render ou Fly.io (avec un volume persistant pour `/data`).
 
 Puis compilez l'application avec cette adresse :
-`./gradlew assembleRelease -Ppagio.serverUrl=https://api.pagio.app`
+`./gradlew assembleRelease -Ppagio.serverUrl=https://pagio.site`
 
 ## Installation en service (depuis le 10/11/2026)
 
 | Élément | Valeur |
 |---|---|
-| Adresse | `https://pagio.hebergementci.com` (tableau de bord et API) |
+| Adresses | `https://pagio.site` (et `www`, et l'ancienne `pagio.hebergementci.com`) : site public, API de l'application, pages des liens e-mail. **Le tableau de bord et `/api/admin` n'y existent pas** (404, y compris en majuscules) |
+| Tableau de bord | `https://admin.pagio.site`, **seulement pour les appareils autorisés** (certificat client) : sans certificat, la connexion est coupée sans rien afficher |
+| Domaine | `pagio.site`, acheté chez Hostinger : `A @ → 72.62.148.170`, `A admin → 72.62.148.170`, `CNAME www → pagio.site` (aucun MX/TXT pour l'instant) |
 | Machine | VPS Ubuntu 22.04, partagé avec d'autres sites : ne toucher ni à leur Nginx, ni à PM2, ni au Node.js du système |
 | Conteneur Docker | `pagio` (image `pagio-server:latest`), redémarrage automatique, mémoire limitée à 1,2 Go |
 | Port | `127.0.0.1:8787` uniquement (jamais ouvert au public ; le pare-feu n'a pas été modifié) |
 | Code | `/var/www/pagio/app` (copie des fichiers suivis par Git) |
 | Données | `/var/www/pagio/data` : `pagio.db`, `jwt-secret.key`, `secrets.key`, `backups/` |
-| Nginx | un seul fichier, `/etc/nginx/sites-available/pagio` (modèle : `server/deploy/nginx-pagio.conf`) |
-| HTTPS | certificat Let's Encrypt géré par Certbot, renouvelé automatiquement |
-| Réglage | `TRUST_PROXY=1` |
+| Nginx | `/etc/nginx/sites-available/pagio` (un bloc par domaine) + `/etc/nginx/snippets/pagio-public.conf` et `pagio-proxy.conf` (modèles dans `server/deploy/`) ; site public statique dans `/var/www/pagio/site` (`server/deploy/site/`) |
+| HTTPS | certificats Let's Encrypt `pagio.site` (pagio.site + www) et `pagio.hebergementci.com`, gérés par Certbot, renouvelés automatiquement |
+| Réglages | `TRUST_PROXY=1`, `PUBLIC_URL=https://pagio.site` (adresse des liens envoyés par e-mail) |
+
+### Appareils autorisés (admin.pagio.site)
+
+Autorité privée dans `/root/pagio-admin-ca` (copie hors du serveur : clé USB), liste dans `/etc/nginx/pagio-admin-appareils.conf`.
+Outil : `/root/admin-appareils.sh` (source : `server/deploy/admin-appareils.sh`).
+
+```
+ssh root@72.62.148.170 "sh /root/admin-appareils.sh liste"
+ssh root@72.62.148.170 "sh /root/admin-appareils.sh nouveau telephone"    # crée /root/pagio-admin-ca/appareils/telephone.p12 + .code
+ssh root@72.62.148.170 "sh /root/admin-appareils.sh retirer telephone"    # refusé immédiatement
+```
+
+Installer sur Windows : double-clic sur le `.p12` → Utilisateur actuel → code → « Placer tous les certificats dans le magasin suivant » → **Personnel**
+(ne pas installer d'autorité racine). Fermer complètement Chrome, puis ouvrir `https://admin.pagio.site` et choisir le certificat.
+Appareil `pc-bureau` autorisé le 20/11/2026.
 
 Mettre à jour le serveur après une modification du code (à lancer depuis l'ordinateur, dossier du projet) :
 
 ```
 git archive HEAD package.json package-lock.json index.html vite.config.ts tsconfig.json src public server | ssh root@72.62.148.170 "tar -x -C /var/www/pagio/app"
-ssh root@72.62.148.170 "cd /var/www/pagio/app && docker build -f server/Dockerfile -t pagio-server:latest . && docker rm -f pagio && docker run -d --name pagio --restart unless-stopped --memory 1200m -p 127.0.0.1:8787:8787 -v /var/www/pagio/data:/data -e TRUST_PROXY=1 pagio-server:latest"
+ssh root@72.62.148.170 "cd /var/www/pagio/app && docker build -f server/Dockerfile -t pagio-server:latest . && docker rm -f pagio && docker run -d --name pagio --restart unless-stopped --memory 1200m -p 127.0.0.1:8787:8787 -v /var/www/pagio/data:/data -e TRUST_PROXY=1 -e PUBLIC_URL=https://pagio.site pagio-server:latest"
 ```
 
 Créez d'abord une sauvegarde manuelle dans le tableau de bord. Les données ne sont pas dans le conteneur : elles survivent à son remplacement.

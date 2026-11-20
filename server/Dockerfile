@@ -14,13 +14,15 @@ RUN npm run build
 FROM node:24-bookworm-slim
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc libreoffice-impress fonts-dejavu fonts-liberation \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd --system --uid 1500 --no-create-home --shell /usr/sbin/nologin conversion
 WORKDIR /srv/pagio
 COPY server/package.json server/package-lock.json* ./
 RUN npm ci --omit=dev --no-audit --no-fund || npm install --omit=dev --no-audit --no-fund
 COPY server/src ./src
 COPY --from=dashboard /build/dist ./dist
-ENV PORT=8787 DATA_DIR=/data DIST_DIR=/srv/pagio/dist SOFFICE_PATH=soffice NODE_ENV=production
+# LibreOffice est lancé sous le compte « conversion » (sans droits, sans accès à /data).
+ENV PORT=8787 DATA_DIR=/data DIST_DIR=/srv/pagio/dist SOFFICE_PATH=soffice SOFFICE_UID=1500 NODE_ENV=production
 VOLUME ["/data"]
 EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

@@ -38,8 +38,12 @@ export interface Stats {
 const KEY_URL = 'pagio.admin.server';
 const KEY_TOKEN = 'pagio.admin.token';
 
-/** Adresse du serveur : celle qui sert le tableau de bord, sinon celle enregistrée, sinon localhost. */
+/** Le choix du serveur n'existe qu'en développement (tableau de bord lancé par Vite sur l'ordinateur). */
+export const serverChoice = import.meta.env.DEV;
+
+/** Adresse du serveur : en ligne, toujours celle qui sert le tableau de bord ; en développement, celle enregistrée, sinon localhost. */
 export function defaultServer(): string {
+  if (!serverChoice && location.protocol.startsWith('http')) return location.origin;
   const saved = localStorage.getItem(KEY_URL);
   if (saved) return saved;
   // Servi par le serveur Pagio lui-même : l'API est à la même adresse.

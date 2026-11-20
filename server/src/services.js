@@ -87,8 +87,13 @@ export async function convertWithLibreOffice(buffer, originalName, target) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pagio-conv-'));
   const safe = path.basename(originalName || 'document').replace(/[^\p{L}\p{N}._ -]/gu, '_').slice(0, 120) || 'document';
   const input = path.join(dir, safe);
+  // Dans l'image Docker, LibreOffice tourne sous un compte sans droits (SOFFICE_UID) : un document piégé exploitant
+  // une faille de LibreOffice ne pourrait lire ni la base ni les clés (/data, réservé à root).
+  const uid = Number(process.env.SOFFICE_UID) || 0;
+  const asUser = uid > 0 && process.getuid?.() === 0 ? { uid, gid: uid, env: { PATH: process.env.PATH, HOME: dir } } : {};
   try {
     fs.writeFileSync(input, buffer);
+    if (asUser.uid) { fs.chownSync(dir, uid, uid); fs.chownSync(input, uid, uid); }
     const args = ['--headless', '--norestore', `-env:UserInstallation=file:///${dir.replace(/\\/g, '/')}/profile`];
     // Un PDF s'ouvre par défaut dans Draw, qui n'exporte ni Word ni PowerPoint : on force le bon module.
     const isPdf = /\.pdf$/i.test(safe);
@@ -96,7 +101,7 @@ export async function convertWithLibreOffice(buffer, originalName, target) {
     if (isPdf && target === 'docx') args.push('--infilter=writer_pdf_import');
     if (isPdf && target === 'pptx') args.push('--infilter=impress_pdf_import');
     args.push('--convert-to', filter, '--outdir', dir, input);
-    await new Promise((res, rej) => execFile(sofficePath, args, { timeout: 180_000 }, (err, _o, stderr) => (err ? rej(new Error(`Conversion impossible : ${stderr || err.message}`)) : res())));
+    await new Promise((res, rej) => execFile(sofficePath, args, { timeout: 180_000, ...asUser }, (err, _o, stderr) => (err ? rej(new Error(`Conversion impossible : ${stderr || err.message}`)) : res())));
     const outName = safe.replace(/\.[^.]+$/, '') + '.' + target;
     const out = path.join(dir, outName);
     if (!fs.existsSync(out)) throw new Error('LibreOffice n\'a produit aucun fichier');

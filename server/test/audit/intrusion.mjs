@@ -1,6 +1,12 @@
-// Tests d'intrusion contre le serveur d'essai JETABLE (jamais contre le serveur en ligne).
+// Tests d'intrusion contre le serveur d'essai JETABLE :
 //   node server/test/audit/intrusion.mjs http://127.0.0.1:8899 <fichier-identifiants>
+// Contre le serveur en ligne (comptes d'administration temporaires, à supprimer ensuite ; la saturation du limiteur,
+// qui enverrait 10 100 requêtes au VPS partagé, est sautée) :
+//   PAGIO_AUDIT_EN_LIGNE=1 node server/test/audit/intrusion.mjs https://pagio.site <fichier-identifiants> resultats.json
 import fs from 'node:fs';
+import tls from 'node:tls';
+import { execFileSync } from 'node:child_process';
+const enLigne = process.env.PAGIO_AUDIT_EN_LIGNE === '1';
 import crypto from 'node:crypto';
 
 const base = process.argv[2] || 'http://127.0.0.1:8899';
@@ -100,6 +106,12 @@ const target = { email: `cible-${uniq()}@audit.test`, password: 'Cible-1234567' 
 await call('POST', '/api/auth/register', target);
 for (let i = 0; i < 11; i++) await call('POST', '/api/auth/login', { email: target.email, password: `faux${i}` });
 const before = await call('POST', '/api/auth/login', { email: target.email, password: 'faux-encore' });
+// Derrière Nginx : un en-tête X-Forwarded-For inventé ne doit pas faire changer d'adresse IP (sinon le plafond par IP saute).
+const spoofed = await call('POST', '/api/auth/login', { email: `xff-${uniq()}@audit.test`, password: 'Motdepasse1' }, undefined, { 'x-forwarded-for': `203.0.113.${1 + Math.floor(Math.random() * 250)}` });
+note('Force brute', 'Faux en-tête X-Forwarded-For ignoré (plafond par IP maintenu)', spoofed.status === 429 ? 'OK' : 'FAILLE', `HTTP ${spoofed.status}`);
+if (enLigne) {
+  note('Force brute', 'Saturation du compteur (10 100 requêtes)', 'INFO', 'sautée sur le serveur en ligne ; couverte par audit-failles.test.js');
+} else {
 const flood = [];
 for (let i = 0; i < 10100; i++) {
   flood.push(call('POST', '/api/auth/login', { email: `f${i}@flood.test`, password: 'x' }));
@@ -108,6 +120,7 @@ for (let i = 0; i < 10100; i++) {
 await Promise.all(flood);
 const after = await call('POST', '/api/auth/login', { email: target.email, password: 'faux-apres' });
 note('Force brute', 'Le blocage résiste à une saturation du compteur', before.status === 429 && after.status === 429 ? 'OK' : 'FAILLE', `avant saturation ${before.status}, après ${after.status}`);
+}
 
 // ---------------------------------------------------------------- Injection de code (XSS)
 const xssPage = await fetch(`${base}/reinitialiser`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: '"><script>alert(1)</script>', password: 'a', confirm: 'b' }) });
@@ -130,6 +143,41 @@ for (const name of ['../../etc/passwd', '..%2F..%2Fpagio.db', 'pagio-2026-01-01.
 }
 const conv = await fetch(`${base}/api/convert?to=pdf&name=${encodeURIComponent('../../../evil.docx')}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: Buffer.from('test') });
 note('Fichiers', 'Nom de fichier piégé envoyé à la conversion', conv.status !== 200 || true ? 'OK' : 'FAILLE', `HTTP ${conv.status} (nom nettoyé par basename)`);
+
+// Document piégé : une section liée à un fichier du serveur. Si LibreOffice suit le lien, le fichier converti contient
+// le fichier du serveur (ici /etc/passwd ; le dossier des données, avec les clés, serait lisible de la même façon).
+const fodt = `<?xml version="1.0" encoding="UTF-8"?>
+<office:document xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" office:version="1.2" office:mimetype="application/vnd.oasis.opendocument.text">
+<office:body><office:text><text:p>Avant</text:p>
+<text:section text:name="S1"><text:section-source xlink:href="file:///etc/passwd" text:filter-name="Text"/><text:p>lien</text:p></text:section>
+<text:p>Apres</text:p></office:text></office:body></office:document>`;
+const trap = await fetch(`${base}/api/convert?to=docx&name=piege.fodt`, { method: 'POST', headers: { 'content-type': 'application/octet-stream', authorization: `Bearer ${userToken}` }, body: Buffer.from(fodt) });
+if (trap.status === 200) {
+  const tmp = fs.mkdtempSync('piege-');
+  fs.writeFileSync(`${tmp}/out.docx`, Buffer.from(await trap.arrayBuffer()));
+  let xml = '';
+  try { xml = execFileSync('unzip', ['-p', `${tmp}/out.docx`, 'word/document.xml']).toString(); } catch { /* unzip absent */ }
+  fs.rmSync(tmp, { recursive: true, force: true });
+  note('LibreOffice', 'Document piégé (section liée à /etc/passwd)', /root:x:0/.test(xml) ? 'FAILLE' : xml ? 'OK' : 'INFO', /root:x:0/.test(xml) ? 'le contenu d\'un fichier du serveur se retrouve dans le document converti' : xml ? 'lien non suivi' : 'impossible de lire le résultat (unzip absent)');
+} else note('LibreOffice', 'Document piégé (section liée à /etc/passwd)', trap.status >= 500 ? 'INFO' : 'OK', `HTTP ${trap.status}`);
+const trapErr = await (await fetch(`${base}/api/convert?to=pdf&name=casse.docx`, { method: 'POST', headers: { 'content-type': 'application/octet-stream', authorization: `Bearer ${userToken}` }, body: Buffer.from('PK\u0003\u0004pas un vrai docx') })).text();
+note('LibreOffice', 'Fichier corrompu : pas de détail technique renvoyé', /\/tmp\/|soffice|javaldx|\.so\b/.test(trapErr) ? 'FAILLE' : 'OK', trapErr.slice(0, 100));
+
+// ---------------------------------------------------------------- HTTPS (serveur en ligne)
+if (base.startsWith('https://')) {
+  const hsts = home.headers.get('strict-transport-security');
+  note('HTTPS', 'HSTS (forcer HTTPS dans le navigateur)', hsts ? 'OK' : 'INFO', hsts || 'en-tête absent');
+  const host = new URL(base).hostname;
+  for (const v of ['TLSv1', 'TLSv1.1']) {
+    const accepted = await new Promise((done) => {
+      const s = tls.connect({ host, port: 443, servername: host, minVersion: v, maxVersion: v, ciphers: 'DEFAULT@SECLEVEL=0' }, () => { s.end(); done(true); });
+      s.on('error', () => done(false));
+    });
+    note('HTTPS', `Ancien protocole ${v} refusé`, accepted ? 'FAILLE' : 'OK');
+  }
+  const plain = await fetch(base.replace('https://', 'http://') + '/api/health', { redirect: 'manual' });
+  note('HTTPS', 'HTTP redirigé vers HTTPS', plain.status === 301 && (plain.headers.get('location') || '').startsWith('https://') ? 'OK' : 'FAILLE', `HTTP ${plain.status}`);
+}
 
 // ---------------------------------------------------------------- Taille des requêtes
 const big = await call('POST', '/api/auth/login', JSON.stringify({ email: 'a@b.c', password: 'x'.repeat(3 * 1024 * 1024) }));

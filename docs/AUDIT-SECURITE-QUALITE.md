@@ -84,7 +84,7 @@ d'utilisateurs actifs par jour. Les conversions LibreOffice (2 simultanées au p
 |---|---|---|
 | Serveur | journal des erreurs, alertes dans le tableau de bord et par e-mail | inchangé ✅ |
 | Application | **rien** | 🔧 plantages enregistrés, envoyés au lancement suivant comme événement `app_crash` (page *Événements*), uniquement si l'utilisateur a accepté les statistiques ; aucune donnée personnelle |
-| Disponibilité du serveur | **rien** : l'arrêt du VPS est passé inaperçu | ⚠️ à ajouter : un service gratuit de surveillance (UptimeRobot, Better Stack…) qui appelle `https://pagio.hebergementci.com/api/health` toutes les 5 minutes et prévient par e-mail ou SMS |
+| Disponibilité du serveur | **rien** : l'arrêt du VPS est passé inaperçu | ⚠️ à ajouter : un service gratuit de surveillance (UptimeRobot, Better Stack…) qui appelle `https://pagio.site/api/health` toutes les 5 minutes et prévient par e-mail ou SMS |
 
 ## 7. Points restants (non corrigés, à décider)
 
@@ -96,8 +96,8 @@ d'utilisateurs actifs par jour. Les conversions LibreOffice (2 simultanées au p
 | ⚠️ Moyenne | E-mails : sans authentification du domaine d'envoi (SPF, DKIM, DMARC), les messages de Pagio peuvent finir en indésirables ou être imités (hameçonnage) | Authentifier le domaine dans Brevo avant d'activer les e-mails |
 | ⚠️ Basse | L'inscription indique si une adresse a déjà un compte | Compromis courant ; le plafond par IP limite l'exploitation |
 | ⚠️ Basse | Dépôt GitHub public | Le passer en privé (aucun secret dedans, mais le code commercial est visible de tous) |
-| ⏳ | Configuration HTTPS et Nginx du VPS non retestée (serveur arrêté) | Relancer `intrusion.mjs` contre le serveur en ligne une fois le VPS renouvelé |
-| ⏳ | Conversion LibreOffice non testée sous attaque (LibreOffice absent de l'ordinateur de test) | Idem, sur le VPS |
+| ✅ | Configuration HTTPS et Nginx du VPS | Vérifiée le 20/11/2026 sur `https://pagio.site` (voir section 10) |
+| ✅ | Conversion LibreOffice sous attaque | Vérifiée le 20/11/2026 sur le VPS : document piégé et fichier corrompu (voir section 10) |
 | ⏳ | Accessibilité Android avec TalkBack, et v8 sur un vrai téléphone | À tester |
 
 ## 8. Référencement (SEO / ASO)
@@ -114,3 +114,29 @@ node server/test/audit/serveur-essai.mjs 8899 <fichier-identifiants-hors-dépôt
 node server/test/audit/intrusion.mjs http://127.0.0.1:8899 <fichier-identifiants> resultats.json
 node server/test/audit/charge.mjs http://127.0.0.1:8899
 ```
+
+Contre le serveur en ligne : créer deux comptes d'administration temporaires (`…@audit.test`, propriétaire et support),
+lancer `PAGIO_AUDIT_EN_LIGNE=1 node server/test/audit/intrusion.mjs https://pagio.site <fichier-identifiants> resultats.json`,
+puis supprimer ces comptes et les utilisateurs `…@audit.test` créés par le test.
+
+## 10. Contre-audit du serveur en ligne — 20 novembre 2026
+
+Après le déploiement du commit c97c039 sur `https://pagio.site` : **48 contrôles, 0 faille**, 3 points à noter (déjà connus).
+
+| Nouveau contrôle | Résultat |
+|---|---|
+| Faux en-tête `X-Forwarded-For` (contourner le plafond par adresse IP à travers Nginx) | ✅ ignoré, blocage maintenu |
+| Document piégé envoyé à LibreOffice (section liée à `/etc/passwd`) | ✅ lien non suivi, aucun fichier du serveur dans le résultat |
+| Fichier corrompu envoyé à LibreOffice | ✅ message générique, aucun détail technique |
+| HSTS | ✅ `max-age=31536000` |
+| TLS 1.0 et 1.1 | ✅ refusés |
+| HTTP → HTTPS | ✅ redirection 301 |
+
+- Les 45 autres contrôles donnent les mêmes résultats que sur le serveur d'essai ; les corrections de l'audit sont donc bien en ligne.
+- « Mot de passe de 1,9 Mo » est apparu à 824 ms depuis l'ordinateur : c'est le temps d'envoi sur la connexion internet.
+  Mesuré sur le serveur lui-même : 70 ms. Pas de faille.
+- La saturation du limiteur (10 100 requêtes) n'a pas été rejouée sur le VPS partagé ; elle reste couverte par `audit-failles.test.js`.
+- 🔧 LibreOffice tournait en `root` dans le conteneur, avec accès à `/data` (base et clés). Corrigé le même jour : il est
+  lancé sous un compte sans droits (`conversion`, uid 1500, variable `SOFFICE_UID`) qui ne peut pas lire `/data`.
+  Vérifié sur le VPS : conversion normale OK, document piégé visant `/data/jwt-secret.key` → aucun contenu récupéré.
+
