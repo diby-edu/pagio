@@ -15,6 +15,31 @@ export function verifyPassword(password, stored) {
   return crypto.timingSafeEqual(expected, actual);
 }
 
+// Versions asynchrones : le calcul (volontairement lent, ~0,1 à 0,2 s) se fait hors du fil principal, si bien
+// qu'une rafale de connexions ne fige plus le serveur pour les autres utilisateurs.
+const SCRYPT = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
+const scryptAsync = (password, salt, len) => new Promise((resolve, reject) =>
+  crypto.scrypt(password, salt, len, SCRYPT, (err, key) => (err ? reject(err) : resolve(key))));
+
+export async function hashPasswordAsync(password) {
+  const salt = crypto.randomBytes(16);
+  const hash = await scryptAsync(password, salt, 64);
+  return `scrypt$${salt.toString('base64')}$${hash.toString('base64')}`;
+}
+
+export async function verifyPasswordAsync(password, stored) {
+  const [algo, salt, hash] = String(stored).split('$');
+  if (algo !== 'scrypt' || !salt || !hash) return false;
+  const expected = Buffer.from(hash, 'base64');
+  const actual = await scryptAsync(password, Buffer.from(salt, 'base64'), expected.length);
+  return crypto.timingSafeEqual(expected, actual);
+}
+
+// Empreinte factice : quand l'adresse n'existe pas, on fait quand même le calcul, pour que le temps de réponse
+// ne révèle pas si un compte existe (énumération des comptes par chronométrage).
+const DUMMY_HASH = hashPassword(crypto.randomBytes(16).toString('hex'));
+export const verifyAgainstNothing = (password) => verifyPasswordAsync(password, DUMMY_HASH).then(() => false);
+
 const b64url = (buf) => Buffer.from(buf).toString('base64url');
 
 export function signToken(payload, secret, ttlSeconds) {
@@ -46,10 +71,14 @@ export function rateLimiter(max, windowMs) {
   const hits = new Map();
   return (key, limit = max) => {
     const now = Date.now();
+    // Mémoire bornée SANS tout effacer : vider la table remettait à zéro les blocages en cours, ce qu'un attaquant
+    // obtenait en envoyant plus de 10 000 adresses différentes. On retire seulement les entrées expirées.
+    if (hits.size > 20000) for (const [k, l] of hits) if (now - l[l.length - 1] >= windowMs) hits.delete(k);
+    // Toujours saturée après nettoyage : attaque massive en cours, les nouvelles clés sont refusées.
+    if (hits.size > 50000 && !hits.has(key)) return false;
     const list = (hits.get(key) || []).filter((t) => now - t < windowMs);
     list.push(now);
     hits.set(key, list);
-    if (hits.size > 10000) hits.clear();
     return list.length <= limit;
   };
 }

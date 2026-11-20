@@ -204,6 +204,6 @@ Système (état de la machine, alertes, purge), Mon compte et sécurité (mot de
 
 ## Tests
 
-`cd server && npm test` lance 20 tests (base en mémoire, aucun réseau) : parcours complet de l'API, sessions, double authentification,
+`cd server && npm test` lance 25 tests (base en mémoire, aucun réseau) : parcours complet de l'API, sessions, double authentification,
 chiffrement de la clé d'IA, limites, sauvegardes et restauration, surveillance, fiche utilisateur et actions groupées, e-mails
 (réglages, mot de passe oublié, confirmation d'adresse, alertes).

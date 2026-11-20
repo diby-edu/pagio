@@ -13,7 +13,7 @@ export default function Audit() {
   if (!items) return <div className="muted">Chargement…</div>;
   const shown = items.filter((i) => !q || JSON.stringify(i).toLowerCase().includes(q.toLowerCase()));
   return (
-    <Card title="Journal d'audit" actions={<input placeholder="Filtrer…" value={q} onChange={(e) => setQ(e.target.value)} />}>
+    <Card title="Journal d'audit" actions={<input type="search" aria-label="Filtrer le journal d'audit" placeholder="Filtrer…" value={q} onChange={(e) => setQ(e.target.value)} />}>
       <p className="muted small">Chaque action d'administration (connexions, modifications d'utilisateurs, d'outils, de réglages) est enregistrée ici.</p>
       {shown.length === 0 ? <Empty>Aucune entrée.</Empty> : (
         <div className="table-wrap"><table className="table small">

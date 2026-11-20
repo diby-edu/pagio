@@ -265,8 +265,10 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
     // Fichiers reçus d'une autre application : PDF → lecteur, images → Image en PDF.
     LaunchedEffect(incoming) {
         if (incoming.isEmpty()) return@LaunchedEffect
-        val picked = incoming.map { c.workspace.import(it) }
+        // Un fichier illisible ou refusé ne doit pas faire planter l'application : il est simplement ignoré.
+        val picked = incoming.mapNotNull { runCatching { c.workspace.import(it) }.getOrNull() }
         onIncomingHandled()
+        if (picked.isEmpty()) { snackbar.showSnackbar(context.getString(R.string.incoming_unreadable)); return@LaunchedEffect }
         when {
             picked.size == 1 && picked[0].isPdf -> nav.navigate(viewerRoute(picked[0].file))
             picked.all { it.isImage } -> { Handoff.files = picked; nav.navigate("tool/images_to_pdf") }

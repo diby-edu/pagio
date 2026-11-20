@@ -322,6 +322,7 @@
     <string name="save">Save</string>
     <string name="scanner_closed">The scanner closed without a document.</string>
     <string name="scanner_use_pagio">Pagio scanner</string>
+    <string name="incoming_unreadable">Pagio cannot open this file.</string>
     <string name="scan_title">Scanner</string>
     <string name="scan_name_title">Name the document</string>
     <string name="scan_name_label">Document name</string>

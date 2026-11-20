@@ -46,6 +46,14 @@ class Workspace(private val context: Context) {
     }
 
     suspend fun import(uri: Uri, dir: File = newTaskDir()): PickedFile = withContext(Dispatchers.IO) {
+        // Faille classique des liens file:// : une autre application pourrait demander à Pagio d'« ouvrir »
+        // un de SES PROPRES fichiers privés (jeton de connexion chiffré, certificats…), puis inciter l'utilisateur
+        // à le partager. Les fichiers situés dans le dossier privé de Pagio sont donc refusés par cette voie.
+        if (uri.scheme == "file") {
+            val target = File(uri.path ?: "").canonicalFile
+            val privateRoot = File(context.applicationInfo.dataDir).canonicalFile
+            if (target.path.startsWith(privateRoot.path)) throw SecurityException("Fichier refusé")
+        }
         val resolver = context.contentResolver
         var name = "document"
         var size = -1L

@@ -38,7 +38,7 @@ export default function Users({ admin }: { admin: Admin }) {
         {canEdit && <button className="btn primary" onClick={() => setCreating(true)}>+ Nouvel utilisateur</button>}
       </>}>
         <div className="row gap wrap">
-          <input className="grow" placeholder="Rechercher par e-mail ou nom…" value={q} onChange={(e) => { setQ(e.target.value); setOffset(0); }} />
+          <input className="grow" type="search" aria-label="Rechercher un utilisateur par e-mail ou nom" placeholder="Rechercher par e-mail ou nom…" value={q} onChange={(e) => { setQ(e.target.value); setOffset(0); }} />
           <select value={plan} onChange={(e) => { setPlan(e.target.value); setOffset(0); }}>
             <option value="">Toutes les offres</option><option value="free">Gratuit</option><option value="premium">Premium</option>
           </select>

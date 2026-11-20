@@ -8,6 +8,7 @@ import path from 'node:path';
 import { TOOL_IDS, getSettings, setSetting, protect, reveal, logServerError } from './db.js';
 import {
   hashPassword, verifyPassword, signToken, verifyToken, rateLimiter,
+  hashPasswordAsync, verifyPasswordAsync, verifyAgainstNothing,
   newTotpSecret, verifyTotp, totpUri, newRecoveryCodes, hashRecoveryCode,
 } from './security.js';
 import { aiComplete, convertWithLibreOffice, libreOfficeAvailable } from './services.js';
@@ -47,6 +48,8 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   app.use('/api', express.json({ limit: '2mb' }));
 
   const loginLimit = rateLimiter(10, 15 * 60_000);
+  // Limite par adresse IP, tous comptes confondus : empêche d'essayer un mot de passe courant sur des milliers de comptes.
+  const loginIpLimit = rateLimiter(40, 15 * 60_000);
   const registerLimit = rateLimiter(10, HOUR);
   const forgotLimit = rateLimiter(5, HOUR);
   const resetLimit = rateLimiter(20, HOUR);
@@ -131,8 +134,14 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   // Clé Brevo : la variable MAIL_API_KEY, si elle existe, remplace celle du tableau de bord.
   const mailConfig = (s) => (process.env.MAIL_API_KEY ? { ...s.mail, api_key: process.env.MAIL_API_KEY } : s.mail);
   const mailReady = (s) => { const m = mailConfig(s); return !!(m.enabled && m.api_key && emailOk(m.from_email)); };
-  /** Adresse publique du serveur pour les liens envoyés : réglage, sinon PUBLIC_URL, sinon l'adresse de la requête. */
-  const publicUrl = (s, req) => (s.mail.public_url || process.env.PUBLIC_URL || (req ? `${req.protocol}://${req.get('host')}` : '')).replace(/\/+$/, '');
+  /**
+   * Adresse publique du serveur pour les liens envoyés : réglage, sinon PUBLIC_URL. Jamais l'adresse de la requête :
+   * l'en-tête Host est choisi par le client, et un pirate pourrait faire envoyer à sa victime un lien de nouveau mot
+   * de passe pointant vers son propre site (vol du jeton, donc du compte).
+   */
+  const publicUrl = (s) => String(s.mail.public_url || process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+  /** E-mails contenant un lien (mot de passe oublié, confirmation) : il faut en plus l'adresse publique. */
+  const linksReady = (s) => mailReady(s) && /^https?:\/\//.test(publicUrl(s));
   /** Envoie un e-mail sans jamais faire échouer la requête en cours : un refus est inscrit au journal des erreurs. */
   const deliver = (s, to, message) => Promise.resolve()
     .then(() => sendMail(mailConfig(s), { to, ...message }))
@@ -142,7 +151,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   const sendVerification = (s, u, req) => {
     const token = newToken();
     db.prepare('UPDATE users SET verify_token = ?, verify_expires = ? WHERE id = ?').run(hashToken(token), Date.now() + 7 * DAY, u.id);
-    return deliver(s, u.email, messages.verify(`${publicUrl(s, req)}/verifier?token=${token}`));
+    return deliver(s, u.email, messages.verify(`${publicUrl(s)}/verifier?token=${token}`));
   };
 
   /** Applique un nouveau mot de passe à partir d'un jeton reçu par e-mail. Renvoie un message d'erreur, ou null si c'est fait. */
@@ -224,7 +233,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
 
   // ================================================================== Comptes utilisateurs
 
-  app.post('/api/auth/register', (req, res) => {
+  app.post('/api/auth/register', async (req, res) => {
     const s = getSettings(db);
     if (!s.registration_open) return fail(res, 403, 'Les inscriptions sont temporairement fermées.');
     const email = String(req.body?.email || '').trim().toLowerCase();
@@ -236,18 +245,23 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const perHour = Number(s.limits.register_per_hour) || 0;
     if (perHour > 0 && !registerLimit(`r:${req.ip}`, perHour)) return fail(res, 429, 'Trop d\'inscriptions depuis cette connexion. Réessayez dans une heure.');
     const id = crypto.randomUUID();
+    const passwordHash = await hashPasswordAsync(password);
+    // Une autre inscription avec la même adresse a pu aboutir pendant le calcul.
+    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) return fail(res, 409, 'Un compte existe déjà avec cette adresse');
     db.prepare('INSERT INTO users (id, email, name, password_hash, ai_credits, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, email, String(req.body?.name || '').slice(0, 80), hashPassword(password), s.plans.free.ai_credits || 0, Date.now());
+      .run(id, email, String(req.body?.name || '').slice(0, 80), passwordHash, s.plans.free.ai_credits || 0, Date.now());
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
-    if (mailReady(s) && s.mail.verify_signup) sendVerification(s, u, req);
+    if (linksReady(s) && s.mail.verify_signup) sendVerification(s, u, req);
     ok(res, { token: signToken({ kind: 'user', sub: id }, secret, 90 * 86400), user: publicUser(u) });
   });
 
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', async (req, res) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
-    if (!loginLimit(`u:${req.ip}:${email}`)) return fail(res, 429, 'Trop de tentatives. Réessayez dans 15 minutes.');
+    if (!loginLimit(`u:${req.ip}:${email}`) || !loginIpLimit(`ui:${req.ip}`)) return fail(res, 429, 'Trop de tentatives. Réessayez dans 15 minutes.');
+    const password = String(req.body?.password || '');
     const u = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-    if (!u || !verifyPassword(String(req.body?.password || ''), u.password_hash)) return fail(res, 401, 'E-mail ou mot de passe incorrect');
+    const good = u ? await verifyPasswordAsync(password, u.password_hash) : await verifyAgainstNothing(password);
+    if (!good) return fail(res, 401, 'E-mail ou mot de passe incorrect');
     if (u.banned) return fail(res, 403, 'Compte suspendu. Contactez le support.');
     db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Date.now(), u.id);
     ok(res, { token: signToken({ kind: 'user', sub: u.id }, secret, 90 * 86400), user: publicUser(effective(u)) });
@@ -260,11 +274,11 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (!forgotLimit(`p:${req.ip}`)) return fail(res, 429, 'Trop de demandes. Réessayez dans une heure.');
     const s = getSettings(db);
     const u = db.prepare('SELECT id, email, banned FROM users WHERE email = ?').get(email);
-    if (mailReady(s)) {
+    if (linksReady(s)) {
       if (u && !u.banned) {
         const token = newToken();
         db.prepare('UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?').run(hashToken(token), Date.now() + HOUR, u.id);
-        deliver(s, u.email, messages.reset(`${publicUrl(s, req)}/reinitialiser?token=${token}`));
+        deliver(s, u.email, messages.reset(`${publicUrl(s)}/reinitialiser?token=${token}`));
       }
       return ok(res, { message: 'Si un compte existe pour cette adresse, un e-mail vient de lui être envoyé avec un lien pour choisir un nouveau mot de passe (pensez à regarder dans les courriers indésirables).' });
     }
@@ -282,7 +296,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   app.post('/api/auth/resend-verification', userAuth(true), async (req, res) => {
     const s = getSettings(db);
     if (req.user.email_verified) return ok(res, { message: 'Votre adresse est déjà confirmée.' });
-    if (!mailReady(s)) return fail(res, 503, "L'envoi d'e-mails n'est pas activé sur ce serveur.");
+    if (!linksReady(s)) return fail(res, 503, "L'envoi d'e-mails n'est pas activé sur ce serveur.");
     if (!resendLimit(`v:${req.user.id}`)) return fail(res, 429, 'Trop de demandes. Réessayez dans une heure.');
     if (!(await sendVerification(s, req.user, req))) return fail(res, 502, "L'e-mail n'a pas pu être envoyé. Réessayez plus tard.");
     ok(res, { message: 'Un e-mail de confirmation vient de vous être envoyé.' });
@@ -353,7 +367,8 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       db.prepare('INSERT INTO ai_usage (ts, user_id, chars_in, chars_out, credits, provider, ok, error) VALUES (?, ?, ?, 0, 0, ?, 0, ?)')
         .run(Date.now(), u.id, charsIn, s.ai.provider, String(e.message).slice(0, 500));
       logServerError(db, 'ia', e, { method: req.method, path: req.path, status: 502 });
-      fail(res, 502, `Le fournisseur d'IA a refusé la demande : ${e.message}`);
+      // Le détail (parfois un morceau de la clé d'API, chez certains fournisseurs) reste dans le journal du serveur.
+      fail(res, 502, "Le service d'IA est momentanément indisponible. Réessayez dans quelques minutes.");
     }
   });
 
@@ -402,11 +417,13 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
 
   // ================================================================== Administration
 
-  app.post('/api/admin/login', (req, res) => {
+  app.post('/api/admin/login', async (req, res) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
-    if (!loginLimit(`a:${req.ip}:${email}`)) return fail(res, 429, 'Trop de tentatives. Réessayez dans 15 minutes.');
+    if (!loginLimit(`a:${req.ip}:${email}`) || !loginIpLimit(`ai:${req.ip}`, 20)) return fail(res, 429, 'Trop de tentatives. Réessayez dans 15 minutes.');
+    const password = String(req.body?.password || '');
     const a = db.prepare('SELECT * FROM admins WHERE email = ? AND active = 1').get(email);
-    if (!a || !verifyPassword(String(req.body?.password || ''), a.password_hash)) {
+    const good = a ? await verifyPasswordAsync(password, a.password_hash) : await verifyAgainstNothing(password);
+    if (!good) {
       audit({ email }, 'admin.login_failed', email);
       return fail(res, 401, 'Identifiants administrateur incorrects');
     }
@@ -995,6 +1012,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     else if (s.ai.enabled && !aiConfig(s).api_key && !s.ai.base_url) add('warning', 'ai_key', "L'IA est activée mais aucune clé d'API n'est enregistrée.", 'ai');
     if (s.mail.key_error) add('critical', 'mail_key', 'La clé Brevo ne peut plus être déchiffrée : saisissez-la de nouveau.', 'mail');
     else if (!mailReady(s)) add('info', 'mail', 'Les e-mails automatiques ne sont pas activés : les mots de passe oubliés sont à traiter à la main.', 'mail');
+    else if (!linksReady(s)) add('warning', 'mail_url', "Adresse publique du site manquante (page E-mails) : les e-mails « mot de passe oublié » et de confirmation ne partent pas.", 'mail');
     const mailErrors = db.prepare("SELECT COUNT(*) n FROM server_errors WHERE source = 'email' AND ts >= ?").get(now - DAY).n;
     if (mailErrors > 0) add('warning', 'mail_errors', `${mailErrors} e-mail(s) n'ont pas pu être envoyés en 24 heures.`, 'errors');
     if (backupsDir) {
@@ -1036,7 +1054,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const due = active.filter((a) => !state[a.code] || now - state[a.code] > DAY);
     // Une alerte disparue est oubliée : si elle revient, elle sera signalée de nouveau tout de suite.
     const next = Object.fromEntries(active.filter((a) => state[a.code] && !due.includes(a)).map((a) => [a.code, state[a.code]]));
-    if (due.length && await deliver(s, s.mail.alerts_to, messages.alerts(due, publicUrl(s, null)))) for (const a of due) next[a.code] = now;
+    if (due.length && await deliver(s, s.mail.alerts_to, messages.alerts(due, publicUrl(s)))) for (const a of due) next[a.code] = now;
     if (JSON.stringify(next) !== JSON.stringify(state)) setSetting(db, 'mail_alert_state', next);
     return due.length;
   };
@@ -1063,7 +1081,9 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
 
   app.get('/api/admin/export/users.csv', adminAuth('admin'), (req, res) => {
     const rows = db.prepare('SELECT id, email, name, plan, premium_until, ai_credits, banned, created_at, last_seen, total_tasks FROM users ORDER BY created_at').all();
-    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    // Une cellule commençant par = + - @ est exécutée comme une formule par Excel : un client nommé
+    // « =HYPERLINK(...) » piégerait l'administrateur qui ouvre l'export. On la préfixe d'une apostrophe.
+    const esc = (v) => { let t = String(v ?? ''); if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`; return `"${t.replace(/"/g, '""')}"`; };
     const csv = ['id;email;nom;offre;premium_jusqu_au;credits_ia;suspendu;cree_le;vu_le;taches']
       .concat(rows.map((r) => [r.id, r.email, r.name, r.plan, r.premium_until, r.ai_credits, r.banned, new Date(r.created_at).toISOString(), r.last_seen ? new Date(r.last_seen).toISOString() : '', r.total_tasks].map(esc).join(';')))
       .join('\n');

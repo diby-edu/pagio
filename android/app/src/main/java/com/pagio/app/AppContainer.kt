@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.util.Collections
+import com.pagio.app.data.CrashReporter
 
 class PagioApp : Application() {
     lateinit var container: AppContainer
@@ -30,6 +31,7 @@ class PagioApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        CrashReporter.install(this, BuildConfig.VERSION_NAME)
         PagioEngine.init(this)
         container = AppContainer(this)
         container.start()
@@ -66,6 +68,10 @@ class AppContainer(val context: Context) {
             workspace.cleanTemp(olderThanMs = 6 * 3600_000L) // restes d'une session interrompue
             settings.cachedRemoteConfig()?.let { runCatching { _config.value = RemoteConfig.parse(JSONObject(it), 0) } }
             refreshServer()
+            // Plantage lors de la session précédente : remonté avec les statistiques (si acceptées), sinon effacé.
+            CrashReporter.takePending(context)?.let { r ->
+                track("app_crash", r.keys().asSequence().associateWith { k -> r.get(k) } + ("ok" to false))
+            }
             track("app_open")
         }
     }
