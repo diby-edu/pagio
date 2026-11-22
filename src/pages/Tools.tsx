@@ -36,11 +36,13 @@ export default function Tools({ admin }: { admin: Admin }) {
     <div className="stack">
       {flash}
       <Alert tone="info">Désactivez un outil pour le masquer dans l'application, réservez-le au Premium, ou limitez le nombre de fichiers et la taille (0 = limite de l'offre).
-        Les changements sont lus par l'application à chaque démarrage (et conservés hors ligne).</Alert>
+        <strong> Par jour (gratuit)</strong> : nombre d'utilisations par jour pour l'offre gratuite (0 = illimité ; le Premium n'est jamais limité). Pour le scanner,
+        1 scan = 1 document enregistré, quel que soit le nombre de pages. <strong>Limite atteinte</strong> : combien de fois des utilisateurs ont été bloqués en 30 jours,
+        pour ajuster sans nouvelle version de l'application. Les changements sont lus par l'application à chaque démarrage (et conservés hors ligne).</Alert>
       {GROUPS.map(([title, ids]) => (
         <Card key={title} title={title}>
           <div className="table-wrap"><table className="table">
-            <thead><tr><th>Outil</th><th>Activé</th><th>Premium seulement</th><th>Fichiers max</th><th>Taille max (Mo)</th><th>Utilisations 30 j</th></tr></thead>
+            <thead><tr><th>Outil</th><th>Activé</th><th>Premium seulement</th><th>Par jour (gratuit)</th><th>Pages max par scan</th><th>Fichiers max</th><th>Taille max (Mo)</th><th>Utilisations 30 j</th><th>Limite atteinte 30 j</th></tr></thead>
             <tbody>{ids.filter((id) => byId[id]).map((id) => {
               const t = byId[id];
               return (
@@ -48,11 +50,18 @@ export default function Tools({ admin }: { admin: Admin }) {
                   <td><strong>{TOOL_LABELS[id] ?? id}</strong><br /><code className="small">{id}</code></td>
                   <td><Toggle checked={t.enabled} disabled={!canEdit} onChange={(v) => update(id, { enabled: v })} /></td>
                   <td><Toggle checked={t.premium} disabled={!canEdit} onChange={(v) => update(id, { premium: v })} /></td>
+                  <td><input type="number" min={0} defaultValue={t.daily_free} disabled={!canEdit} style={{ width: 80 }} aria-label={`Utilisations gratuites par jour : ${TOOL_LABELS[id] ?? id}`}
+                    onBlur={(e) => Number(e.target.value) !== t.daily_free && update(id, { daily_free: Number(e.target.value) })} /></td>
+                  <td>{id === 'scan'
+                    ? <input type="number" min={0} defaultValue={t.max_pages} disabled={!canEdit} style={{ width: 80 }} aria-label="Pages maximum par scan"
+                        onBlur={(e) => Number(e.target.value) !== t.max_pages && update(id, { max_pages: Number(e.target.value) })} />
+                    : <span className="muted">—</span>}</td>
                   <td><input type="number" min={0} defaultValue={t.max_files} disabled={!canEdit} style={{ width: 80 }}
                     onBlur={(e) => Number(e.target.value) !== t.max_files && update(id, { max_files: Number(e.target.value) })} /></td>
                   <td><input type="number" min={0} defaultValue={t.max_mb} disabled={!canEdit} style={{ width: 80 }}
                     onBlur={(e) => Number(e.target.value) !== t.max_mb && update(id, { max_mb: Number(e.target.value) })} /></td>
                   <td>{t.runs_30d}</td>
+                  <td>{t.limit_hits_30d || <span className="muted">0</span>}</td>
                 </tr>);
             })}</tbody>
           </table></div>

@@ -129,13 +129,30 @@ export function openDb(file) {
   addColumn('users', 'tokens_valid_after', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('users', 'verify_token', 'TEXT');
   addColumn('users', 'verify_expires', 'INTEGER');
+  // Offre gratuite : opérations par jour pour chaque outil (0 = illimité) et pages maximum par scan (0 = illimité).
+  const hadDailyFree = db.prepare('PRAGMA table_info(tools)').all().some((c) => c.name === 'daily_free');
+  addColumn('tools', 'daily_free', 'INTEGER NOT NULL DEFAULT 0');
+  addColumn('tools', 'max_pages', 'INTEGER NOT NULL DEFAULT 0');
+  if (!hadDailyFree) {
+    const set = db.prepare('UPDATE tools SET daily_free = ?, max_pages = ? WHERE id = ?');
+    for (const t of db.prepare('SELECT id FROM tools').all()) { const d = freeDefaults(t.id); set.run(d.daily_free, d.max_pages, t.id); }
+  }
   seedTools(db);
   return db;
 }
 
+/** Outils d'IA : déjà limités par les crédits IA, pas de limite quotidienne en plus. */
+export const AI_TOOL_IDS = ['assistant', 'translate', 'invoice', 'classify'];
+
+/** Réglages de départ de l'offre gratuite (décidés le 20/11/2026) : 10 scans de 20 pages, 5 opérations pour les autres outils. */
+export function freeDefaults(id) {
+  if (id === 'scan') return { daily_free: 10, max_pages: 20 };
+  return { daily_free: AI_TOOL_IDS.includes(id) ? 0 : 5, max_pages: 0 };
+}
+
 export function seedTools(db) {
-  const insertTool = db.prepare('INSERT OR IGNORE INTO tools (id) VALUES (?)');
-  for (const id of TOOL_IDS) insertTool.run(id);
+  const insertTool = db.prepare('INSERT OR IGNORE INTO tools (id, daily_free, max_pages) VALUES (?, ?, ?)');
+  for (const id of TOOL_IDS) { const d = freeDefaults(id); insertTool.run(id, d.daily_free, d.max_pages); }
 }
 
 export function getSettings(db) {

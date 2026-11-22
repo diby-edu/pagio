@@ -105,6 +105,7 @@ fun ScanScreen(onBack: () -> Unit, onDone: (File, Int) -> Unit) {
     val context = LocalContext.current
     val c = context.container
     val scope = rememberCoroutineScope()
+    val pageLimit = remember { c.scanPageLimit() } // pages maximum par scan pour l'offre gratuite (0 = illimité)
     val workPath = rememberSaveable { c.workspace.newTaskDir().absolutePath }
     val workDir = remember(workPath) { File(workPath).apply { mkdirs() } }
 
@@ -241,7 +242,7 @@ fun ScanScreen(onBack: () -> Unit, onDone: (File, Int) -> Unit) {
                             // Déclencheur : rond blanc cerclé, comme sur un appareil photo.
                             Box(
                                 Modifier.size(68.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)
-                                    .clickable(enabled = granted && !cameraBroken && !busy, onClickLabel = stringResource(R.string.scan_shutter)) { shutter++ },
+                                    .clickable(enabled = granted && !cameraBroken && !busy && !(pageLimit > 0 && pages.size >= pageLimit), onClickLabel = stringResource(R.string.scan_shutter)) { shutter++ },
                                 contentAlignment = Alignment.Center,
                             ) { Box(Modifier.size(54.dp).clip(CircleShape).background(Color.White)) }
                             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
@@ -277,8 +278,11 @@ fun ScanScreen(onBack: () -> Unit, onDone: (File, Int) -> Unit) {
                             Spacer(Modifier.weight(1f))
                             TextButton(onClick = ::backToCamera) { Text(stringResource(R.string.scan_retake)) }
                         }
+                        // Offre gratuite : la page en cours est la dernière autorisée, on ne peut que terminer.
+                        val lastAllowed = pageLimit > 0 && pages.size + 1 >= pageLimit
+                        if (lastAllowed) Text(stringResource(R.string.scan_page_limit, pageLimit), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedButton(onClick = ::addPage, enabled = !busy, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.scan_add_page)) }
+                            OutlinedButton(onClick = ::addPage, enabled = !busy && !lastAllowed, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.scan_add_page)) }
                             Button(onClick = ::finish, enabled = !busy, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.scan_finish)) }
                         }
                     }

@@ -148,6 +148,7 @@ class ToolViewModel(app: Application, val tool: Tool) : AndroidViewModel(app) {
                 )
                 val result = if (htmlRenderer != null) htmlRenderer(ctx) else withContext(Dispatchers.IO) { runner.run(tool, files.toList(), options, ctx) }
                 state = TaskState.Done(result)
+                c.recordToolUse(tool.id)
                 val title = files.firstOrNull()?.displayName ?: result.outputs.firstOrNull()?.name ?: tool.id
                 c.history.add(tool.id, title, true, files.map { it.displayName }, result.outputs, result.summary, System.currentTimeMillis() - startedAt)
                 if (c.settings.current().autoSaveToDownloads) result.outputs.forEach { runCatching { c.workspace.saveToDownloads(it) } }

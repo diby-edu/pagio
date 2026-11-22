@@ -101,7 +101,8 @@ class AppContainer(val context: Context) {
     private fun rawConfig(c: RemoteConfig): String {
         // On ne conserve que ce qui sert hors ligne (outils désactivés, quotas, annonce).
         val tools = JSONObject()
-        c.tools.forEach { (k, v) -> tools.put(k, JSONObject().put("enabled", v.enabled).put("premium", v.premium).put("max_files", v.maxFiles).put("max_mb", v.maxMb)) }
+        c.tools.forEach { (k, v) -> tools.put(k, JSONObject().put("enabled", v.enabled).put("premium", v.premium).put("max_files", v.maxFiles).put("max_mb", v.maxMb)
+            .put("daily_free", v.dailyFree).put("max_pages", v.maxPages)) }
         fun lim(l: com.pagio.cloud.PlanLimits) = JSONObject().put("daily_tasks", l.dailyTasks).put("max_files", l.maxFiles).put("max_mb", l.maxMb).put("ai_credits", l.aiCredits)
         return JSONObject().put("tools", tools).put("announcement", c.announcement).put("announcement_level", c.announcementLevel)
             .put("min_version_code", c.minVersionCode).put("latest_version_name", c.latestVersionName).put("update_url", c.updateUrl)
@@ -122,6 +123,28 @@ class AppContainer(val context: Context) {
     suspend fun reloadAccount() { if (backend.token != null) runCatching { _account.value = backend.me() } }
 
     suspend fun deleteAccount() { backend.deleteAccount(); logout() }
+
+    // --- Offre gratuite : limite quotidienne par outil (réglée dans le tableau de bord, Outils et limites) -------------
+
+    private val isPremium get() = account.value?.isPremium == true
+
+    /**
+     * Vérifiée AVANT d'ouvrir un outil ou de lancer une opération, jamais en plein travail. Renvoie le message à afficher
+     * si la limite gratuite du jour est atteinte pour cet outil, sinon null. Le Premium n'est jamais limité.
+     */
+    suspend fun freeLimitMessage(toolId: String): String? {
+        if (isPremium) return null
+        val limit = config.value.tool(toolId).dailyFree
+        if (limit <= 0 || settings.toolUsesToday(toolId) < limit) return null
+        track("limit_reached", mapOf("tool" to toolId, "limit" to limit))
+        return if (toolId == "scan") context.getString(R.string.limit_scan, limit) else context.getString(R.string.limit_tool, limit)
+    }
+
+    /** Une utilisation réussie (pour le scanner : un document enregistré). */
+    suspend fun recordToolUse(toolId: String) { settings.incrementToolUse(toolId) }
+
+    /** Pages maximum par scan pour cet utilisateur (0 = illimité). */
+    fun scanPageLimit(): Int = if (isPremium) 0 else config.value.tool("scan").maxPages
 
     /** Assistant IA selon les réglages (clé personnelle) ou les crédits du serveur Pagio. */
     suspend fun assistant(): DocumentAssistant {

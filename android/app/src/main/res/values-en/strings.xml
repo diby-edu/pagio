@@ -489,4 +489,14 @@
     <string name="wm_style">Style</string>
     <string name="wm_text">Text</string>
     <string name="working">Working…</string>
+    <!-- Free plan: daily limits per tool, pages per scan, legal pages -->
+    <string name="limit_title">Today\'s limit reached</string>
+    <string name="limit_scan">You have used your %1$d free scans for today. They will be renewed tomorrow. With Premium, scans are unlimited.</string>
+    <string name="limit_tool">You have used this tool %1$d times today, the free plan limit. It will be available again tomorrow. With Premium, it is unlimited.</string>
+    <string name="scan_page_limit">Up to %1$d pages per scan on the free plan: finish this document, then start another one.</string>
+    <string name="legal">Legal information</string>
+    <string name="legal_privacy">Privacy policy</string>
+    <string name="legal_terms">Terms of use</string>
+    <string name="legal_delete">Account deletion</string>
+    <string name="legal_notice">Legal notice</string>
 </resources>

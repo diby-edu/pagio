@@ -11,7 +11,7 @@ export interface User {
   id: string; email: string; name: string; plan: 'free' | 'premium'; premium_until: string | null; ai_credits: number;
   tasks_today: number; banned: boolean; created_at: number; last_seen: number | null; total_tasks: number; note: string; email_verified?: boolean;
 }
-export interface Tool { id: string; enabled: boolean; premium: boolean; max_files: number; max_mb: number; runs_30d: number }
+export interface Tool { id: string; enabled: boolean; premium: boolean; max_files: number; max_mb: number; daily_free: number; max_pages: number; runs_30d: number; limit_hits_30d: number }
 export interface PlanLimits { daily_tasks: number; max_files: number; max_mb: number; ai_credits: number }
 export interface Settings {
   maintenance: boolean; maintenance_message: string; announcement: string; announcement_level: string;

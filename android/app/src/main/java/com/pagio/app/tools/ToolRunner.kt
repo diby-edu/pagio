@@ -148,6 +148,8 @@ class ToolRunner(private val app: AppContainer) {
         if (limits.dailyTasks > 0 && app.settings.tasksToday() >= limits.dailyTasks) {
             throw ToolInputException("Vous avez utilisé vos ${limits.dailyTasks} tâches gratuites du jour. Elles seront renouvelées demain.")
         }
+        // Limite quotidienne de l'outil (offre gratuite), vérifiée avant de commencer : aussi à l'ouverture de l'outil.
+        app.freeLimitMessage(tool.id)?.let { throw ToolInputException(it) }
         when (tool) {
             Tool.PROTECT -> {
                 if (o.password.length < 4) throw ToolInputException("Le mot de passe doit contenir au moins 4 caractères.")

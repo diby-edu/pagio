@@ -489,4 +489,14 @@
     <string name="wm_style">Style</string>
     <string name="wm_text">Texte</string>
     <string name="working">Traitement en cours…</string>
+    <!-- Offre gratuite : limites quotidiennes par outil, pages par scan, pages légales -->
+    <string name="limit_title">Limite du jour atteinte</string>
+    <string name="limit_scan">Vous avez fait vos %1$d scans gratuits d\'aujourd\'hui. Ils seront renouvelés demain. Avec Premium, les scans sont illimités.</string>
+    <string name="limit_tool">Vous avez utilisé cet outil %1$d fois aujourd\'hui, la limite de l\'offre gratuite. Il sera de nouveau disponible demain. Avec Premium, il est illimité.</string>
+    <string name="scan_page_limit">Maximum %1$d pages par scan avec l\'offre gratuite : terminez ce document, puis commencez-en un autre.</string>
+    <string name="legal">Informations légales</string>
+    <string name="legal_privacy">Politique de confidentialité</string>
+    <string name="legal_terms">Conditions d\'utilisation</string>
+    <string name="legal_delete">Suppression de compte</string>
+    <string name="legal_notice">Mentions légales</string>
 </resources>

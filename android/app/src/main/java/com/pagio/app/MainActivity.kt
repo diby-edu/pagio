@@ -214,7 +214,7 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
         if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(activity) != ConnectionResult.SUCCESS) {
             nav.navigate("scan"); return
         }
-        val options = GmsDocumentScannerOptions.Builder().setGalleryImportAllowed(true).setPageLimit(100)
+        val options = GmsDocumentScannerOptions.Builder().setGalleryImportAllowed(true).setPageLimit(c.scanPageLimit().takeIf { it > 0 }?.coerceAtMost(100) ?: 100)
             .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_PDF).setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL).build()
         val client = GmsDocumentScanning.getClient(options)
         // Relais : le scanner de Pagio (détection des bords intégrée, sans services Google). La raison est remontée
@@ -258,8 +258,13 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
             .addOnFailureListener { e -> fallback(e.message ?: e.javaClass.simpleName) }
     }
 
+    // Limite gratuite du jour atteinte : on prévient avant d'ouvrir l'outil, jamais au milieu d'un travail.
+    var limitMessage by remember { mutableStateOf<String?>(null) }
     fun openTool(t: Tool) {
-        if (t.screen == Screen.SCANNER) startScan() else nav.navigate("tool/${t.id}")
+        scope.launch {
+            c.freeLimitMessage(t.id)?.let { limitMessage = it; return@launch }
+            if (t.screen == Screen.SCANNER) startScan() else nav.navigate("tool/${t.id}")
+        }
     }
 
     // Fichiers reçus d'une autre application : PDF → lecteur, images → Image en PDF.
@@ -342,6 +347,7 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
                 val source = File(path)
                 if (!source.exists()) return@launch
                 val saved = withContext(Dispatchers.IO) { renameScan(source, name) }
+                c.recordToolUse("scan") // 1 scan = 1 document enregistré, quel que soit le nombre de pages
                 c.history.add("scan", saved.name, true, emptyList(), listOf(saved), "${namingPages} page(s) numérisée(s)", 0)
                 nav.navigate("files") { popUpTo("home") { saveState = true }; launchSingleTop = true }
                 snackbar.showSnackbar(context.getString(R.string.scan_saved_as, saved.name), duration = SnackbarDuration.Short)
@@ -349,7 +355,12 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
         }
     }
 
-    // Premier lancement : consentement aux statistiques anonymes (désactivées par défaut).
+    limitMessage?.let { msg ->
+        AlertDialog(onDismissRequest = { limitMessage = null }, title = { Text(stringResource(R.string.limit_title)) }, text = { Text(msg) },
+            confirmButton = { TextButton(onClick = { limitMessage = null }) { Text(stringResource(android.R.string.ok)) } })
+    }
+
+    // Premier lancement : consentement aux statistiques (désactivées par défaut).
     if (settings?.onboardingDone == false) {
         AlertDialog(onDismissRequest = {}, title = { Text(stringResource(R.string.welcome_title)) }, text = { Text(stringResource(R.string.welcome_text)) },
             confirmButton = { TextButton(onClick = { scope.launch { c.settings.setTelemetry(true); c.settings.setOnboardingDone() } }) { Text(stringResource(R.string.welcome_accept)) } },

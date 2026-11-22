@@ -195,7 +195,9 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   app.get('/api/app/config', (req, res) => {
     const s = getSettings(db);
     const tools = {};
-    for (const t of db.prepare('SELECT * FROM tools').all()) tools[t.id] = { enabled: !!t.enabled, premium: !!t.premium, max_files: t.max_files, max_mb: t.max_mb };
+    for (const t of db.prepare('SELECT * FROM tools').all()) {
+      tools[t.id] = { enabled: !!t.enabled, premium: !!t.premium, max_files: t.max_files, max_mb: t.max_mb, daily_free: t.daily_free, max_pages: t.max_pages };
+    }
     ok(res, {
       maintenance: s.maintenance, maintenance_message: s.maintenance_message,
       announcement: s.announcement, announcement_level: s.announcement_level,
@@ -709,9 +711,12 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   // ------------------------------------------------------------- Outils
   app.get('/api/admin/tools', adminAuth(), (req, res) => {
     const since = Date.now() - 30 * DAY;
-    const usage = Object.fromEntries(db.prepare("SELECT tool, COUNT(*) n FROM events WHERE name = 'tool_run' AND ts >= ? GROUP BY tool").all(since).map((r) => [r.tool, r.n]));
+    const count = (name) => Object.fromEntries(db.prepare('SELECT tool, COUNT(*) n FROM events WHERE name = ? AND ts >= ? GROUP BY tool').all(name, since).map((r) => [r.tool, r.n]));
+    const usage = count('tool_run');
+    // Combien de fois la limite gratuite a été atteinte : pour ajuster les réglages sans nouvelle APK.
+    const blocked = count('limit_reached');
     ok(res, { tools: db.prepare('SELECT * FROM tools').all().sort((a, b) => TOOL_IDS.indexOf(a.id) - TOOL_IDS.indexOf(b.id))
-      .map((t) => ({ ...t, enabled: !!t.enabled, premium: !!t.premium, runs_30d: usage[t.id] || 0 })) });
+      .map((t) => ({ ...t, enabled: !!t.enabled, premium: !!t.premium, runs_30d: usage[t.id] || 0, limit_hits_30d: blocked[t.id] || 0 })) });
   });
 
   app.put('/api/admin/tools/:id', adminAuth('admin'), (req, res) => {
@@ -723,8 +728,11 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       premium: 'premium' in b ? (b.premium ? 1 : 0) : t.premium,
       max_files: 'max_files' in b ? Math.max(0, Number(b.max_files) || 0) : t.max_files,
       max_mb: 'max_mb' in b ? Math.max(0, Number(b.max_mb) || 0) : t.max_mb,
+      daily_free: 'daily_free' in b ? Math.min(Math.max(0, Math.round(Number(b.daily_free)) || 0), 10_000) : t.daily_free,
+      max_pages: 'max_pages' in b ? Math.min(Math.max(0, Math.round(Number(b.max_pages)) || 0), 1000) : t.max_pages,
     };
-    db.prepare('UPDATE tools SET enabled = ?, premium = ?, max_files = ?, max_mb = ? WHERE id = ?').run(next.enabled, next.premium, next.max_files, next.max_mb, t.id);
+    db.prepare('UPDATE tools SET enabled = ?, premium = ?, max_files = ?, max_mb = ?, daily_free = ?, max_pages = ? WHERE id = ?')
+      .run(next.enabled, next.premium, next.max_files, next.max_mb, next.daily_free, next.max_pages, t.id);
     audit(req.admin, 'tool.update', t.id, next);
     ok(res, { tool: { id: t.id, ...next, enabled: !!next.enabled, premium: !!next.premium } });
   });

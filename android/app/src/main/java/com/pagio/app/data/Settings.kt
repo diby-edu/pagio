@@ -59,6 +59,7 @@ class SettingsStore(private val context: Context) {
         val autoSave = booleanPreferencesKey("auto_save_downloads")
         val remoteConfig = stringPreferencesKey("remote_config_json")
         val tasksDay = stringPreferencesKey("tasks_day")
+        val toolUses = stringPreferencesKey("tool_uses_day")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p -> read(p) }
@@ -123,6 +124,21 @@ class SettingsStore(private val context: Context) {
     suspend fun incrementTasks() {
         val n = tasksToday() + 1
         context.dataStore.edit { it[K.tasksDay] = "${today()}:$n" }
+    }
+
+    /** Utilisations du jour par outil (offre gratuite), au format « jour|outil:n,outil:n ». Remis à zéro chaque jour. */
+    private suspend fun toolUses(): MutableMap<String, Int> {
+        val raw = context.dataStore.data.first()[K.toolUses] ?: return mutableMapOf()
+        val (day, list) = raw.split('|', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+        if (day != today()) return mutableMapOf()
+        return list.split(',').filter { ':' in it }.associate { it.substringBefore(':') to (it.substringAfter(':').toIntOrNull() ?: 0) }.toMutableMap()
+    }
+
+    suspend fun toolUsesToday(tool: String): Int = toolUses()[tool] ?: 0
+
+    suspend fun incrementToolUse(tool: String) {
+        val m = toolUses(); m[tool] = (m[tool] ?: 0) + 1
+        context.dataStore.edit { it[K.toolUses] = today() + "|" + m.entries.joinToString(",") { (k, v) -> "$k:$v" } }
     }
 
     private fun today() = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.ROOT).format(java.util.Date())

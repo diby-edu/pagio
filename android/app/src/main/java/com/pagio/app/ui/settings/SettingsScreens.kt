@@ -326,6 +326,14 @@ fun AboutScreen(onBack: () -> Unit) {
         Text(stringResource(R.string.about_text), style = MaterialTheme.typography.bodyMedium)
         SectionTitle(stringResource(R.string.privacy))
         androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.Top) { Icon(Icons.Outlined.Policy, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.privacy_text), style = MaterialTheme.typography.bodySmall) }
+        // Pages légales publiques de pagio.site, dans la langue de l'application.
+        SectionTitle(stringResource(R.string.legal))
+        val uri = androidx.compose.ui.platform.LocalUriHandler.current
+        val en = stringResource(R.string.legal) == "Legal information"
+        listOf(R.string.legal_privacy to "confidentialite", R.string.legal_terms to "conditions", R.string.legal_delete to "suppression-compte", R.string.legal_notice to "mentions-legales")
+            .forEach { (label, path) ->
+                TextButton(onClick = { runCatching { uri.openUri("https://pagio.site/$path/" + if (en) "?lang=en" else "") } }) { Text(stringResource(label)) }
+            }
         SectionTitle(stringResource(R.string.licenses))
         LICENSES.forEach { (name, author, lic) ->
             androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
