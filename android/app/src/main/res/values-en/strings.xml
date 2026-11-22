@@ -295,7 +295,7 @@
     <string name="previous">Previous</string>
     <string name="privacy">Privacy</string>
     <string name="privacy_storage">Privacy &amp; storage</string>
-    <string name="privacy_text">Your documents are processed on your phone. They only leave the device if you use an online feature (high-fidelity conversion, generative AI); they\'re then deleted from the server right after processing. Usage statistics are anonymous and can be turned off.</string>
+    <string name="privacy_text">Your documents are processed on your phone. They only leave the device if you use an online feature (high-fidelity conversion, generative AI); they\'re then deleted from the server right after processing. Usage statistics are optional and can be turned off; they never contain your documents.</string>
     <string name="properties">Properties</string>
     <string name="protect_info">AES-256 encryption. Keep this password safe: without it the document can\'t be opened.</string>
     <string name="ranges">Page ranges</string>
@@ -446,8 +446,8 @@
     <string name="t_watermark">Watermark</string>
     <string name="tables_info">Tables are rebuilt from text positions and exported to Excel (.xlsx) and CSV.</string>
     <string name="target_language">Target language</string>
-    <string name="telemetry">Anonymous usage statistics</string>
-    <string name="telemetry_d">Tools used, durations, errors. Never your document contents.</string>
+    <string name="telemetry">Usage statistics</string>
+    <string name="telemetry_d">Tools used, durations, errors, linked to your account if you are signed in. Never your document contents.</string>
     <string name="test">Test</string>
     <string name="testing">Testing…</string>
     <string name="theme">Theme</string>
@@ -476,7 +476,7 @@
     <string name="web_address_hint">E.g. example.com/article (Internet required)</string>
     <string name="welcome_accept">I agree</string>
     <string name="welcome_refuse">No thanks</string>
-    <string name="welcome_text">Pagio processes your PDFs right on your phone: your documents stay with you.\n\nDo you agree to send anonymous usage statistics (tools used, errors) to help us improve the app? You can change your mind in settings.</string>
+    <string name="welcome_text">Pagio processes your PDFs right on your phone: your documents stay with you.\n\nDo you agree to send usage statistics (tools used, errors; never your document contents) to help us improve the app? You can change your mind in settings.</string>
     <string name="welcome_title">Welcome to Pagio</string>
     <string name="wm_add_image">Add an image</string>
     <string name="wm_behind">Behind content</string>

@@ -295,7 +295,7 @@
     <string name="previous">Précédent</string>
     <string name="privacy">Confidentialité</string>
     <string name="privacy_storage">Confidentialité et stockage</string>
-    <string name="privacy_text">Vos documents sont traités sur votre téléphone. Ils ne quittent l\'appareil que si vous utilisez une fonction en ligne (conversion haute fidélité, IA générative) ; ils sont alors supprimés du serveur juste après traitement. Les statistiques d\'usage sont anonymes et désactivables.</string>
+    <string name="privacy_text">Vos documents sont traités sur votre téléphone. Ils ne quittent l\'appareil que si vous utilisez une fonction en ligne (conversion haute fidélité, IA générative) ; ils sont alors supprimés du serveur juste après traitement. Les statistiques d\'usage sont facultatives et désactivables ; elles ne contiennent jamais vos documents.</string>
     <string name="properties">Propriétés</string>
     <string name="protect_info">Chiffrement AES-256. Conservez bien ce mot de passe : sans lui, le document ne pourra plus être ouvert.</string>
     <string name="ranges">Intervalles de pages</string>
@@ -446,8 +446,8 @@
     <string name="t_watermark">Filigrane</string>
     <string name="tables_info">Les tableaux sont reconstitués à partir de la position du texte et exportés en Excel (.xlsx) et CSV.</string>
     <string name="target_language">Langue cible</string>
-    <string name="telemetry">Statistiques d\'usage anonymes</string>
-    <string name="telemetry_d">Outils utilisés, durées, erreurs. Jamais le contenu de vos documents.</string>
+    <string name="telemetry">Statistiques d\'usage</string>
+    <string name="telemetry_d">Outils utilisés, durées, erreurs, liés à votre compte si vous êtes connecté. Jamais le contenu de vos documents.</string>
     <string name="test">Tester</string>
     <string name="testing">Test…</string>
     <string name="theme">Thème</string>
@@ -476,7 +476,7 @@
     <string name="web_address_hint">Ex. : exemple.com/article (Internet requis)</string>
     <string name="welcome_accept">J\'accepte</string>
     <string name="welcome_refuse">Non merci</string>
-    <string name="welcome_text">Pagio traite vos PDF directement sur votre téléphone : vos documents restent chez vous.\n\nAcceptez-vous d\'envoyer des statistiques d\'usage anonymes (outils utilisés, erreurs) pour nous aider à améliorer l\'application ? Vous pourrez changer d\'avis dans les réglages.</string>
+    <string name="welcome_text">Pagio traite vos PDF directement sur votre téléphone : vos documents restent chez vous.\n\nAcceptez-vous d\'envoyer des statistiques d\'usage (outils utilisés, erreurs ; jamais le contenu de vos documents) pour nous aider à améliorer l\'application ? Vous pourrez changer d\'avis dans les réglages.</string>
     <string name="welcome_title">Bienvenue dans Pagio</string>
     <string name="wm_add_image">Ajouter une image</string>
     <string name="wm_behind">Sous le contenu</string>
