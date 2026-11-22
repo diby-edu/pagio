@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pagio Admin</string>
+    <string name="channel_alerts">Alertes du serveur</string>
+    <string name="channel_alerts_d">Panne, certificat, disque, erreurs : ce qui demande votre attention.</string>
+    <string name="channel_messages">Messages des utilisateurs</string>
+    <string name="channel_messages_d">Nouveaux messages reçus dans Avis et support.</string>
+    <string name="down_title">Pagio ne répond pas</string>
+    <string name="down_text">Le serveur ne répond plus depuis au moins 30 minutes. Le gardien tente de le redémarrer.</string>
+    <string name="up_title">Pagio répond de nouveau</string>
+    <string name="up_text">Le serveur est de nouveau accessible.</string>
+    <string name="revoked_title">Notifications arrêtées</string>
+    <string name="revoked_text">Ce téléphone a été retiré des téléphones notifiés. Ouvrez Pagio Admin et reconnectez-vous pour les réactiver.</string>
+    <string name="message_title">Nouveau message d\'un utilisateur</string>
+    <string name="outage_title">Panne réparée</string>
+    <string name="outage_text">Pagio a été indisponible %1$s. %2$s</string>
+    <string name="outage_restarted">Le gardien l\'a redémarré automatiquement.</string>
+    <string name="outage_alone">Il est revenu seul.</string>
+    <string name="saved_download">Enregistré dans Téléchargements : %1$s</string>
+</resources>

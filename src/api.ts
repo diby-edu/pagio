@@ -102,7 +102,14 @@ export const fmtBytes = (n: number) => n >= 1048576 ? `${(n / 1048576).toFixed(1
 export async function download(path: string, filename: string) {
   const r = await fetch(session.server + path, { headers: { Authorization: `Bearer ${session.token}` } });
   if (!r.ok) throw new ApiError(r.status, 'Téléchargement impossible');
-  const url = URL.createObjectURL(await r.blob());
+  const blob = await r.blob();
+  // Dans l'APK admin, la WebView ne sait pas enregistrer un fichier : il passe par le pont Android.
+  if (window.PagioAdmin?.saveFile) {
+    const b64 = await new Promise<string>((ok) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] ?? ''); fr.readAsDataURL(blob); });
+    window.PagioAdmin.saveFile(filename, blob.type || 'application/octet-stream', b64);
+    return;
+  }
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }

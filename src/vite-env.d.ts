@@ -5,5 +5,6 @@ interface PagioAdminBridge {
   hasNotifyKey(): boolean;
   setNotifyKey(token: string, adminEmail: string): void;
   deviceName(): string;
+  saveFile?(name: string, mime: string, base64: string): void;
 }
 interface Window { PagioAdmin?: PagioAdminBridge }

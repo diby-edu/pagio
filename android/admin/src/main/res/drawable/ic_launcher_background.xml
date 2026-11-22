@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fond sombre : distingue Pagio Admin de l'application Pagio (fond violet). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M0,0h108v108h-108z" android:fillColor="#FF14152B" />
+    <path android:pathData="M0,86h108v22h-108z" android:fillColor="#FFFF7A66" />
+</vector>
