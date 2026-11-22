@@ -29,6 +29,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.RotateRight
+import androidx.compose.material.icons.outlined.FlashOff
+import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -105,6 +107,8 @@ fun ScanScreen(onBack: () -> Unit, onDone: (File, Int) -> Unit) {
     val context = LocalContext.current
     val c = context.container
     val scope = rememberCoroutineScope()
+    var torch by rememberSaveable { mutableStateOf(false) }
+    var hasFlash by remember { mutableStateOf(false) }
     val pageLimit = remember { c.scanPageLimit() } // pages maximum par scan pour l'offre gratuite (0 = illimité)
     val workPath = rememberSaveable { c.workspace.newTaskDir().absolutePath }
     val workDir = remember(workPath) { File(workPath).apply { mkdirs() } }
@@ -202,7 +206,13 @@ fun ScanScreen(onBack: () -> Unit, onDone: (File, Int) -> Unit) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back))
                     }
                 },
-                actions = { IconButton(onClick = ::pickImage, enabled = !busy) { Icon(Icons.Outlined.PhotoLibrary, stringResource(R.string.scan_gallery)) } },
+                actions = {
+                    // Flash : allumé ou éteint d'un appui, seulement si le téléphone en a un et pendant la prise de vue.
+                    if (step == Step.CAMERA && hasFlash) IconButton(onClick = { torch = !torch }) {
+                        Icon(if (torch) Icons.Outlined.FlashOn else Icons.Outlined.FlashOff, stringResource(if (torch) R.string.scan_flash_off else R.string.scan_flash_on))
+                    }
+                    IconButton(onClick = ::pickImage, enabled = !busy) { Icon(Icons.Outlined.PhotoLibrary, stringResource(R.string.scan_gallery)) }
+                },
             )
         },
     ) { padding ->
@@ -212,7 +222,7 @@ fun ScanScreen(onBack: () -> Unit, onDone: (File, Int) -> Unit) {
             Box(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF15151C)), contentAlignment = Alignment.Center) {
                 when {
                     step == Step.CAMERA && granted && !cameraBroken && !busy ->
-                        LiveCamera(workDir, auto, shutter, Modifier.fillMaxSize(), onDetected = { inFrame = it }, onPhoto = { load(it) },
+                        LiveCamera(workDir, auto, shutter, Modifier.fillMaxSize(), torch = torch, onFlashAvailable = { hasFlash = it }, onDetected = { inFrame = it }, onPhoto = { load(it) },
                             onFailure = { cameraBroken = true; problem = context.getString(R.string.scan_no_camera) })
                     step == Step.CAMERA && !busy -> Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text(stringResource(if (cameraBroken) R.string.scan_no_camera else R.string.scan_permission), color = Color.White, textAlign = TextAlign.Center)

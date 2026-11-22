@@ -503,5 +503,7 @@
     <string name="scan_folder_label">Nom du dossier</string>
     <string name="scan_folder_hint">Les %1$d pages seront enregistrées en images dans ce dossier : page 1, page 2…</string>
     <string name="scan_save_pdf">Enregistrer en PDF</string>
+    <string name="scan_flash_on">Allumer le flash</string>
+    <string name="scan_flash_off">Éteindre le flash</string>
     <string name="scan_pdf_premium_only">L\'enregistrement en PDF est réservé à l\'offre Premium. Votre scan sera enregistré en images.</string>
 </resources>

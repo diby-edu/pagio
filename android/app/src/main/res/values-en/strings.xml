@@ -503,5 +503,7 @@
     <string name="scan_folder_label">Folder name</string>
     <string name="scan_folder_hint">The %1$d pages will be saved as images in this folder: page 1, page 2…</string>
     <string name="scan_save_pdf">Save as PDF</string>
+    <string name="scan_flash_on">Turn flash on</string>
+    <string name="scan_flash_off">Turn flash off</string>
     <string name="scan_pdf_premium_only">Saving as PDF is part of the Premium plan. Your scan will be saved as images.</string>
 </resources>

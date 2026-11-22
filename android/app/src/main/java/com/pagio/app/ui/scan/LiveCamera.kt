@@ -95,6 +95,7 @@ private fun blend(a: Quad, b: Quad): Quad {
 @Composable
 fun LiveCamera(
     workDir: File, auto: Boolean, shutter: Int, modifier: Modifier = Modifier,
+    torch: Boolean = false, onFlashAvailable: (Boolean) -> Unit = {},
     onDetected: (Int) -> Unit, onPhoto: (File) -> Unit, onFailure: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -106,6 +107,9 @@ fun LiveCamera(
     var sure by remember { mutableStateOf(false) }
     var ratio by remember { mutableFloatStateOf(3f / 4f) }
     var ready by remember { mutableStateOf(false) }
+    // Lampe du téléphone (flash allumé en continu) : utile dans une pièce sombre, appliquée dès que la caméra est prête.
+    var camera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
+    LaunchedEffect(torch, camera) { camera?.let { c -> if (c.cameraInfo.hasFlashUnit()) runCatching { c.cameraControl.enableTorch(torch) } } }
     val autoNow by rememberUpdatedState(auto)
     val photo by rememberUpdatedState(onPhoto)
     val failure by rememberUpdatedState(onFailure)
@@ -173,7 +177,8 @@ fun LiveCamera(
                     }
                 }
                 p.unbindAll()
-                p.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis, capture)
+                camera = p.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis, capture)
+                onFlashAvailable(camera?.cameraInfo?.hasFlashUnit() == true)
                 ready = true
             }.onFailure { failure() }
         }, main)

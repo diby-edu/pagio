@@ -29,7 +29,8 @@ html { scroll-behavior: smooth; overflow-x: clip; }
 main { overflow-x: clip; }
 h1, h2 { overflow-wrap: break-word; }
 body {
-  margin: 0; background: var(--bg); color: var(--ink); overflow-x: hidden;
+  /* « clip » et non « hidden » : hidden ferait du corps de page une zone de défilement, et le menu du haut cesserait de rester collé. */
+  margin: 0; background: var(--bg); color: var(--ink); overflow-x: clip;
   font: 16px/1.6 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -247,7 +248,11 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
   .hero { padding-top: 40px; text-align: left; }
   .stage { min-height: 560px; }
   .steps, .stats { grid-template-columns: 1fr 1fr; }
-  .nav nav { display: none; }
+  /* Téléphone et tablette : le menu passe sur une seconde ligne, sous le logo, et reste visible en haut. */
+  .nav { flex-wrap: wrap; height: auto; min-height: 60px; row-gap: 0; padding-top: 8px; }
+  .nav nav { order: 3; width: 100%; margin: 0; gap: 6px; padding: 2px 0 10px; overflow-x: auto; scrollbar-width: none; }
+  .nav nav::-webkit-scrollbar { display: none; }
+  .nav nav a { flex: none; padding: 6px 12px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); font-size: .9rem; }
   .lang { margin-left: auto; }
 }
 @media (max-width: 600px) {
