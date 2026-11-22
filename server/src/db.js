@@ -39,6 +39,8 @@ export const DEFAULT_SETTINGS = {
   },
   ai: { enabled: false, provider: 'openai', base_url: '', model: '', api_key: '', cost_per_request: 1, max_tokens: 1800 },
   registration_open: true,
+  // Connexion « avec Google » : identifiant client OAuth (Google Cloud › Identifiants). Vide = bouton masqué.
+  google_client_id: '',
   // Protection contre les abus (0 = illimité, sauf convert_max_mb plafonné à 100 par le serveur).
   limits: {
     convert_require_account: false, // true : la conversion en ligne exige un compte connecté

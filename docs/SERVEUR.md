@@ -231,6 +231,45 @@ Mise en place du 22/11/2026 : domaine `pagio.site` authentifié dans Brevo (code
   Le montant facturé se lit chez le fournisseur : fixez-y un plafond de dépense mensuel.
 - Les alertes peuvent être envoyées par e-mail (page *E-mails*).
 
+### Gardien (depuis le 22/11/2026)
+
+`/root/pagio-gardien.sh` (source : `server/deploy/pagio-gardien.sh`), lancé chaque minute par `/etc/cron.d/pagio-gardien`, hors du conteneur :
+vérifie `http://127.0.0.1:8787/api/health` et `https://pagio.site/api/health` ; après 3 échecs de suite, redémarre le conteneur `pagio`
+(au plus une fois par 10 minutes) ; si seul Nginx est arrêté, le relance sans toucher aux autres sites. Chaque panne (début, fin,
+durée, redémarrage) est notée dans `/var/www/pagio/data/gardien/incidents.jsonl` ; l'expiration des certificats HTTPS de Pagio,
+dans `certificats.json` (chaque heure). Le tableau de bord (*Système › Disponibilité*) affiche la disponibilité sur 30 jours, les pannes
+et les certificats ; alertes : certificat à moins de 14 jours (urgent à 5), panne dans les 24 h, gardien silencieux depuis 10 minutes.
+Mise à jour : `scp server/deploy/pagio-gardien.sh root@72.62.148.170:/root/` puis `sed -i 's/\r$//' /root/pagio-gardien.sh`.
+
+### APK admin et notifications
+
+`android/admin` (application `com.pagio.admin`, « Pagio Admin », jamais publiée) : le tableau de bord d'admin.pagio.site sur le téléphone,
+avec les mêmes modules que sur PC. Construction : `./gradlew.bat :admin:assembleRelease` dans `android/` (signée avec la même clé).
+1. Sur le VPS : `/root/admin-appareils.sh nouveau telephone` crée `telephone.p12` (+ `telephone.code`) ; copiez-les sur le téléphone.
+2. Téléphone : *Paramètres › Sécurité › Chiffrement et identifiants › Installer un certificat › Certificat utilisateur VPN et appli*
+   (chemin variable selon la marque), choisir `telephone.p12`, saisir le code.
+3. Installer Pagio Admin, l'ouvrir, choisir ce certificat quand Android le propose, puis se connecter (mot de passe + double authentification).
+4. À la connexion, le téléphone reçoit une **clé de notification** (lecture du flux seulement, empreinte seule en base) : il apparaît dans
+   *Système › Téléphones notifiés*, où l'on peut le retirer. Toutes les 15 minutes, l'application lit `/api/admin/notify/feed` et notifie :
+   alertes nouvelles, messages des utilisateurs, pannes réparées par le gardien, et « Pagio ne répond pas » après 30 minutes sans réponse.
+Retirer le téléphone : `/root/admin-appareils.sh retirer telephone` (plus d'accès) et *Système › Téléphones notifiés › Retirer*.
+
+## Application web (app.pagio.site, depuis le 23/11/2026)
+
+Source : `web/` (React + TypeScript + Vite, `pdf-lib` et `pdf.js`). Mêmes comptes que l'application Android (inscription libre,
+« Mot de passe oublié », connexion avec Google). Outils dans le navigateur, sans envoi de fichier : fusionner, extraire ou supprimer des
+pages, pivoter, images en PDF, numéroter, filigrane. Par le serveur (compte requis) : Office en PDF, résumé ou question par l'IA (seul
+le texte du PDF est envoyé). Limites gratuites par outil comptées dans le navigateur, comme sur le téléphone. Pas de statistiques d'usage.
+Nginx : bloc `app.pagio.site` (`server/deploy/nginx-pagio-app.conf`), fichiers dans `/var/www/pagio/app-web`, `/api` relayé sans
+l'administration, en-têtes de sécurité (CSP limitée au bouton Google). Mise à jour :
+```
+npm --prefix web run build
+tar -cf - -C web/dist . | ssh root@72.62.148.170 "cd /var/www/pagio/app-web && rm -rf ./* && tar -xf - && chmod -R a+rX ."
+```
+**Connexion avec Google** : créer un « ID client OAuth » de type *Application Web* (voir `docs/GOOGLE.md`) et le coller dans
+*Pilotage de l'application › Services › Connexion avec Google*. Sans identifiant, le bouton est masqué. Le serveur vérifie la signature
+du jeton de Google (clés publiques de Google), l'émetteur, le destinataire, l'expiration et l'adresse vérifiée (`server/src/google.js`).
+
 ## Ce que le tableau de bord permet
 
 Vue d'ensemble (utilisateurs, Premium, appareils, traitements, erreurs, IA, graphiques, alertes), Utilisateurs (recherche, offre,

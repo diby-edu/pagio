@@ -13,6 +13,7 @@ import {
 } from './security.js';
 import { aiComplete, convertWithLibreOffice, libreOfficeAvailable } from './services.js';
 import { listBackups, createBackup, backupPath, restoreBackup, importBackup, verifyBackup } from './backup.js';
+import { verifyGoogleToken } from './google.js';
 import { sendWithBrevo, pingBrevo, messages, newToken, hashToken, resetForm, messagePage } from './mail.js';
 
 const DAY = 86_400_000;
@@ -27,7 +28,7 @@ const emailOk = (e) => typeof e === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.tes
  * trustProxy : nombre de proxys de confiance devant le serveur (1 derrière Caddy/Nginx), pour connaître la vraie adresse IP.
  * sendMail : fonction d'envoi des e-mails (Brevo par défaut ; remplacée dans les tests).
  */
-export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now(), sendMail = sendWithBrevo, checkMailKey = pingBrevo }) {
+export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now(), sendMail = sendWithBrevo, checkMailKey = pingBrevo, verifyGoogle = verifyGoogleToken }) {
   const app = express();
   app.disable('x-powered-by');
   if (trustProxy) app.set('trust proxy', trustProxy);
@@ -69,6 +70,8 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     tasks_today: u.tasks_day === today() ? u.tasks_count : 0, banned: !!u.banned, created_at: u.created_at, last_seen: u.last_seen,
     total_tasks: u.total_tasks, note: u.note, email_verified: !!u.email_verified,
   });
+  /** Ce que l'utilisateur voit de son propre compte : sans la note interne de l'administrateur, ni l'état de suspension. */
+  const selfUser = (u) => { const { note: _note, banned: _banned, ...rest } = publicUser(u); return rest; };
 
   // Premium expiré → retour automatique à l'offre gratuite.
   const effective = (u) => {
@@ -206,6 +209,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       ai_enabled: !!(s.ai.enabled && (aiConfig(s).api_key || s.ai.base_url)),
       server_conversion: !!(s.conversion_enabled && libreOfficeAvailable()),
       registration_open: s.registration_open,
+      google_client_id: s.google_client_id || '',
     });
   });
 
@@ -254,7 +258,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       .run(id, email, String(req.body?.name || '').slice(0, 80), passwordHash, s.plans.free.ai_credits || 0, Date.now());
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (linksReady(s) && s.mail.verify_signup) sendVerification(s, u, req);
-    ok(res, { token: signToken({ kind: 'user', sub: id }, secret, 90 * 86400), user: publicUser(u) });
+    ok(res, { token: signToken({ kind: 'user', sub: id }, secret, 90 * 86400), user: selfUser(u) });
   });
 
   app.post('/api/auth/login', async (req, res) => {
@@ -266,7 +270,34 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (!good) return fail(res, 401, 'E-mail ou mot de passe incorrect');
     if (u.banned) return fail(res, 403, 'Compte suspendu. Contactez le support.');
     db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Date.now(), u.id);
-    ok(res, { token: signToken({ kind: 'user', sub: u.id }, secret, 90 * 86400), user: publicUser(effective(u)) });
+    ok(res, { token: signToken({ kind: 'user', sub: u.id }, secret, 90 * 86400), user: selfUser(effective(u)) });
+  });
+
+  // Connexion « avec Google » (site web, plus tard l'application) : le compte est celui de l'adresse Google, créé au
+  // premier passage (adresse déjà vérifiée par Google). Un compte existant avec la même adresse est simplement ouvert.
+  app.post('/api/auth/google', async (req, res) => {
+    if (!loginIpLimit(`ui:${req.ip}`)) return fail(res, 429, 'Trop de tentatives. Réessayez dans 15 minutes.');
+    const s = getSettings(db);
+    let g;
+    try { g = await verifyGoogle(req.body?.credential, s.google_client_id); }
+    catch (e) { return fail(res, 401, e.message); }
+    let u = db.prepare('SELECT * FROM users WHERE email = ?').get(g.email);
+    if (!u) {
+      if (!s.registration_open) return fail(res, 403, 'Les inscriptions sont temporairement fermées.');
+      const perHour = Number(s.limits.register_per_hour) || 0;
+      if (perHour > 0 && !registerLimit(`r:${req.ip}`, perHour)) return fail(res, 429, 'Trop d\'inscriptions depuis cette connexion. Réessayez dans une heure.');
+      const id = crypto.randomUUID();
+      // Mot de passe aléatoire jamais communiqué : « Mot de passe oublié » permet d'en choisir un plus tard.
+      db.prepare('INSERT INTO users (id, email, name, password_hash, ai_credits, created_at, email_verified) VALUES (?, ?, ?, ?, ?, ?, 1)')
+        .run(id, g.email, g.name, await hashPasswordAsync(crypto.randomBytes(24).toString('base64url')), s.plans.free.ai_credits || 0, Date.now());
+      u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    } else if (!u.email_verified) {
+      db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(u.id); // Google vient de confirmer l'adresse
+    }
+    if (u.banned) return fail(res, 403, 'Compte suspendu. Contactez le support.');
+    db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Date.now(), u.id);
+    u = db.prepare('SELECT * FROM users WHERE id = ?').get(u.id);
+    ok(res, { token: signToken({ kind: 'user', sub: u.id }, secret, 90 * 86400), user: selfUser(effective(u)) });
   });
 
   // Mot de passe oublié. Avec les e-mails activés : un lien valable 1 heure est envoyé. Sinon : la demande est
@@ -328,7 +359,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     html(res, 200, messagePage('Adresse confirmée', 'Merci, votre adresse e-mail est confirmée.'));
   });
 
-  app.get('/api/me', userAuth(true), (req, res) => ok(res, { user: publicUser(req.user) }));
+  app.get('/api/me', userAuth(true), (req, res) => ok(res, { user: selfUser(req.user) }));
 
   /**
    * Suppression d'un compte (par l'utilisateur ou un administrateur) : le compte, son historique d'offres et ses messages
@@ -758,7 +789,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const b = req.body || {};
     const current = getSettings(db);
     const allowed = ['maintenance', 'maintenance_message', 'announcement', 'announcement_level', 'min_version_code', 'latest_version_name',
-      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup', 'mail'];
+      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup', 'mail', 'google_client_id'];
     const changed = [];
     for (const k of allowed) {
       if (!(k in b)) continue;
@@ -802,6 +833,10 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       }
       if (k === 'plans') v = { free: { ...current.plans.free, ...(v.free || {}) }, premium: { ...current.plans.premium, ...(v.premium || {}) } };
       if (k === 'min_version_code') v = Math.max(0, Number(v) || 0);
+      if (k === 'google_client_id') {
+        v = String(v || '').trim();
+        if (v && !/^[\w-]+\.apps\.googleusercontent\.com$/.test(v)) return fail(res, 400, "Identifiant client Google invalide (il se termine par .apps.googleusercontent.com)");
+      }
       setSetting(db, k, v);
       changed.push(k);
     }
