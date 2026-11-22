@@ -328,9 +328,21 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
 
   app.get('/api/me', userAuth(true), (req, res) => ok(res, { user: publicUser(req.user) }));
 
+  /**
+   * Suppression d'un compte (par l'utilisateur ou un administrateur) : le compte, son historique d'offres et ses messages
+   * au support sont effacés ; les statistiques anonymes (usage des outils, IA, conversions) sont détachées du compte.
+   * Ce que promet la page publique « Suppression de compte ». Les sauvegardes disparaissent au bout de leur durée de conservation.
+   */
+  function eraseUser(id) {
+    const u = db.prepare('SELECT email FROM users WHERE id = ?').get(id);
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    db.prepare('DELETE FROM plan_history WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM feedback WHERE user_id = ? OR (? IS NOT NULL AND lower(email) = ?)').run(id, u?.email ?? null, u?.email ?? null);
+    for (const t of ['events', 'ai_usage', 'conversions']) db.prepare(`UPDATE ${t} SET user_id = NULL WHERE user_id = ?`).run(id);
+  }
+
   app.delete('/api/me', userAuth(true), (req, res) => {
-    db.prepare('DELETE FROM users WHERE id = ?').run(req.user.id);
-    db.prepare('UPDATE events SET user_id = NULL WHERE user_id = ?').run(req.user.id);
+    eraseUser(req.user.id);
     ok(res, { deleted: true });
   });
 
@@ -614,7 +626,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   app.delete('/api/admin/users/:id', adminAuth('admin'), (req, res) => {
     const u = db.prepare('SELECT email FROM users WHERE id = ?').get(req.params.id);
     if (!u) return fail(res, 404, 'Utilisateur introuvable');
-    db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+    eraseUser(req.params.id);
     audit(req.admin, 'user.delete', u.email);
     ok(res, { deleted: true });
   });
@@ -665,8 +677,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
         } else if (action === 'add_credits') {
           db.prepare('UPDATE users SET ai_credits = MAX(0, ai_credits + ?) WHERE id = ?').run(credits, id);
         } else if (action === 'delete') {
-          db.prepare('DELETE FROM users WHERE id = ?').run(id);
-          db.prepare('UPDATE events SET user_id = NULL WHERE user_id = ?').run(id);
+          eraseUser(id);
         }
         done++;
       }
@@ -1094,6 +1105,17 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       counts: Object.fromEntries(['users', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'server_errors'].map((t) => [t, db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n])),
     });
   });
+
+  /**
+   * Durées de conservation annoncées dans la politique de confidentialité (pagio.site/confidentialite) : statistiques
+   * d'usage, IA et conversions 13 mois, erreurs du serveur 6 mois, messages au support 2 ans. Appelée chaque jour.
+   */
+  app.locals.purgeOld = (now = Date.now()) => {
+    const out = {};
+    const rules = [['events', 395], ['ai_usage', 395], ['conversions', 395], ['server_errors', 183], ['feedback', 730]];
+    for (const [t, days] of rules) out[t] = Number(db.prepare(`DELETE FROM ${t} WHERE ts < ?`).run(now - days * DAY).changes);
+    return out;
+  };
 
   app.post('/api/admin/system/purge-events', adminAuth('owner'), (req, res) => {
     const days = Math.max(Number(req.body?.older_than_days) || 180, 7);

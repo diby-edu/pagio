@@ -233,6 +233,9 @@ section { padding: 110px 0; }
 .final .orb:nth-child(2) { width: 180px; height: 180px; bottom: -60px; right: 8%; animation-delay: -3s; }
 footer { padding: 48px 0 56px; color: var(--muted); font-size: .9rem; }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+footer .legal { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+footer .legal a { color: var(--muted); text-decoration: none; }
+footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-decoration: underline; }
 
 /* ------------------------------------------------------------ Apparition au défilement */
 .reveal { opacity: 0; transform: translateY(36px); transition: opacity .8s cubic-bezier(.2, .8, .2, 1), transform .8s cubic-bezier(.2, .8, .2, 1); transition-delay: var(--d, 0s); }
@@ -410,7 +413,9 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; j
 </main>
 
 <footer>
-  <div class="wrap"><span>© <span id="year">2026</span> Pagio</span><span data-i18n="foot">Fait avec soin, pour les gens pressés.</span></div>
+  <div class="wrap"><span>© <span id="year">2026</span> Pagio · KODY BUSINESS</span>
+    <nav class="legal" aria-label="Informations légales"><a href="/confidentialite/" data-i18n="f_priv">Confidentialité</a><a href="/conditions/" data-i18n="f_terms">Conditions d'utilisation</a><a href="/suppression-compte/" data-i18n="f_del">Suppression de compte</a><a href="/mentions-legales/" data-i18n="f_legal">Mentions légales</a><a href="mailto:contact@pagio.site">contact@pagio.site</a></nav>
+    <span data-i18n="foot">Fait avec soin, pour les gens pressés.</span></div>
 </footer>
 
 <script>
@@ -440,6 +445,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; j
       ai_a: "1. Chiffre d'affaires en hausse de 18 %, porté par l'export.\n2. Deux nouvelles agences ouvertes en juin.\n3. Objectif 2027 : réduire les délais de livraison de moitié.",
       h_final: 'Votre bureau tient dans votre poche.', p_final: 'Téléchargez Pagio dès maintenant, en attendant Google Play. Gratuit pour commencer, sans carte bancaire.',
       foot: 'Fait avec soin, pour les gens pressés.',
+      f_priv: 'Confidentialité', f_terms: "Conditions d'utilisation", f_del: 'Suppression de compte', f_legal: 'Mentions légales',
       fam: [
         ['Organiser', ['Fusionner', 'Diviser', 'Réorganiser les pages', 'Extraire des pages', 'Supprimer des pages', 'Pivoter']],
         ['Optimiser', ['Compresser', 'Réparer', ['OCR : texte recherchable'], 'Extraire le texte']],
@@ -474,6 +480,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; j
       ai_a: '1. Revenue up 18%, driven by exports.\n2. Two new branches opened in June.\n3. 2027 goal: cut delivery times in half.',
       h_final: 'Your office fits in your pocket.', p_final: 'Download Pagio now, ahead of Google Play. Free to start, no credit card.',
       foot: 'Made with care, for people in a hurry.',
+      f_priv: 'Privacy', f_terms: 'Terms of use', f_del: 'Account deletion', f_legal: 'Legal notice',
       fam: [
         ['Organise', ['Merge', 'Split', 'Reorder pages', 'Extract pages', 'Delete pages', 'Rotate']],
         ['Optimise', ['Compress', 'Repair', ['OCR: searchable text'], 'Extract text']],

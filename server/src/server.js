@@ -95,6 +95,11 @@ const alertTick = () => app.locals.sendAlertEmails().catch((e) => logServerError
 setTimeout(alertTick, 60_000).unref();
 setInterval(alertTick, 10 * 60_000).unref();
 
+// Durées de conservation de la politique de confidentialité : vieilles données effacées chaque jour.
+const purgeTick = () => { try { const r = app.locals.purgeOld(); if (Object.values(r).some(Boolean)) console.log('Données anciennes effacées :', JSON.stringify(r)); } catch (e) { logServerError(db, 'serveur', e); } };
+setTimeout(purgeTick, 120_000).unref();
+setInterval(purgeTick, 24 * 3_600_000).unref();
+
 // Clé Brevo gardée active (désactivée par Brevo après 90 jours sans usage) : contact sans envoi, une fois par semaine.
 const mailKeyTick = () => app.locals.keepMailKeyAlive().catch((e) => logServerError(db, 'email', e));
 setTimeout(mailKeyTick, 90_000).unref();

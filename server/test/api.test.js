@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { boot } from './helpers.js';
 
 test('parcours complet : config, inscription, administration, quotas, événements', async () => {
-  const { server, call } = await boot();
+  const { server, call, db, app } = await boot();
   try {
     assert.equal((await call('GET', '/api/health')).json.ok, true);
     const cfg = await call('GET', '/api/app/config');
@@ -95,9 +95,28 @@ test('parcours complet : config, inscription, administration, quotas, événemen
     await call('PUT', '/api/admin/settings', { ai: { model: 'autre', api_key: s.ai.api_key } }, admin);
     assert.equal((await call('GET', '/api/admin/settings', null, admin)).json.settings.ai.api_key, '••••1234'); // inchangée
 
-    // Suppression du compte par l'utilisateur
+    // Suppression du compte par l'utilisateur : messages au support et historique effacés, statistiques détachées
+    const me = (await call('GET', '/api/me', null, userToken)).json.user;
+    await call('POST', '/api/app/feedback', { message: 'Un message au support', email: me.email }, userToken);
+    db.prepare('INSERT INTO plan_history (ts, user_id, old_plan, new_plan) VALUES (?, ?, ?, ?)').run(Date.now(), me.id, 'free', 'premium');
+    db.prepare('INSERT INTO conversions (ts, user_id, ok) VALUES (?, ?, 1)').run(Date.now(), me.id);
     assert.equal((await call('DELETE', '/api/me', null, userToken)).status, 200);
     assert.equal((await call('GET', '/api/admin/users', null, admin)).json.total, 0);
+    for (const t of ['feedback', 'plan_history', 'events', 'ai_usage', 'conversions']) {
+      assert.equal(db.prepare(`SELECT COUNT(*) n FROM ${t} WHERE user_id = ?`).get(me.id).n, 0, t);
+    }
+    assert.equal(db.prepare('SELECT COUNT(*) n FROM feedback WHERE lower(email) = ?').get(me.email).n, 0);
+    assert.ok(db.prepare('SELECT COUNT(*) n FROM conversions').get().n >= 1); // la statistique anonyme reste
+
+    // Durées de conservation : au-delà de 13 mois, statistiques effacées ; les récentes restent
+    const old = Date.now() - 400 * 86_400_000;
+    db.prepare('INSERT INTO events (ts, name) VALUES (?, ?)').run(old, 'vieux');
+    db.prepare('INSERT INTO server_errors (ts, source, message) VALUES (?, ?, ?)').run(Date.now() - 200 * 86_400_000, 'serveur', 'vieille');
+    const purged = app.locals.purgeOld();
+    assert.equal(purged.events, 1);
+    assert.equal(purged.server_errors, 1);
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM events WHERE name = 'vieux'").get().n, 0);
+    assert.ok(db.prepare('SELECT COUNT(*) n FROM conversions').get().n >= 1);
   } finally {
     server.close();
   }

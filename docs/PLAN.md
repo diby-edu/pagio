@@ -40,7 +40,13 @@
   Plus tard : notifications (serveur en panne, nouveau message de support).
 
 - [x] Landing page animée FR/EN sur `pagio.site` (20/11/2026), sans aucun lien de connexion.
-- [ ] **Pages légales** (demandées le 20/11/2026), liées en pied de page du site et depuis l'application :
+- [x] Pages légales FR/EN en ligne le 22/11/2026 : `pagio.site/confidentialite/`, `/conditions/`, `/suppression-compte/`,
+  `/mentions-legales/`, liées en pied de page du site. Le serveur efface maintenant tout le compte (messages au support,
+  historique des offres) et applique seul les durées annoncées (statistiques 13 mois, erreurs 6 mois, support 2 ans).
+  Reste : liens depuis l'application (prochaine APK) ; le RCCM et l'adresse du siège de KODY BUSINESS à ajouter aux mentions légales.
+- [ ] (Décision) L'application parle de statistiques « anonymes » : connecté, elles sont rattachées au compte. Soit les détacher
+  du compte côté serveur, soit écrire « pseudonymes » dans l'application (la politique dit déjà la vérité).
+- [x] ~~Pages légales~~ (demandées le 20/11/2026), liées en pied de page du site et depuis l'application :
   politique de confidentialité (RGPD : données collectées, finalités, durée de conservation, sous-traitants — fournisseur d'IA, Brevo,
   hébergeur —, droits d'accès / rectification / effacement, contact), conditions d'utilisation (offres, crédits IA, abonnements),
   suppression de compte (exigée par Google Play : page publique expliquant comment supprimer son compte et ses données), mentions légales.
