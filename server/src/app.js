@@ -1018,6 +1018,27 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     };
   }
 
+  /**
+   * Disponibilité, d'après le gardien qui tourne sur le VPS hors du conteneur (server/deploy/pagio-gardien.sh) :
+   * pannes des 30 derniers jours, pourcentage de disponibilité, certificats HTTPS. null si le gardien n'est pas installé.
+   */
+  function availability(now = Date.now()) {
+    const dir = dataDir && path.join(dataDir, 'gardien');
+    if (!dir || !fs.existsSync(dir)) return null;
+    const read = (f) => { try { return fs.readFileSync(path.join(dir, f), 'utf8'); } catch { return null; } };
+    const since = now - 30 * DAY;
+    const incidents = String(read('incidents.jsonl') || '').split('\n').filter(Boolean)
+      .map((l) => { try { return JSON.parse(l); } catch { return null; } })
+      .filter((i) => i && i.fin * 1000 >= since)
+      .map((i) => ({ debut: i.debut * 1000, fin: i.fin * 1000, duree_s: i.duree_s, redemarre: !!i.redemarre }))
+      .sort((a, b) => b.debut - a.debut);
+    const down = incidents.reduce((n, i) => n + Math.max(0, i.fin - Math.max(i.debut, since)), 0);
+    let certificats = [];
+    try { certificats = JSON.parse(read('certificats.json') || '[]').map((c) => ({ ...c, expire: c.expire * 1000, jours: Math.floor((c.expire * 1000 - now) / DAY) })); } catch { /* fichier en cours d'écriture */ }
+    const last = Number(read('derniere-verification')) * 1000 || 0;
+    return { incidents, disponibilite_30j: Math.round((1 - down / (30 * DAY)) * 10000) / 100, derniere_verification: last, gardien_actif: now - last < 10 * 60_000, certificats };
+  }
+
   /** Points à surveiller, du plus grave au moins grave. `page` : page du tableau de bord où agir. */
   function alerts() {
     const s = getSettings(db);
@@ -1057,6 +1078,19 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (s.maintenance) add('info', 'maintenance', "Le mode maintenance est actif : l'application est bloquée pour les utilisateurs.", 'app');
     const open = db.prepare("SELECT COUNT(*) n FROM feedback WHERE status = 'nouveau'").get().n;
     if (open > 0) add('info', 'feedback', `${open} message(s) d'utilisateurs en attente de réponse.`, 'feedback');
+    const av = availability(now);
+    if (av) {
+      if (!av.gardien_actif) add('warning', 'watchdog', 'Le gardien du serveur ne tourne plus : les pannes ne sont plus surveillées ni réparées automatiquement.', 'system');
+      for (const c of av.certificats) {
+        if (c.jours < 5) add('critical', 'cert', `Le certificat HTTPS de ${c.domaine} expire dans ${Math.max(c.jours, 0)} jour(s) : le site sera bloqué par les navigateurs.`, 'system');
+        else if (c.jours < 14) add('warning', 'cert', `Le certificat HTTPS de ${c.domaine} expire dans ${c.jours} jours et ne s'est pas encore renouvelé.`, 'system');
+      }
+      const recent = av.incidents.filter((i) => i.fin > now - DAY);
+      if (recent.length) {
+        const min = Math.ceil(recent.reduce((n, i) => n + i.duree_s, 0) / 60);
+        add('warning', 'outage', `Pagio a été indisponible ${recent.length} fois en 24 heures (${min} min au total)${recent.some((i) => i.redemarre) ? ', redémarré automatiquement' : ''}.`, 'system');
+      }
+    }
     const kc = s.mail_key_check;
     if (mailReady(s) && kc && !kc.ok && kc.status === 401) add('critical', 'mail_key_refused', `${kc.message} : les e-mails ne partent plus. Créez une nouvelle clé dans Brevo et collez-la ici.`, 'mail');
     const rank = { critical: 0, warning: 1, info: 2 };
@@ -1064,6 +1098,47 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   }
 
   app.get('/api/admin/alerts', adminAuth(), (req, res) => ok(res, { alerts: alerts() }));
+
+  // ------------------------------------------------------------- Notifications de l'APK admin
+  // Chaque téléphone reçoit une clé de notification, créée depuis le tableau de bord (dans l'APK admin, automatiquement).
+  // Elle ne permet QUE de lire le flux de notifications : ni données d'utilisateurs, ni réglages. Révocable à tout moment.
+  // Seule l'empreinte de la clé est en base. Comme tout /api/admin, le flux n'existe que sur admin.pagio.site (certificat d'appareil).
+  const notifyLimit = rateLimiter(120, HOUR);
+  app.get('/api/admin/notify/devices', adminAuth(), (req, res) => ok(res, {
+    devices: db.prepare('SELECT d.id, d.name, d.created_at, d.last_seen, a.email admin_email FROM notify_devices d JOIN admins a ON a.id = d.admin_id WHERE d.revoked = 0 ORDER BY d.created_at DESC').all(),
+  }));
+  app.post('/api/admin/notify/devices', adminAuth(), (req, res) => {
+    const name = String(req.body?.name || '').trim().slice(0, 60) || 'Téléphone';
+    const token = newToken();
+    db.prepare('INSERT INTO notify_devices (admin_id, name, token_hash, created_at) VALUES (?, ?, ?, ?)').run(req.admin.id, name, hashToken(token), Date.now());
+    audit(req.admin, 'notify.device_add', name);
+    ok(res, { token });
+  });
+  app.delete('/api/admin/notify/devices/:id', adminAuth(), (req, res) => {
+    const d = db.prepare('SELECT * FROM notify_devices WHERE id = ? AND revoked = 0').get(Number(req.params.id));
+    if (!d) return fail(res, 404, 'Appareil inconnu');
+    if (d.admin_id !== req.admin.id && ROLES[req.admin.role] < ROLES.admin) return fail(res, 403, 'Droits insuffisants pour cette action');
+    db.prepare('UPDATE notify_devices SET revoked = 1 WHERE id = ?').run(d.id);
+    audit(req.admin, 'notify.device_revoke', d.name);
+    ok(res, { revoked: true });
+  });
+  /** Flux lu toutes les 15 minutes par l'APK admin : alertes en cours, messages des utilisateurs, pannes récentes. */
+  app.get('/api/admin/notify/feed', (req, res) => {
+    const token = String(req.get('x-pagio-notify') || '');
+    if (!notifyLimit(`n:${req.ip}`)) return fail(res, 429, 'Trop de requêtes');
+    const d = token && db.prepare('SELECT * FROM notify_devices WHERE token_hash = ? AND revoked = 0').get(hashToken(token));
+    if (!d) return fail(res, 401, 'Clé de notification inconnue ou révoquée');
+    const a = db.prepare('SELECT * FROM admins WHERE id = ? AND active = 1').get(d.admin_id);
+    if (!a) return fail(res, 401, 'Administrateur désactivé');
+    db.prepare('UPDATE notify_devices SET last_seen = ? WHERE id = ?').run(Date.now(), d.id);
+    const av = availability();
+    ok(res, {
+      now: Date.now(),
+      alerts: alerts().filter((x) => x.level !== 'info' || x.code === 'feedback').map(({ code, level, message }) => ({ code, level, message })),
+      feedback: db.prepare("SELECT id, ts, kind, substr(message, 1, 140) message FROM feedback WHERE status = 'nouveau' ORDER BY ts DESC LIMIT 20").all(),
+      incidents: (av?.incidents || []).slice(0, 10),
+    });
+  });
 
   /**
    * Garde la clé Brevo active : Brevo la désactive après 90 jours sans usage. Un contact sans envoi au plus une fois
@@ -1109,7 +1184,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       // Taille réelle : fichier principal + journal des écritures récentes (mode WAL).
       db_file: file, db_bytes: file ? [file, `${file}-wal`].reduce((n, f) => n + (fs.existsSync(f) ? fs.statSync(f).size : 0), 0) : 0,
       libreoffice: libreOfficeAvailable(), memory_mb: Math.round(process.memoryUsage().rss / 1048576),
-      machine: machine(), alerts: alerts(),
+      machine: machine(), alerts: alerts(), availability: availability(),
       backups: backupsDir ? { count: listBackups(backupsDir).length, bytes: listBackups(backupsDir).reduce((n, b) => n + b.bytes, 0) } : null,
       counts: Object.fromEntries(['users', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'server_errors'].map((t) => [t, db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n])),
     });

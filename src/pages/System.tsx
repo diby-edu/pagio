@@ -4,9 +4,76 @@ import { Alert, Card, useFlash } from '../ui';
 import { AlertList, ServerAlert } from './AlertList';
 
 interface Machine { disk: { total_mb: number; free_mb: number } | null; cpus: number; load: number[]; platform: string; mem_total_mb: number; mem_free_mb: number }
+interface Availability {
+  incidents: { debut: number; fin: number; duree_s: number; redemarre: boolean }[];
+  disponibilite_30j: number; derniere_verification: number; gardien_actif: boolean;
+  certificats: { domaine: string; noms: string; expire: number; jours: number }[];
+}
 interface Sys {
   node: string; uptime_s: number; db_file: string; db_bytes: number; libreoffice: boolean; memory_mb: number; counts: Record<string, number>;
-  machine: Machine; alerts: ServerAlert[]; backups: { count: number; bytes: number } | null;
+  machine: Machine; alerts: ServerAlert[]; backups: { count: number; bytes: number } | null; availability: Availability | null;
+}
+interface NotifyDevice { id: number; name: string; created_at: number; last_seen: number | null; admin_email: string }
+
+const when = (ms: number) => new Date(ms).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+const dur = (s: number) => (s < 60 ? `${s} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min`);
+
+/** Disponibilité relevée par le gardien du VPS : pannes, redémarrages automatiques, certificats HTTPS. */
+function AvailabilityCard({ av }: { av: Availability | null }) {
+  if (!av) return (
+    <Card title="Disponibilité">
+      <p className="muted">Le gardien du serveur n'est pas installé : pannes et certificats ne sont pas surveillés (voir docs/SERVEUR.md, « Gardien »).</p>
+    </Card>
+  );
+  const color = av.disponibilite_30j >= 99.9 ? '#14A37F' : av.disponibilite_30j >= 99 ? '#F5A524' : '#E5484D';
+  return (
+    <Card title="Disponibilité (30 derniers jours)">
+      <div className="row gap wrap" style={{ alignItems: 'baseline' }}>
+        <b style={{ fontSize: 34, color }}>{av.disponibilite_30j.toLocaleString('fr-FR')} %</b>
+        <span className="muted">{av.incidents.length === 0 ? 'aucune panne' : `${av.incidents.length} panne(s)`}</span>
+      </div>
+      <p className="small" style={{ margin: '6px 0 12px' }}>
+        {av.gardien_actif ? `✔ Gardien actif — vérifie chaque minute, redémarre Pagio s'il ne répond plus (dernière vérification : ${when(av.derniere_verification)}).`
+          : <span style={{ color: '#E5484D' }}>✘ Le gardien ne s'est pas manifesté depuis le {when(av.derniere_verification)}.</span>}
+      </p>
+      <h4 style={{ margin: '8px 0 4px' }}>Certificats HTTPS</h4>
+      <div className="kv">{av.certificats.map((c) => (
+        <Fragment key={c.domaine}><span title={c.noms}>{c.noms || c.domaine}</span>
+          <b style={{ color: c.jours < 5 ? '#E5484D' : c.jours < 14 ? '#F5A524' : undefined }}>expire le {new Date(c.expire).toLocaleDateString('fr-FR')} ({c.jours} j)</b></Fragment>
+      ))}</div>
+      <p className="muted small">Renouvelés automatiquement environ 30 jours avant l'échéance ; une alerte apparaît si ce n'est pas fait à 14 jours.</p>
+      {av.incidents.length > 0 && <>
+        <h4 style={{ margin: '12px 0 4px' }}>Pannes</h4>
+        <div className="table-wrap"><table className="table">
+          <thead><tr><th>Début</th><th>Durée</th><th>Réparation</th></tr></thead>
+          <tbody>{av.incidents.map((i) => <tr key={i.debut}><td>{when(i.debut)}</td><td>{dur(i.duree_s)}</td><td>{i.redemarre ? 'Redémarrage automatique' : 'Retour seul'}</td></tr>)}</tbody>
+        </table></div>
+      </>}
+    </Card>
+  );
+}
+
+/** Téléphones qui reçoivent les notifications de l'APK admin (clé créée automatiquement à la connexion dans l'APK). */
+function NotifyDevicesCard({ show }: { show: (m: string, tone?: 'error') => void }) {
+  const [list, setList] = useState<NotifyDevice[] | null>(null);
+  const load = () => api<{ devices: NotifyDevice[] }>('GET', '/api/admin/notify/devices').then((r) => setList(r.devices)).catch(() => setList([]));
+  useEffect(() => { load(); }, []);
+  return (
+    <Card title="Téléphones notifiés (APK admin)">
+      {!list ? <p className="muted">Chargement…</p> : list.length === 0
+        ? <p className="muted">Aucun téléphone. Installez l'APK admin et connectez-vous : il apparaîtra ici et recevra les notifications (panne, alertes, messages des utilisateurs).</p>
+        : <div className="table-wrap"><table className="table">
+          <thead><tr><th>Téléphone</th><th>Administrateur</th><th>Dernière vérification</th><th /></tr></thead>
+          <tbody>{list.map((d) => (
+            <tr key={d.id}><td>{d.name}</td><td>{d.admin_email}</td><td>{d.last_seen ? when(d.last_seen) : 'jamais'}</td>
+              <td><button className="btn small danger" onClick={async () => {
+                if (!confirm(`Ne plus envoyer de notifications à « ${d.name} » ?`)) return;
+                try { await api('DELETE', `/api/admin/notify/devices/${d.id}`); show('Téléphone retiré'); load(); } catch (e) { show((e as Error).message, 'error'); }
+              }}>Retirer</button></td></tr>
+          ))}</tbody>
+        </table></div>}
+    </Card>
+  );
 }
 
 const COUNT_LABEL: Record<string, string> = {
@@ -43,6 +110,10 @@ export default function System({ go }: { go?: (page: string) => void }) {
     <div className="stack">
       {flash}
       {s.alerts.length === 0 ? <Alert tone="success">Tout est en ordre : aucun point à surveiller.</Alert> : <AlertList alerts={s.alerts} go={go} />}
+      <div className="grid2">
+        <AvailabilityCard av={s.availability} />
+        <NotifyDevicesCard show={show} />
+      </div>
       <div className="grid2">
         <Card title="État de la machine" actions={<button className="btn small" onClick={load}>Actualiser</button>}>
           {m.disk ? <Gauge label="Disque" used={m.disk.total_mb - m.disk.free_mb} total={m.disk.total_mb} unit={gb} /> : <p className="muted">Espace disque : information indisponible sur ce système.</p>}

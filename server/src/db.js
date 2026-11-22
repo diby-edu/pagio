@@ -105,6 +105,9 @@ export function openDb(file) {
       id TEXT PRIMARY KEY, admin_id INTEGER NOT NULL, created_at INTEGER NOT NULL, last_seen INTEGER NOT NULL,
       expires_at INTEGER NOT NULL, ip TEXT, user_agent TEXT, revoked INTEGER NOT NULL DEFAULT 0);
     CREATE INDEX IF NOT EXISTS idx_admin_sessions_admin ON admin_sessions(admin_id);
+    CREATE TABLE IF NOT EXISTS notify_devices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, admin_id INTEGER NOT NULL, name TEXT NOT NULL, token_hash TEXT UNIQUE NOT NULL,
+      created_at INTEGER NOT NULL, last_seen INTEGER, revoked INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS plan_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, user_id TEXT NOT NULL, actor TEXT,
       old_plan TEXT, new_plan TEXT, premium_until TEXT, reason TEXT);

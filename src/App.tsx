@@ -54,6 +54,13 @@ export default function App() {
     if (!session.token) return;
     api<{ admin: Admin }>('GET', '/api/admin/me').then((r) => setAdmin(r.admin)).catch(() => setAdmin(null)).finally(() => setChecking(false));
   }, []);
+  // Dans l'APK admin : une fois connecté, le téléphone reçoit sa clé de notification (une seule fois).
+  useEffect(() => {
+    const bridge = window.PagioAdmin;
+    if (!admin || !bridge || bridge.hasNotifyKey()) return;
+    api<{ token: string }>('POST', '/api/admin/notify/devices', { name: bridge.deviceName() })
+      .then((r) => bridge.setNotifyKey(r.token, admin.email)).catch(() => {});
+  }, [admin]);
   useEffect(() => { location.hash = page; setMenuOpen(false); }, [page]);
   // Une adresse saisie ou un retour arrière du navigateur change aussi de page.
   useEffect(() => {
