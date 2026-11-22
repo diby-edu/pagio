@@ -3,29 +3,588 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pagio — PDF et scanner</title>
-<meta name="description" content="Pagio : scanner, fusionner, compresser et convertir vos documents PDF sur Android.">
+<title>Pagio — Tous vos PDF, dans votre poche</title>
+<meta name="description" content="Pagio : scanner, fusionner, compresser, signer, convertir et résumer vos PDF sur Android. 36 outils, la plupart sans connexion.">
+<meta property="og:title" content="Pagio — Tous vos PDF, dans votre poche">
+<meta property="og:description" content="Scanner, fusionner, compresser, signer, convertir et résumer vos PDF. 36 outils sur Android.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://pagio.site/">
+<meta name="theme-color" content="#4535C9">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
-  :root { color-scheme: light dark; --fond: #f6f5fb; --texte: #1d1b2c; --doux: #5d5a72; --accent: #5b47e0; }
-  @media (prefers-color-scheme: dark) { :root { --fond: #15141d; --texte: #ecebf5; --doux: #a9a6bf; --accent: #9d8fff; } }
-  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--fond); color: var(--texte); }
-  main { max-width: 640px; margin: 0 auto; padding: 64px 16px; }
-  h1 { font-size: 2.4rem; margin: 0 0 8px; color: var(--accent); }
-  p { line-height: 1.6; color: var(--doux); }
-  .lang { margin-top: 40px; padding-top: 24px; border-top: 1px solid color-mix(in srgb, var(--doux) 30%, transparent); }
+:root {
+  --indigo: #4535c9; --violet: #7a5cf0; --coral: #ff7a66; --teal: #14a37f;
+  --bg: #f7f6fc; --bg2: #ffffff; --ink: #14152b; --muted: #5d5b74; --line: rgba(20, 21, 43, .09);
+  --card: rgba(255, 255, 255, .72); --glass: rgba(255, 255, 255, .6); --shadow: 0 20px 60px -20px rgba(69, 53, 201, .35);
+  --grad: linear-gradient(120deg, var(--indigo), var(--violet) 55%, var(--coral));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d0c17; --bg2: #14132a; --ink: #eeedf8; --muted: #a6a4c0; --line: rgba(255, 255, 255, .09);
+    --card: rgba(28, 26, 54, .66); --glass: rgba(20, 19, 42, .55); --shadow: 0 24px 70px -20px rgba(0, 0, 0, .7);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; overflow-x: clip; }
+main { overflow-x: clip; }
+h1, h2 { overflow-wrap: break-word; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); overflow-x: hidden;
+  font: 16px/1.6 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; letter-spacing: -.03em; line-height: 1.05; margin: 0; }
+a { color: inherit; }
+.wrap { width: min(1180px, 100% - 32px); margin-inline: auto; }
+.grad-text { background: var(--grad); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 8s ease-in-out infinite; }
+@keyframes shimmer { 50% { background-position: 100% 0; } }
+
+/* ------------------------------------------------------------ Fond animé */
+.aurora { position: fixed; inset: 0; z-index: -2; overflow: hidden; pointer-events: none; }
+.aurora i { position: absolute; width: 46vmax; height: 46vmax; border-radius: 50%; filter: blur(80px); opacity: .32; animation: drift 26s ease-in-out infinite alternate; }
+.aurora i:nth-child(1) { background: var(--indigo); top: -18vmax; left: -12vmax; }
+.aurora i:nth-child(2) { background: var(--violet); top: 20vh; right: -18vmax; animation-duration: 32s; }
+.aurora i:nth-child(3) { background: var(--coral); bottom: -22vmax; left: 25vw; opacity: .22; animation-duration: 38s; }
+@keyframes drift { to { transform: translate(8vmax, 6vmax) rotate(40deg) scale(1.15); } }
+.grid-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 56px 56px; mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, transparent 70%); }
+
+/* ------------------------------------------------------------ Barre du haut */
+header { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  background: color-mix(in srgb, var(--bg) 70%, transparent); border-bottom: 1px solid transparent; transition: border-color .3s; }
+header.scrolled { border-color: var(--line); }
+.nav { display: flex; align-items: center; gap: 24px; height: 68px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.25rem; text-decoration: none; letter-spacing: -.02em; }
+.brand img { width: 34px; height: 34px; border-radius: 10px; }
+.nav nav { display: flex; gap: 22px; margin-left: auto; }
+.nav nav a { text-decoration: none; color: var(--muted); font-weight: 500; font-size: .95rem; transition: color .2s; }
+.nav nav a:hover { color: var(--ink); }
+.lang { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--glass); }
+.lang button { border: 0; background: none; color: var(--muted); font: inherit; font-size: .8rem; font-weight: 700; padding: 5px 10px; border-radius: 999px; cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.btn { display: inline-flex; align-items: center; gap: 10px; border: 0; cursor: pointer; text-decoration: none; font: inherit; font-weight: 700;
+  padding: 14px 22px; border-radius: 14px; transition: transform .2s, box-shadow .2s; white-space: nowrap; }
+.btn:focus-visible, .lang button:focus-visible, .nav nav a:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; }
+.btn-primary { background: var(--grad); color: #fff; box-shadow: 0 12px 30px -10px rgba(122, 92, 240, .7); background-size: 160% 100%; }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -12px rgba(122, 92, 240, .85); background-position: 100% 0; }
+.btn-ghost { background: var(--glass); color: var(--ink); border: 1px solid var(--line); }
+.btn-ghost:hover { transform: translateY(-2px); }
+/* Badge Google Play au format habituel : fond noir, logo quatre couleurs. */
+.btn-play { background: #000; color: #fff; border: 1px solid #a6a6a6; border-radius: 12px; padding: 10px 20px 10px 16px; cursor: default; }
+.btn-play .two span { font-size: 1.25rem; font-weight: 600; letter-spacing: -.01em; }
+.btn-play small { text-transform: uppercase; letter-spacing: .04em; font-size: .62rem !important; }
+.btn-apk .two span { font-size: 1.05rem; }
+.apk-ver { opacity: .55 !important; font-weight: 600 !important; font-size: .66rem !important; margin-top: 2px; letter-spacing: .02em; }
+.apk-note { margin-top: 14px; font-size: .82rem; color: var(--muted); }
+.apk-note code { font-size: .72rem; word-break: break-all; }
+.btn small { display: block; font-size: .7rem; font-weight: 600; opacity: .8; line-height: 1.1; }
+.btn .two { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+
+/* ------------------------------------------------------------ Héro */
+.hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; padding: 72px 0 96px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border-radius: 999px; background: var(--glass);
+  border: 1px solid var(--line); font-size: .85rem; font-weight: 600; color: var(--muted); }
+.pill b { background: var(--grad); color: #fff; border-radius: 999px; padding: 2px 10px; font-size: .75rem; }
+.hero h1 { font-size: clamp(2.6rem, 6.4vw, 5.2rem); font-weight: 800; margin: 22px 0 20px; }
+.hero h1 .line { display: block; overflow: hidden; }
+.hero h1 .line span { display: inline-block; transform: translateY(110%); animation: rise .9s cubic-bezier(.2, .8, .2, 1) forwards; }
+.hero h1 .line:nth-child(2) span { animation-delay: .12s; }
+@keyframes rise { to { transform: none; } }
+.hero p.lead { font-size: clamp(1.05rem, 1.6vw, 1.25rem); color: var(--muted); max-width: 560px; margin: 0 0 32px; }
+.ctas { display: flex; gap: 14px; flex-wrap: wrap; }
+.trust { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 34px; color: var(--muted); font-size: .9rem; font-weight: 600; }
+.trust span { display: flex; align-items: center; gap: 8px; }
+.trust svg { color: var(--teal); flex: none; }
+
+/* Téléphone animé */
+.stage { position: relative; display: grid; place-items: center; min-height: 600px; perspective: 1400px; }
+.phone { position: relative; width: 290px; height: 590px; border-radius: 46px; padding: 12px; background: linear-gradient(160deg, #23224a, #0b0a18);
+  box-shadow: 0 50px 100px -30px rgba(69, 53, 201, .6), inset 0 0 0 2px rgba(255, 255, 255, .08); transform: rotateY(-14deg) rotateX(6deg);
+  transition: transform .4s ease-out; animation: float 7s ease-in-out infinite; }
+@keyframes float { 50% { translate: 0 -14px; } }
+.screen { position: relative; height: 100%; border-radius: 36px; overflow: hidden; background: #f4f3fb; }
+.notch { position: absolute; top: 10px; left: 50%; translate: -50% 0; width: 90px; height: 24px; border-radius: 20px; background: #0b0a18; z-index: 5; }
+.app-bar { position: absolute; inset: 0 0 auto; height: 96px; background: var(--grad); padding: 46px 18px 0; color: #fff; font-weight: 800; font-size: 1.05rem; }
+.cam { position: absolute; inset: 96px 0 0; background: radial-gradient(circle at 50% 40%, #3b3a52, #1b1a2c); }
+.sheet { position: absolute; left: 42px; right: 42px; top: 58px; height: 300px; background: #fff; border-radius: 6px; padding: 22px 18px;
+  transform: rotate(-4deg); box-shadow: 0 20px 40px -10px rgba(0, 0, 0, .5); animation: sheet 6s ease-in-out infinite; }
+.sheet .t { height: 12px; width: 60%; border-radius: 4px; background: #4535c9; margin-bottom: 16px; }
+.sheet .l { height: 7px; border-radius: 4px; background: #d9d7ea; margin-bottom: 9px; }
+.sheet .l:nth-child(3n) { width: 80%; } .sheet .l:nth-child(4n) { width: 92%; }
+.sheet .sig { position: absolute; bottom: 22px; right: 20px; width: 70px; height: 26px; }
+.sheet .sig path { stroke: #ff6b57; stroke-width: 2.5; fill: none; stroke-dasharray: 160; stroke-dashoffset: 160; animation: sign 6s ease-in-out infinite; }
+@keyframes sign { 0%, 55% { stroke-dashoffset: 160; } 75%, 100% { stroke-dashoffset: 0; } }
+@keyframes sheet { 0%, 15% { transform: rotate(-4deg) scale(.96); } 30%, 80% { transform: rotate(0) scale(1); } 100% { transform: rotate(-4deg) scale(.96); } }
+.corner { position: absolute; width: 26px; height: 26px; border: 3px solid #3df5b8; filter: drop-shadow(0 0 6px #3df5b8); opacity: 0; animation: corners 6s ease-in-out infinite; }
+.c1 { top: 50px; left: 34px; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
+.c2 { top: 50px; right: 34px; border-left: 0; border-bottom: 0; border-radius: 0 8px 0 0; }
+.c3 { top: 342px; left: 34px; border-right: 0; border-top: 0; border-radius: 0 0 0 8px; }
+.c4 { top: 342px; right: 34px; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+@keyframes corners { 0%, 18% { opacity: 0; transform: scale(1.5); } 30%, 80% { opacity: 1; transform: scale(1); } 92%, 100% { opacity: 0; } }
+.scanline { position: absolute; left: 30px; right: 30px; height: 3px; top: 56px; background: linear-gradient(90deg, transparent, #3df5b8, transparent);
+  box-shadow: 0 0 22px 6px rgba(61, 245, 184, .55); opacity: 0; animation: scan 6s ease-in-out infinite; }
+@keyframes scan { 0%, 30% { opacity: 0; top: 56px; } 34% { opacity: 1; } 52% { opacity: 1; top: 352px; } 56%, 100% { opacity: 0; top: 352px; } }
+.shutter { position: absolute; left: 50%; bottom: 30px; translate: -50% 0; width: 64px; height: 64px; border-radius: 50%; border: 4px solid #fff;
+  display: grid; place-items: center; }
+.shutter::after { content: ""; width: 48px; height: 48px; border-radius: 50%; background: #fff; animation: snap 6s ease-in-out infinite; }
+@keyframes snap { 0%, 52% { transform: scale(1); } 55% { transform: scale(.78); } 60%, 100% { transform: scale(1); } }
+.flash { position: absolute; inset: 0; background: #fff; opacity: 0; animation: flash 6s infinite; pointer-events: none; }
+@keyframes flash { 0%, 54% { opacity: 0; } 55% { opacity: .75; } 62%, 100% { opacity: 0; } }
+.toast { position: absolute; left: 16px; right: 16px; bottom: 110px; background: rgba(255, 255, 255, .95); border-radius: 16px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px; color: #14152b; font-size: .82rem; font-weight: 700; box-shadow: 0 10px 30px rgba(0, 0, 0, .3);
+  opacity: 0; transform: translateY(20px); animation: toast 6s ease-in-out infinite; }
+.toast i { width: 34px; height: 34px; border-radius: 10px; background: var(--grad); display: grid; place-items: center; color: #fff; font-style: normal; flex: none; }
+.toast small { display: block; color: #5d5b74; font-weight: 600; }
+@keyframes toast { 0%, 62% { opacity: 0; transform: translateY(20px); } 68%, 92% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+/* Cartes flottantes autour du téléphone */
+.chip { position: absolute; display: flex; align-items: center; gap: 10px; padding: 11px 15px; border-radius: 16px; background: var(--card);
+  border: 1px solid var(--line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: var(--shadow); font-weight: 700; font-size: .88rem;
+  animation: bob 6s ease-in-out infinite; z-index: 3; }
+.chip .ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; color: #fff; flex: none; }
+.chip small { display: block; color: var(--muted); font-weight: 600; font-size: .74rem; }
+.chip.a { top: 40px; left: -40px; } .chip.b { top: 260px; right: -26px; animation-delay: -2s; } .chip.c { bottom: 70px; left: 0; animation-delay: -4s; }
+@keyframes bob { 50% { transform: translateY(-12px); } }
+
+/* ------------------------------------------------------------ Bandeau défilant */
+.marquee { border-block: 1px solid var(--line); background: var(--glass); overflow: hidden; padding: 18px 0; }
+.track { display: flex; gap: 14px; width: max-content; animation: slide 46s linear infinite; }
+.marquee:hover .track { animation-play-state: paused; }
+.track span { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg2); font-weight: 600; font-size: .9rem; white-space: nowrap; }
+.track span::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--grad); margin-right: 9px; vertical-align: 2px; }
+@keyframes slide { to { transform: translateX(-50%); } }
+
+/* ------------------------------------------------------------ Sections */
+section { padding: 110px 0; }
+.kicker { display: inline-block; font-weight: 800; font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; color: var(--violet); margin-bottom: 14px; }
+.head { max-width: 720px; margin-bottom: 56px; }
+.head h2 { font-size: clamp(2rem, 4.4vw, 3.4rem); font-weight: 800; margin-bottom: 16px; }
+.head p { color: var(--muted); font-size: 1.1rem; margin: 0; }
+.center { text-align: center; margin-inline: auto; }
+
+/* Étapes */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; position: relative; }
+.step { position: relative; padding: 30px; border-radius: 24px; background: var(--card); border: 1px solid var(--line); backdrop-filter: blur(10px); }
+.step .n { font-size: 4.2rem; font-weight: 900; line-height: 1; opacity: .14; position: absolute; top: 18px; right: 24px; }
+.step .ic { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; color: #fff; margin-bottom: 22px; background: var(--grad); }
+.step h3 { font-size: 1.35rem; margin-bottom: 10px; }
+.step p { color: var(--muted); margin: 0; }
+
+/* Familles d'outils */
+.tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 20px; }
+.fam { --mx: 50%; --my: 50%; position: relative; padding: 28px; border-radius: 24px; background: var(--card); border: 1px solid var(--line); overflow: hidden;
+  transform-style: preserve-3d; transition: transform .25s ease-out, border-color .3s; backdrop-filter: blur(10px); }
+.fam::before { content: ""; position: absolute; inset: 0; background: radial-gradient(420px circle at var(--mx) var(--my), rgba(122, 92, 240, .18), transparent 45%);
+  opacity: 0; transition: opacity .3s; pointer-events: none; }
+.fam:hover::before { opacity: 1; }
+.fam:hover { border-color: rgba(122, 92, 240, .4); }
+.fam header { all: unset; display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.fam .ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: #fff; flex: none; }
+.fam h3 { font-size: 1.2rem; }
+.fam .count { margin-left: auto; font-weight: 800; font-size: .8rem; color: var(--muted); border: 1px solid var(--line); padding: 3px 10px; border-radius: 999px; }
+.fam ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.fam li { font-size: .86rem; font-weight: 600; padding: 6px 12px; border-radius: 10px; background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.fam li.new::after { content: "★"; color: var(--coral); margin-left: 6px; }
+
+/* Confidentialité */
+.privacy { display: grid; grid-template-columns: .95fr 1.05fr; gap: 56px; align-items: center; }
+.vault { position: relative; aspect-ratio: 1; max-width: 460px; width: 100%; margin-inline: auto; display: grid; place-items: center; }
+.ring { position: absolute; border-radius: 50%; border: 1.5px dashed rgba(122, 92, 240, .35); animation: spin 40s linear infinite; }
+.ring:nth-child(1) { inset: 0; } .ring:nth-child(2) { inset: 13%; animation-direction: reverse; animation-duration: 30s; border-color: rgba(255, 122, 102, .35); }
+.ring:nth-child(3) { inset: 26%; animation-duration: 22s; }
+.ring b { position: absolute; top: -9px; left: 50%; width: 16px; height: 16px; border-radius: 50%; background: var(--grad); box-shadow: 0 0 18px rgba(122, 92, 240, .8); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.lock { position: relative; width: 38%; aspect-ratio: 1; border-radius: 32%; background: var(--grad); display: grid; place-items: center; color: #fff;
+  box-shadow: 0 30px 80px -20px rgba(122, 92, 240, .8); animation: pulse 3.2s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 30px 110px -10px rgba(255, 122, 102, .7); transform: scale(1.04); } }
+.checks { display: grid; gap: 16px; margin-top: 30px; }
+.check { display: flex; gap: 16px; padding: 18px 20px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); }
+.check .ic { width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--teal) 16%, transparent); color: var(--teal); display: grid; place-items: center; flex: none; }
+.check b { display: block; margin-bottom: 2px; }
+.check span { color: var(--muted); font-size: .95rem; }
+
+/* Chiffres */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.stat { padding: 30px 24px; border-radius: 24px; background: var(--card); border: 1px solid var(--line); text-align: center; }
+.stat .v { font-size: clamp(2.4rem, 4.6vw, 3.6rem); font-weight: 900; letter-spacing: -.04em; line-height: 1; }
+.stat .k { color: var(--muted); font-weight: 600; margin-top: 10px; }
+
+/* IA */
+.ai { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+.chat { padding: 22px; border-radius: 28px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); display: grid; gap: 14px; }
+.doc-tag { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: .9rem; padding: 10px 14px; border-radius: 14px; background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.doc-tag i { width: 28px; height: 34px; border-radius: 5px; background: #ff6b57; display: grid; place-items: center; color: #fff; font: 800 .6rem/1 sans-serif; font-style: normal; }
+.bubble { padding: 14px 16px; border-radius: 18px; max-width: 88%; font-size: .95rem; }
+.bubble.me { justify-self: end; background: var(--grad); color: #fff; border-bottom-right-radius: 6px; }
+.bubble.bot { background: var(--bg2); border: 1px solid var(--line); border-bottom-left-radius: 6px; min-height: 52px; }
+.caret { display: inline-block; width: 2px; height: 1.1em; background: var(--violet); vertical-align: -3px; margin-left: 2px; animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Appel final */
+.final { position: relative; overflow: hidden; border-radius: 36px; padding: clamp(40px, 7vw, 80px); text-align: center; color: #fff; background: var(--grad); background-size: 200% 200%;
+  animation: shimmer 10s ease-in-out infinite; box-shadow: 0 40px 100px -30px rgba(122, 92, 240, .8); }
+.final h2 { font-size: clamp(2rem, 4.6vw, 3.6rem); font-weight: 800; margin-bottom: 16px; }
+.final p { opacity: .9; font-size: 1.15rem; max-width: 560px; margin: 0 auto 32px; }
+.final .btn { background: #fff; color: #14152b; }
+.final .btn.btn-play { background: #000; color: #fff; }
+.final .orb { position: absolute; border-radius: 50%; background: rgba(255, 255, 255, .14); animation: bob 9s ease-in-out infinite; }
+.final .orb:nth-child(1) { width: 260px; height: 260px; top: -90px; left: -60px; }
+.final .orb:nth-child(2) { width: 180px; height: 180px; bottom: -60px; right: 8%; animation-delay: -3s; }
+footer { padding: 48px 0 56px; color: var(--muted); font-size: .9rem; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+
+/* ------------------------------------------------------------ Apparition au défilement */
+.reveal { opacity: 0; transform: translateY(36px); transition: opacity .8s cubic-bezier(.2, .8, .2, 1), transform .8s cubic-bezier(.2, .8, .2, 1); transition-delay: var(--d, 0s); }
+.reveal.in { opacity: 1; transform: none; }
+
+/* ------------------------------------------------------------ Petits écrans */
+@media (max-width: 960px) {
+  .hero, .privacy, .ai { grid-template-columns: 1fr; }
+  .hero { padding-top: 40px; text-align: left; }
+  .stage { min-height: 560px; }
+  .steps, .stats { grid-template-columns: 1fr 1fr; }
+  .nav nav { display: none; }
+  .lang { margin-left: auto; }
+}
+@media (max-width: 600px) {
+  .steps, .stats { grid-template-columns: 1fr; }
+  .phone { width: 250px; height: 510px; transform: none; }
+  .sheet { height: 250px; } .c3, .c4 { top: 292px; }
+  @keyframes scan { 0%, 30% { opacity: 0; top: 56px; } 34% { opacity: 1; } 52% { opacity: 1; top: 302px; } 56%, 100% { opacity: 0; top: 302px; } }
+  .chip.a { left: -4px; top: 20px; } .chip.b { right: -4px; } .chip.c { left: 4px; bottom: 30px; }
+  .nav .btn-primary { display: none; }
+  section { padding: 80px 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .reveal { opacity: 1; transform: none; }
+  .hero h1 .line span { transform: none; }
+  .corner, .toast { opacity: 1; transform: none; }
+}
 </style>
 </head>
 <body>
-<main>
-  <h1>Pagio</h1>
-  <p><strong>Scanner, fusionner, compresser, signer et convertir vos documents PDF</strong>, directement sur votre téléphone Android.
-     La plupart des outils fonctionnent sans connexion : vos fichiers restent sur votre appareil.</p>
-  <p>Bientôt disponible sur Google Play.</p>
-  <div class="lang" lang="en">
-    <p><strong>Scan, merge, compress, sign and convert your PDF documents</strong> right on your Android phone.
-       Most tools work offline: your files stay on your device.</p>
-    <p>Coming soon to Google Play.</p>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="grid-bg" aria-hidden="true"></div>
+
+<header id="top">
+  <div class="wrap nav">
+    <a class="brand" href="#top"><img src="favicon.svg" alt="">Pagio</a>
+    <nav aria-label="Sections">
+      <a href="#outils" data-i18n="nav_tools">Outils</a>
+      <a href="#confidentialite" data-i18n="nav_privacy">Confidentialité</a>
+      <a href="#ia" data-i18n="nav_ai">Assistant IA</a>
+    </nav>
+    <div class="lang" role="group" aria-label="Langue / Language">
+      <button type="button" data-lang="fr" aria-pressed="true">FR</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <a class="btn btn-primary" href="#telecharger" data-i18n="nav_cta">Télécharger</a>
   </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <span class="pill"><b data-i18n="pill_tag">Android</b><span data-i18n="pill">36 outils PDF, la plupart sans connexion</span></span>
+      <h1><span class="line"><span data-i18n="h1a">Tous vos PDF.</span></span><span class="line"><span class="grad-text" data-i18n="h1b">Dans votre poche.</span></span></h1>
+      <p class="lead" data-i18n="lead">Scannez une feuille en une seconde, fusionnez, compressez, signez, convertissez et faites résumer vos documents par l'IA. Une seule application, pensée pour aller vite.</p>
+      <div class="ctas">
+        <a class="btn btn-primary btn-apk" href="telecharger/pagio.apk" download>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48 19.44 6.3a.38.38 0 0 0-.66-.38l-1.86 3.22A11.5 11.5 0 0 0 12 8.1c-1.78 0-3.45.38-4.92 1.04L5.22 5.92a.38.38 0 0 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52ZM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Z"/></svg>
+          <span class="two"><small data-i18n="apk_small">Télécharger pour Android</small><span data-i18n="apk">Fichier APK</span></span>
+        </a>
+        <span class="btn btn-play" role="img" aria-label="Bientôt disponible sur Google Play">
+          <svg width="26" height="28" viewBox="0 0 26 28" aria-hidden="true"><path fill="#00d7fe" d="M1 1.2 14.2 14 1 26.8c-.4-.3-.6-.8-.6-1.4V2.6c0-.6.2-1.1.6-1.4Z"/><path fill="#00f076" d="m18.6 9.6-4.4 4.4L1 1.2c.3-.2.8-.3 1.3 0l16.3 8.4Z"/><path fill="#ff3a44" d="M18.6 18.4 2.3 26.8c-.5.3-1 .2-1.3 0L14.2 14l4.4 4.4Z"/><path fill="#ffc900" d="m24 11.5-5.4-2-4.4 4.5 4.4 4.4 5.4-2c1.3-.8 1.3-4.1 0-4.9Z"/></svg>
+          <span class="two"><small data-i18n="cta_small">Bientôt disponible sur</small><span>Google Play</span></span>
+        </span>
+      </div>
+      <a class="apk-note" href="#outils" data-i18n="cta_tools" style="display:inline-block;color:var(--violet);font-weight:700;text-decoration:none">Voir les 36 outils →</a>
+      <div class="trust">
+        <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="t1">Fonctionne hors ligne</span></span>
+        <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="t2">Vos fichiers restent chez vous</span></span>
+        <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="t3">Français et anglais</span></span>
+      </div>
+    </div>
+
+    <div class="stage" aria-hidden="true">
+      <div class="chip a"><span class="ic" style="background:#4535c9"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></span><span><span data-i18n="chip1">Bords détectés</span><small data-i18n="chip1s">capture automatique</small></span></div>
+      <div class="chip b"><span class="ic" style="background:#ff6b57"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></span><span><span data-i18n="chip2">−72 % de poids</span><small data-i18n="chip2s">compression</small></span></div>
+      <div class="chip c"><span class="ic" style="background:#14a37f"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="m12 3 2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg></span><span><span data-i18n="chip3">Résumé prêt</span><small data-i18n="chip3s">assistant IA</small></span></div>
+      <div class="phone" id="phone">
+        <div class="screen">
+          <div class="notch"></div>
+          <div class="app-bar" data-i18n="phone_title">Scanner</div>
+          <div class="cam">
+            <div class="sheet"><div class="t"></div><div class="l"></div><div class="l"></div><div class="l"></div><div class="l"></div><div class="l"></div><div class="l"></div><div class="l"></div><div class="l"></div><div class="l"></div><div class="l"></div>
+              <svg class="sig" viewBox="0 0 70 26"><path d="M2 18c8-14 12 6 18-4s6-10 10 0 8 8 14-2 10 4 24-2"/></svg></div>
+            <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+            <div class="scanline"></div>
+            <div class="toast"><i>PDF</i><span><span data-i18n="toast">Contrat_signé.pdf</span><small data-i18n="toasts">3 pages · enregistré</small></span></div>
+            <div class="shutter"></div>
+            <div class="flash"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="marquee" aria-hidden="true"><div class="track" id="track"></div></div>
+
+  <section>
+    <div class="wrap">
+      <div class="head reveal"><span class="kicker" data-i18n="k_how">Comment ça marche</span><h2 data-i18n="h_how">Du papier au PDF parfait, en trois gestes.</h2></div>
+      <div class="steps">
+        <div class="step reveal" style="--d:0s"><span class="n">01</span><div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg></div><h3 data-i18n="s1">Capturez</h3><p data-i18n="s1p">Visez la feuille : Pagio détecte les bords, attend qu'elle soit nette et immobile, puis la capture tout seul.</p></div>
+        <div class="step reveal" style="--d:.12s"><span class="n">02</span><div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div><h3 data-i18n="s2">Transformez</h3><p data-i18n="s2p">Fusionnez, réorganisez, compressez, signez, masquez une information, rendez le texte recherchable.</p></div>
+        <div class="step reveal" style="--d:.24s"><span class="n">03</span><div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg></div><h3 data-i18n="s3">Partagez</h3><p data-i18n="s3p">Envoyez le PDF par WhatsApp, e-mail ou n'importe quelle application, au bon poids et au bon format.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="outils">
+    <div class="wrap">
+      <div class="head reveal"><span class="kicker" data-i18n="k_tools">36 outils</span><h2 data-i18n="h_tools">Tout ce qu'on fait d'un PDF. Vraiment tout.</h2><p data-i18n="p_tools">Rangés en sept familles, pour trouver le bon outil en un coup d'œil.</p></div>
+      <div class="tools" id="tools"></div>
+    </div>
+  </section>
+
+  <section id="confidentialite">
+    <div class="wrap privacy">
+      <div class="vault reveal" aria-hidden="true">
+        <span class="ring"><b></b></span><span class="ring"><b></b></span><span class="ring"><b></b></span>
+        <div class="lock"><svg width="44%" height="44%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+      </div>
+      <div>
+        <div class="head reveal" style="margin-bottom:0"><span class="kicker" data-i18n="k_priv">Confidentialité</span><h2 data-i18n="h_priv">Vos documents ne quittent pas votre téléphone.</h2><p data-i18n="p_priv">Contrats, pièces d'identité, bulletins : la plupart des outils de Pagio travaillent directement sur l'appareil, même en mode avion.</p></div>
+        <div class="checks">
+          <div class="check reveal" style="--d:.05s"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg></span><div><b data-i18n="c1">Traitement sur l'appareil</b><span data-i18n="c1p">Fusion, compression, signature, OCR : rien n'est envoyé.</span></div></div>
+          <div class="check reveal" style="--d:.15s"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg></span><div><b data-i18n="c2">Serveur seulement si vous le choisissez</b><span data-i18n="c2p">Conversion haute fidélité ou assistant IA : le fichier est effacé juste après.</span></div></div>
+          <div class="check reveal" style="--d:.25s"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg></span><div><b data-i18n="c3">Statistiques sur votre accord</b><span data-i18n="c3p">Anonymes, et uniquement si vous les acceptez.</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap stats">
+      <div class="stat reveal"><div class="v grad-text"><span data-count="36">0</span></div><div class="k" data-i18n="st1">outils PDF</div></div>
+      <div class="stat reveal" style="--d:.1s"><div class="v grad-text"><span data-count="7">0</span></div><div class="k" data-i18n="st2">familles d'outils</div></div>
+      <div class="stat reveal" style="--d:.2s"><div class="v grad-text"><span data-count="2">0</span></div><div class="k" data-i18n="st3">langues</div></div>
+      <div class="stat reveal" style="--d:.3s"><div class="v grad-text"><span data-count="8">0</span>+</div><div class="k" data-i18n="st4">Android 8 et plus récents</div></div>
+    </div>
+  </section>
+
+  <section id="ia">
+    <div class="wrap ai">
+      <div class="head reveal" style="margin-bottom:0"><span class="kicker" data-i18n="k_ai">Assistant IA</span><h2 data-i18n="h_ai">Un document de 40 pages ? Demandez l'essentiel.</h2><p data-i18n="p_ai">Résumez, posez une question, extrayez les dates et les montants. L'assistant lit votre document et répond en quelques secondes.</p></div>
+      <div class="chat reveal" style="--d:.1s">
+        <div class="doc-tag"><i>PDF</i><span data-i18n="ai_doc">Rapport_annuel_2026.pdf · 40 pages</span></div>
+        <div class="bubble me" data-i18n="ai_q">Résume ce rapport en 3 points.</div>
+        <div class="bubble bot"><span id="typed"></span><span class="caret"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="telecharger">
+    <div class="wrap">
+      <div class="final reveal">
+        <span class="orb"></span><span class="orb"></span>
+        <h2 data-i18n="h_final">Votre bureau tient dans votre poche.</h2>
+        <p data-i18n="p_final">Téléchargez Pagio dès maintenant, en attendant Google Play. Gratuit pour commencer, sans carte bancaire.</p>
+        <div class="ctas" style="justify-content:center;position:relative">
+          <a class="btn btn-apk" href="telecharger/pagio.apk" download style="background:#fff;color:#14152b">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#3ddc84" aria-hidden="true"><path d="M17.6 9.48 19.44 6.3a.38.38 0 0 0-.66-.38l-1.86 3.22A11.5 11.5 0 0 0 12 8.1c-1.78 0-3.45.38-4.92 1.04L5.22 5.92a.38.38 0 0 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52ZM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Z"/></svg>
+            <span class="two"><small data-i18n="apk_small">Télécharger pour Android</small><span data-i18n="apk">Fichier APK</span><small class="apk-ver" id="apk-ver"></small></span>
+          </a>
+          <span class="btn btn-play" role="img" aria-label="Bientôt disponible sur Google Play">
+            <svg width="26" height="28" viewBox="0 0 26 28" aria-hidden="true"><path fill="#00d7fe" d="M1 1.2 14.2 14 1 26.8c-.4-.3-.6-.8-.6-1.4V2.6c0-.6.2-1.1.6-1.4Z"/><path fill="#00f076" d="m18.6 9.6-4.4 4.4L1 1.2c.3-.2.8-.3 1.3 0l16.3 8.4Z"/><path fill="#ff3a44" d="M18.6 18.4 2.3 26.8c-.5.3-1 .2-1.3 0L14.2 14l4.4 4.4Z"/><path fill="#ffc900" d="m24 11.5-5.4-2-4.4 4.5 4.4 4.4 5.4-2c1.3-.8 1.3-4.1 0-4.9Z"/></svg>
+            <span class="two"><small data-i18n="cta_small">Bientôt disponible sur</small><span>Google Play</span></span>
+          </span>
+        </div>
+        <p class="apk-note" style="color:rgba(255,255,255,.85);position:relative;margin:22px auto 0;max-width:620px" data-i18n="apk_note">Android 8 ou plus récent. Au premier lancement, autorisez l'installation depuis votre navigateur. Le bouton donne toujours la dernière version.</p>
+      </div>
+    </div>
+  </section>
 </main>
+
+<footer>
+  <div class="wrap"><span>© <span id="year">2026</span> Pagio</span><span data-i18n="foot">Fait avec soin, pour les gens pressés.</span></div>
+</footer>
+
+<script>
+(() => {
+  const T = {
+    fr: {
+      nav_tools: 'Outils', nav_privacy: 'Confidentialité', nav_ai: 'Assistant IA', nav_cta: 'Télécharger', apk_small: 'Télécharger pour Android', apk: 'Fichier APK', apk_note: "Android 8 ou plus récent. Au premier lancement, autorisez l'installation depuis votre navigateur. Le bouton donne toujours la dernière version.",
+      pill_tag: 'Android', pill: '36 outils PDF, la plupart sans connexion', h1a: 'Tous vos PDF.', h1b: 'Dans votre poche.',
+      lead: "Scannez une feuille en une seconde, fusionnez, compressez, signez, convertissez et faites résumer vos documents par l'IA. Une seule application, pensée pour aller vite.",
+      cta_small: 'Bientôt disponible sur', cta_tools: 'Voir les 36 outils →', t1: 'Fonctionne hors ligne', t2: 'Vos fichiers restent chez vous', t3: 'Français et anglais',
+      chip1: 'Bords détectés', chip1s: 'capture automatique', chip2: '−72 % de poids', chip2s: 'compression', chip3: 'Résumé prêt', chip3s: 'assistant IA',
+      phone_title: 'Scanner', toast: 'Contrat_signé.pdf', toasts: '3 pages · enregistré',
+      k_how: 'Comment ça marche', h_how: 'Du papier au PDF parfait, en trois gestes.',
+      s1: 'Capturez', s1p: "Visez la feuille : Pagio détecte les bords, attend qu'elle soit nette et immobile, puis la capture tout seul.",
+      s2: 'Transformez', s2p: 'Fusionnez, réorganisez, compressez, signez, masquez une information, rendez le texte recherchable.',
+      s3: 'Partagez', s3p: "Envoyez le PDF par WhatsApp, e-mail ou n'importe quelle application, au bon poids et au bon format.",
+      k_tools: '36 outils', h_tools: "Tout ce qu'on fait d'un PDF. Vraiment tout.", p_tools: "Rangés en sept familles, pour trouver le bon outil en un coup d'œil.",
+      k_priv: 'Confidentialité', h_priv: 'Vos documents ne quittent pas votre téléphone.',
+      p_priv: "Contrats, pièces d'identité, bulletins : la plupart des outils de Pagio travaillent directement sur l'appareil, même en mode avion.",
+      c1: "Traitement sur l'appareil", c1p: "Fusion, compression, signature, OCR : rien n'est envoyé.",
+      c2: 'Serveur seulement si vous le choisissez', c2p: 'Conversion haute fidélité ou assistant IA : le fichier est effacé juste après.',
+      c3: 'Statistiques sur votre accord', c3p: 'Anonymes, et uniquement si vous les acceptez.',
+      st1: 'outils PDF', st2: "familles d'outils", st3: 'langues', st4: 'Android 8 et plus récents',
+      k_ai: 'Assistant IA', h_ai: "Un document de 40 pages ? Demandez l'essentiel.",
+      p_ai: "Résumez, posez une question, extrayez les dates et les montants. L'assistant lit votre document et répond en quelques secondes.",
+      ai_doc: 'Rapport_annuel_2026.pdf · 40 pages', ai_q: 'Résume ce rapport en 3 points.',
+      ai_a: "1. Chiffre d'affaires en hausse de 18 %, porté par l'export.\n2. Deux nouvelles agences ouvertes en juin.\n3. Objectif 2027 : réduire les délais de livraison de moitié.",
+      h_final: 'Votre bureau tient dans votre poche.', p_final: 'Téléchargez Pagio dès maintenant, en attendant Google Play. Gratuit pour commencer, sans carte bancaire.',
+      foot: 'Fait avec soin, pour les gens pressés.',
+      fam: [
+        ['Organiser', ['Fusionner', 'Diviser', 'Réorganiser les pages', 'Extraire des pages', 'Supprimer des pages', 'Pivoter']],
+        ['Optimiser', ['Compresser', 'Réparer', ['OCR : texte recherchable'], 'Extraire le texte']],
+        ['Convertir en PDF', ['Scanner', 'Images → PDF', 'Word, Excel, PowerPoint → PDF', ['HTML → PDF'], ['Texte → PDF'], 'Créer un PDF']],
+        ['Convertir depuis PDF', ['PDF → Word', 'PDF → Excel', 'PDF → PowerPoint', 'PDF → images', 'Extraire les images']],
+        ['Éditer', ['Modifier', 'Signer', 'Remplir un formulaire', 'Numéroter les pages', 'Filigrane', ['En-tête et pied de page'], 'Remplacer du texte', ['Masquer une information']]],
+        ['Sécurité', ['Protéger par mot de passe', 'Déverrouiller', 'Propriétés', ['Effacer les métadonnées'], ['Signature numérique'], ['Vérifier une signature']]],
+        ['Intelligence artificielle', [['Assistant : résumer, interroger, extraire']]],
+      ],
+    },
+    en: {
+      nav_tools: 'Tools', nav_privacy: 'Privacy', nav_ai: 'AI assistant', nav_cta: 'Download', apk_small: 'Download for Android', apk: 'APK file', apk_note: 'Android 8 or newer. On first launch, allow installs from your browser. The button always gets the latest version.',
+      pill_tag: 'Android', pill: '36 PDF tools, most of them offline', h1a: 'All your PDFs.', h1b: 'In your pocket.',
+      lead: 'Scan a page in a second, then merge, compress, sign, convert and let AI summarise your documents. One app, built for speed.',
+      cta_small: 'Coming soon to', cta_tools: 'See all 36 tools →', t1: 'Works offline', t2: 'Your files stay with you', t3: 'English and French',
+      chip1: 'Edges detected', chip1s: 'auto capture', chip2: '−72% file size', chip2s: 'compression', chip3: 'Summary ready', chip3s: 'AI assistant',
+      phone_title: 'Scanner', toast: 'Signed_contract.pdf', toasts: '3 pages · saved',
+      k_how: 'How it works', h_how: 'From paper to a perfect PDF, in three moves.',
+      s1: 'Capture', s1p: 'Point at the page: Pagio finds the edges, waits until it is sharp and still, then captures it for you.',
+      s2: 'Transform', s2p: 'Merge, reorder, compress, sign, redact sensitive details, make the text searchable.',
+      s3: 'Share', s3p: 'Send the PDF by WhatsApp, email or any app, at the right size and in the right format.',
+      k_tools: '36 tools', h_tools: 'Everything you do with a PDF. Really everything.', p_tools: 'Grouped into seven families, so the right tool is one glance away.',
+      k_priv: 'Privacy', h_priv: 'Your documents never leave your phone.',
+      p_priv: 'Contracts, IDs, payslips: most Pagio tools work directly on the device, even in airplane mode.',
+      c1: 'On-device processing', c1p: 'Merge, compress, sign, OCR: nothing is uploaded.',
+      c2: 'Server only when you choose it', c2p: 'High-fidelity conversion or AI assistant: the file is deleted right after.',
+      c3: 'Statistics only with your consent', c3p: 'Anonymous, and only if you accept them.',
+      st1: 'PDF tools', st2: 'tool families', st3: 'languages', st4: 'Android 8 and newer',
+      k_ai: 'AI assistant', h_ai: 'A 40-page document? Ask for the gist.',
+      p_ai: 'Summarise, ask a question, pull out dates and amounts. The assistant reads your document and answers in seconds.',
+      ai_doc: 'Annual_report_2026.pdf · 40 pages', ai_q: 'Summarise this report in 3 points.',
+      ai_a: '1. Revenue up 18%, driven by exports.\n2. Two new branches opened in June.\n3. 2027 goal: cut delivery times in half.',
+      h_final: 'Your office fits in your pocket.', p_final: 'Download Pagio now, ahead of Google Play. Free to start, no credit card.',
+      foot: 'Made with care, for people in a hurry.',
+      fam: [
+        ['Organise', ['Merge', 'Split', 'Reorder pages', 'Extract pages', 'Delete pages', 'Rotate']],
+        ['Optimise', ['Compress', 'Repair', ['OCR: searchable text'], 'Extract text']],
+        ['Convert to PDF', ['Scan', 'Images → PDF', 'Word, Excel, PowerPoint → PDF', ['HTML → PDF'], ['Text → PDF'], 'Create a PDF']],
+        ['Convert from PDF', ['PDF → Word', 'PDF → Excel', 'PDF → PowerPoint', 'PDF → images', 'Extract images']],
+        ['Edit', ['Edit', 'Sign', 'Fill forms', 'Page numbers', 'Watermark', ['Header and footer'], 'Replace text', ['Redact']]],
+        ['Security', ['Password protect', 'Unlock', 'Properties', ['Strip metadata'], ['Digital signature'], ['Verify a signature']]],
+        ['Artificial intelligence', [['Assistant: summarise, ask, extract']]],
+      ],
+    },
+  };
+  const FAM_STYLE = [
+    ['#4535c9', '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'],
+    ['#14a37f', '<path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/>'],
+    ['#7a5cf0', '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M12 18v-6M9 15l3 3 3-3"/>'],
+    ['#ff6b57', '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M12 12v6M9 15l3-3 3 3"/>'],
+    ['#d9468f', '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'],
+    ['#2c6fe0', '<rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'],
+    ['#e08a1e', '<path d="m12 3 2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/>'],
+  ];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* indisponible */ } } };
+  let lang = store.get('pagio.lang') || ((navigator.language || 'fr').toLowerCase().startsWith('fr') ? 'fr' : 'en');
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function renderTools() {
+    const box = document.getElementById('tools');
+    box.innerHTML = T[lang].fam.map(([name, items], i) => {
+      const [color, icon] = FAM_STYLE[i];
+      const lis = items.map((it) => Array.isArray(it) ? `<li class="new">${esc(it[0])}</li>` : `<li>${esc(it)}</li>`).join('');
+      return `<article class="fam reveal" style="--d:${(i % 3) * 0.08}s"><header><span class="ic" style="background:${color}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></span><h3>${esc(name)}</h3><span class="count">${items.length}</span></header><ul>${lis}</ul></article>`;
+    }).join('');
+    const track = document.getElementById('track');
+    const names = T[lang].fam.flatMap(([, items]) => items.map((it) => Array.isArray(it) ? it[0] : it));
+    const row = names.map((n) => `<span>${esc(n)}</span>`).join('');
+    track.innerHTML = row + row;
+    box.querySelectorAll('.fam').forEach(tilt);
+    box.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+  }
+
+  function apply() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-i18n]').forEach((el) => { const v = T[lang][el.dataset.i18n]; if (typeof v === 'string') el.textContent = v; });
+    document.querySelectorAll('.lang button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    document.title = lang === 'fr' ? 'Pagio — Tous vos PDF, dans votre poche' : 'Pagio — All your PDFs, in your pocket';
+    renderTools();
+    typer.start();
+  }
+
+  // Apparition au défilement
+  const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.14 });
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+  // Cartes : inclinaison et halo qui suit la souris
+  function tilt(card) {
+    if (reduce || matchMedia('(hover: none)').matches) return;
+    card.addEventListener('pointermove', (e) => {
+      const r = card.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width; const y = (e.clientY - r.top) / r.height;
+      card.style.setProperty('--mx', `${x * 100}%`); card.style.setProperty('--my', `${y * 100}%`);
+      card.style.transform = `perspective(900px) rotateX(${(0.5 - y) * 7}deg) rotateY(${(x - 0.5) * 9}deg) translateY(-4px)`;
+    });
+    card.addEventListener('pointerleave', () => { card.style.transform = ''; });
+  }
+
+  // Téléphone qui suit légèrement la souris
+  const phone = document.getElementById('phone');
+  if (!reduce && matchMedia('(hover: hover)').matches) {
+    addEventListener('pointermove', (e) => {
+      const x = e.clientX / innerWidth - 0.5; const y = e.clientY / innerHeight - 0.5;
+      phone.style.transform = `rotateY(${-14 + x * 16}deg) rotateX(${6 - y * 10}deg)`;
+    }, { passive: true });
+  }
+
+  // Compteurs
+  const counters = new IntersectionObserver((entries) => entries.forEach((e) => {
+    if (!e.isIntersecting) return;
+    const el = e.target; const end = Number(el.dataset.count); counters.unobserve(el);
+    if (reduce) { el.textContent = end; return; }
+    const t0 = performance.now(); const dur = 1400;
+    const step = (t) => { const p = Math.min(1, (t - t0) / dur); el.textContent = Math.round(end * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }), { threshold: 0.5 });
+  document.querySelectorAll('[data-count]').forEach((el) => counters.observe(el));
+
+  // Réponse de l'assistant tapée lettre par lettre, quand la section est visible
+  const typer = (() => {
+    const out = document.getElementById('typed'); let timer = null; let visible = false;
+    const run = () => {
+      clearTimeout(timer); const text = T[lang].ai_a;
+      if (reduce) { out.textContent = text; return; }
+      let i = 0; out.textContent = '';
+      const tick = () => { out.textContent = text.slice(0, ++i); if (i < text.length) timer = setTimeout(tick, text[i - 1] === '\n' ? 260 : 22); else timer = setTimeout(run, 4200); };
+      tick();
+    };
+    new IntersectionObserver((es) => es.forEach((e) => { visible = e.isIntersecting; if (visible) run(); else clearTimeout(timer); }), { threshold: 0.4 }).observe(out);
+    out.style.whiteSpace = 'pre-line';
+    return { start: () => { if (visible || reduce) run(); else out.textContent = ''; } };
+  })();
+
+  // Barre du haut
+  const head = document.querySelector('header');
+  addEventListener('scroll', () => head.classList.toggle('scrolled', scrollY > 8), { passive: true });
+
+  document.querySelectorAll('.lang button').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.lang; store.set('pagio.lang', lang); apply(); }));
+  // Version publiée (écrite par android/publier-apk.sh) : affichée discrètement dans le bouton du bas.
+  fetch('telecharger/version.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((v) => {
+    if (v && v.version) document.getElementById('apk-ver').textContent = `v${v.version}${v.taille_mo ? ` · ${v.taille_mo} ${lang === 'fr' ? 'Mo' : 'MB'}` : ''}`;
+  }).catch(() => {});
+  document.getElementById('year').textContent = new Date().getFullYear();
+  apply();
+})();
+</script>
 </body>
 </html>

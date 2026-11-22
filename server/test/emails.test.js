@@ -66,6 +66,47 @@ test('e-mails : réglages chiffrés, clé jamais renvoyée, e-mail d\'essai', as
   } finally { server.close(); }
 });
 
+test('e-mails : adresse publique de l\'administration refusée', async () => {
+  const { server, call, owner } = await bootWithMail();
+  try {
+    const r = await call('PUT', '/api/admin/settings', { mail: { public_url: 'https://admin.pagio.site' } }, owner);
+    assert.equal(r.status, 400);
+    assert.match(r.json.error, /administration/);
+  } finally { server.close(); }
+});
+
+test('e-mails : clé Brevo gardée active une fois par semaine, clé refusée signalée', async () => {
+  const pings = [];
+  let answer = { ok: true, status: 200, message: '' };
+  const inbox = [];
+  const ctx = await boot({ secretsKey: 'cle-de-test', sendMail: async (c, m) => { inbox.push(m); }, checkMailKey: async (key) => { pings.push(key); return answer; } });
+  const { server, call, app, db } = ctx;
+  try {
+    const owner = (await loginOwner(call)).json.token;
+    // E-mails inactifs : aucun contact avec Brevo
+    assert.equal(await app.locals.keepMailKeyAlive(), null);
+    await call('PUT', '/api/admin/settings', { mail: { enabled: true, api_key: 'xkeysib-cle-1111', from_email: 'noreply@pagio.test', public_url: 'https://pagio.test' } }, owner);
+    assert.equal((await app.locals.keepMailKeyAlive()).ok, true);
+    assert.deepEqual(pings, ['xkeysib-cle-1111']);
+    // Moins d'une semaine après un contact réussi : rien
+    assert.equal(await app.locals.keepMailKeyAlive(), null);
+    assert.equal(pings.length, 1);
+    // Une semaine plus tard (simulée) : nouveau contact
+    const kc = JSON.parse(db.prepare("SELECT value FROM settings WHERE key = 'mail_key_check'").get().value);
+    db.prepare("UPDATE settings SET value = ? WHERE key = 'mail_key_check'").run(JSON.stringify({ ...kc, ts: kc.ts - 8 * 86_400_000 }));
+    answer = { ok: false, status: 401, message: "Brevo ne reconnaît plus la clé d'API" };
+    assert.equal((await app.locals.keepMailKeyAlive()).ok, false);
+    const alerts = (await call('GET', '/api/admin/alerts', null, owner)).json.alerts;
+    assert.ok(alerts.some((a) => a.code === 'mail_key_refused' && a.level === 'critical'));
+    // Nouvelle clé collée : vérification remise à zéro, l'alerte disparaît, nouveau contact
+    answer = { ok: true, status: 200, message: '' };
+    await call('PUT', '/api/admin/settings', { mail: { api_key: 'xkeysib-cle-2222' } }, owner);
+    assert.ok(!(await call('GET', '/api/admin/alerts', null, owner)).json.alerts.some((a) => a.code === 'mail_key_refused'));
+    assert.equal((await app.locals.keepMailKeyAlive()).ok, true);
+    assert.equal(pings.at(-1), 'xkeysib-cle-2222');
+  } finally { server.close(); }
+});
+
 test('e-mails : activation impossible sans clé ni expéditeur', async () => {
   const { server, call } = await boot();
   try {

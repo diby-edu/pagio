@@ -11,4 +11,5 @@ android/keystore.properties
 # Livrables binaires et clé de signature : à sauvegarder à part, jamais dans Git
 android/apk/
 android/build-release.log
+android/*.log
 launcher/target/

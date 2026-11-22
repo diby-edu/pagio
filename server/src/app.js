@@ -13,7 +13,7 @@ import {
 } from './security.js';
 import { aiComplete, convertWithLibreOffice, libreOfficeAvailable } from './services.js';
 import { listBackups, createBackup, backupPath, restoreBackup, importBackup, verifyBackup } from './backup.js';
-import { sendWithBrevo, messages, newToken, hashToken, resetForm, messagePage } from './mail.js';
+import { sendWithBrevo, pingBrevo, messages, newToken, hashToken, resetForm, messagePage } from './mail.js';
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -27,7 +27,7 @@ const emailOk = (e) => typeof e === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.tes
  * trustProxy : nombre de proxys de confiance devant le serveur (1 derrière Caddy/Nginx), pour connaître la vraie adresse IP.
  * sendMail : fonction d'envoi des e-mails (Brevo par défaut ; remplacée dans les tests).
  */
-export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now(), sendMail = sendWithBrevo }) {
+export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now(), sendMail = sendWithBrevo, checkMailKey = pingBrevo }) {
   const app = express();
   app.disable('x-powered-by');
   if (trustProxy) app.set('trust proxy', trustProxy);
@@ -775,6 +775,9 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
         if (v.from_email && !emailOk(v.from_email)) return fail(res, 400, "Adresse d'expéditeur invalide");
         if (v.alerts_to && !emailOk(v.alerts_to)) return fail(res, 400, 'Adresse de réception des alertes invalide');
         if (v.public_url && !/^https?:\/\/[^\s/]+/.test(v.public_url)) return fail(res, 400, 'Adresse publique invalide (elle doit commencer par https://)');
+        // Les liens des e-mails sont ouverts par les utilisateurs : l'adresse de l'administration leur est fermée.
+        if (/^https?:\/\/admin\./i.test(v.public_url)) return fail(res, 400, "L'adresse publique doit être celle du site ouvert aux utilisateurs (ex. https://pagio.site), pas celle de l'administration");
+        if (v.api_key !== current.mail.api_key) setSetting(db, 'mail_key_check', null); // nouvelle clé : nouvelle vérification
         if (v.enabled && (!v.from_email || !(v.api_key || process.env.MAIL_API_KEY))) return fail(res, 400, "Pour activer les e-mails, renseignez la clé Brevo et l'adresse d'expéditeur");
       }
       if (k === 'plans') v = { free: { ...current.plans.free, ...(v.free || {}) }, premium: { ...current.plans.premium, ...(v.premium || {}) } };
@@ -1034,11 +1037,31 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (s.maintenance) add('info', 'maintenance', "Le mode maintenance est actif : l'application est bloquée pour les utilisateurs.", 'app');
     const open = db.prepare("SELECT COUNT(*) n FROM feedback WHERE status = 'nouveau'").get().n;
     if (open > 0) add('info', 'feedback', `${open} message(s) d'utilisateurs en attente de réponse.`, 'feedback');
+    const kc = s.mail_key_check;
+    if (mailReady(s) && kc && !kc.ok && kc.status === 401) add('critical', 'mail_key_refused', `${kc.message} : les e-mails ne partent plus. Créez une nouvelle clé dans Brevo et collez-la ici.`, 'mail');
     const rank = { critical: 0, warning: 1, info: 2 };
     return out.sort((a, b) => rank[a.level] - rank[b.level]);
   }
 
   app.get('/api/admin/alerts', adminAuth(), (req, res) => ok(res, { alerts: alerts() }));
+
+  /**
+   * Garde la clé Brevo active : Brevo la désactive après 90 jours sans usage. Un contact sans envoi au plus une fois
+   * par semaine (relance au bout d'une heure si le précédent a échoué). Le résultat est gardé dans `mail_key_check` ;
+   * une clé refusée devient une alerte critique. Appelée régulièrement par server.js ; renvoie le résultat ou null.
+   */
+  app.locals.keepMailKeyAlive = async ({ force = false } = {}) => {
+    const s = getSettings(db);
+    const m = mailConfig(s);
+    if (!mailReady(s)) return null;
+    const last = s.mail_key_check;
+    const wait = last?.ok ? 7 * DAY : HOUR;
+    if (!force && last && Date.now() - last.ts < wait) return null;
+    const r = await checkMailKey(m.api_key);
+    setSetting(db, 'mail_key_check', { ts: Date.now(), ok: r.ok, status: r.status, message: r.message });
+    if (!r.ok && (!last || last.ok)) logServerError(db, 'email', new Error(r.message));
+    return r;
+  };
 
   /**
    * Envoie par e-mail les alertes urgentes ou à surveiller. Une même alerte n'est renvoyée qu'une fois par 24 heures

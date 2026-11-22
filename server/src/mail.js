@@ -29,6 +29,26 @@ export async function sendWithBrevo(mail, { to, subject, text, html }) {
   return { id: j.messageId || null };
 }
 
+/**
+ * Contact avec Brevo sans envoyer d'e-mail : Brevo désactive une clé d'API restée 90 jours sans servir, et Pagio peut
+ * n'envoyer aucun e-mail pendant longtemps. Lit les statistiques d'envoi du jour (droit « E-mails transactionnels »
+ * suffisant). Ne lève jamais d'erreur : renvoie { ok, status, message }.
+ */
+export async function pingBrevo(apiKey) {
+  try {
+    const r = await fetch('https://api.brevo.com/v3/smtp/statistics/aggregatedReport?days=1', {
+      signal: AbortSignal.timeout(20_000), headers: { accept: 'application/json', 'api-key': apiKey },
+    });
+    if (r.ok) return { ok: true, status: r.status, message: '' };
+    const j = await r.json().catch(() => ({}));
+    const message = r.status === 401 ? "Brevo ne reconnaît plus la clé d'API (expirée, supprimée ou adresse IP du serveur non autorisée)"
+      : `Brevo a répondu : ${String(j?.message || `erreur ${r.status}`).slice(0, 200)}`;
+    return { ok: false, status: r.status, message };
+  } catch (e) {
+    return { ok: false, status: 0, message: `Brevo injoignable : ${String(e.message).slice(0, 200)}` };
+  }
+}
+
 // ---------------------------------------------------------------------------- Modèles de messages
 
 const layout = (title, bodyHtml) => `<!doctype html><html lang="fr"><body style="margin:0;background:#f4f3fa;font-family:Arial,Helvetica,sans-serif;color:#1c1b2e">

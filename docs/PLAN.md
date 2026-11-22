@@ -34,6 +34,32 @@
   - un certificat par appareil (PC, téléphone), installé une fois, révocable un par un ;
   - l'autorité privée et ses clés restent sur le VPS (hors du conteneur) avec une copie hors du serveur ;
   - ensuite, mot de passe + double authentification comme aujourd'hui.
+- [ ] **APK admin** (demandée le 20/11/2026) : gérer l'application depuis le téléphone exactement comme sur PC (tous les modules du
+  tableau de bord). Application à part, jamais publiée : affiche le tableau de bord de `admin.pagio.site` ; au premier lancement elle crée
+  une clé dans la puce de sécurité du téléphone et affiche un code, approuvé depuis le PC (*Appareils autorisés*) ; retrait possible depuis le PC.
+  Plus tard : notifications (serveur en panne, nouveau message de support).
+
+- [x] Landing page animée FR/EN sur `pagio.site` (20/11/2026), sans aucun lien de connexion.
+- [ ] **Pages légales** (demandées le 20/11/2026), liées en pied de page du site et depuis l'application :
+  politique de confidentialité (RGPD : données collectées, finalités, durée de conservation, sous-traitants — fournisseur d'IA, Brevo,
+  hébergeur —, droits d'accès / rectification / effacement, contact), conditions d'utilisation (offres, crédits IA, abonnements),
+  suppression de compte (exigée par Google Play : page publique expliquant comment supprimer son compte et ses données), mentions légales.
+  Informations à fournir : nom de l'éditeur (personne ou société), pays, adresse e-mail de contact publique.
+
+- [x] Bouton « Fichier APK » (téléchargement direct, `pagio.site/telecharger/pagio.apk`) et badge Google Play noir habituel (21/11/2026).
+- [ ] **Application web** (`app.pagio.site`, proposée le 21/11/2026) : même compte et même Premium que l'APK ; outils dans le navigateur
+  (fusion, découpe, rotation, organisation, signature, formulaires, filigrane, numérotation, protection, OCR), conversions et IA par le
+  serveur ; photo de document depuis le navigateur du téléphone. Réutilise React/TypeScript du tableau de bord. Après le lancement Play Store.
+- [ ] Connexion « avec Google » dans l'application et sur le web (en plus de l'e-mail + mot de passe).
+- [ ] Pages légales : éditeur **KODY BUSINESS**, Côte d'Ivoire, +225 0554585927 ; loi ivoirienne n° 2013-450 (ARTCI) + RGPD pour
+  les utilisateurs européens. Adresse de contact publique : `contact@pagio.site` (créée le 22/11/2026 : réception par
+  ImprovMX renvoyée vers la boîte de l'administrateur, réponses depuis Gmail par le SMTP de Brevo).
+- [ ] **Module Système enrichi** (demandé le 22/11/2026, avec l'APK admin) : redémarrage automatique si Pagio ne répond plus,
+  historique des pannes et disponibilité du mois, alerte avant l'expiration des certificats HTTPS ; alertes existantes envoyées
+  aussi en notification sur l'APK admin, qui vérifie en plus le serveur toutes les 15 minutes (panne complète du VPS).
+  UptimeRobot reste en secours.
+- [x] Lenteurs de 20 à 50 s après quelques secondes d'inactivité corrigées (maintien TCP sur le port 443, 22/11/2026).
+- [x] Clé Brevo gardée active par un contact hebdomadaire sans envoi ; clé refusée = alerte critique (22/11/2026).
 
 ## Étape 4 — Modèle économique et paiements
 
@@ -55,11 +81,13 @@ Principe : outils du téléphone gratuits et généreux (ils ne coûtent rien), 
 - [ ] À étudier : mention « Créé avec Pagio » sur les PDF en gratuit ; vidéo récompensée (+3 opérations) ; offre Pro / équipe pour secrétariats, cybercafés, écoles, PME.
 - [ ] Vérifier le coût réel de l'IA sur les factures du fournisseur avant de fixer les prix.
 
-## Étape 5 — Publication sur Google Play
+## Étape 5 — Publication sur Google Play (À LA FIN, décision du 21/11/2026)
 
-- [ ] Augmenter `versionCode` (toujours à 1).
+- [x] Numéro de version : 2.0.0 (code 20000), calculé automatiquement depuis `versionName` (21/11/2026).
+- [x] Publication de l'APK sur le site : `android/publier-apk.sh` (le bouton « Fichier APK » donne toujours la dernière version).
 - [ ] Fiche Play Store : titre, description avec les mots recherchés (PDF, scanner, fusionner, compresser), captures d'écran.
-- [ ] Authentifier le domaine `pagio.site` dans Brevo (SPF, DKIM, DMARC) avant d'activer les e-mails.
+- [x] Domaine `pagio.site` authentifié dans Brevo (DKIM, DMARC) et e-mails automatiques actifs depuis `noreply@pagio.site` (22/11/2026).
+- [ ] Vers la mi-décembre 2026 : durcir DMARC (`p=none` → `p=quarantine`) une fois les envois bien établis.
 - [ ] Tester l'accessibilité avec TalkBack.
 
 ## Plus tard
@@ -68,6 +96,7 @@ Principe : outils du téléphone gratuits et généreux (ils ne coûtent rien), 
 - Renforcer scrypt (`N=65536`) après mesure de la mémoire du VPS.
 - Play Integrity pour les outils Premium hors ligne.
 - Test de charge sur le VPS à une heure creuse.
+- Sentry (analyse des plantages) au lancement Play Store, s'il y a beaucoup d'utilisateurs ; à citer alors comme sous-traitant.
 
 ## Décisions
 

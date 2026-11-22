@@ -95,6 +95,11 @@ const alertTick = () => app.locals.sendAlertEmails().catch((e) => logServerError
 setTimeout(alertTick, 60_000).unref();
 setInterval(alertTick, 10 * 60_000).unref();
 
+// Clé Brevo gardée active (désactivée par Brevo après 90 jours sans usage) : contact sans envoi, une fois par semaine.
+const mailKeyTick = () => app.locals.keepMailKeyAlive().catch((e) => logServerError(db, 'email', e));
+setTimeout(mailKeyTick, 90_000).unref();
+setInterval(mailKeyTick, 6 * 3_600_000).unref();
+
 setTimeout(backupTick, 20_000).unref();
 setInterval(backupTick, 10 * 60_000).unref();
 

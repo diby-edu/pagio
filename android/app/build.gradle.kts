@@ -20,8 +20,10 @@ android {
         applicationId = "com.pagio.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        // Numéro interne = majeur × 10000 + mineur × 100 + correctif (2.0.0 → 20000) : il doit toujours augmenter.
+        // Publication : android/publier-apk.sh (construit, signe, envoie sur pagio.site et met à jour le bouton du site).
+        versionName = "2.0.0"
+        versionCode = versionName!!.split('.').map { it.toInt() }.let { (a, b, c) -> a * 10000 + b * 100 + c }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Téléphones ARM 64/32 bits + émulateurs x86_64 (le x86 32 bits, obsolète, est exclu pour alléger l'APK).
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }

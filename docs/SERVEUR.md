@@ -82,6 +82,19 @@ Installer sur Windows : double-clic sur le `.p12` → Utilisateur actuel → cod
 (ne pas installer d'autorité racine). Fermer complètement Chrome, puis ouvrir `https://admin.pagio.site` et choisir le certificat.
 Appareil `pc-bureau` autorisé le 20/11/2026.
 
+### Connexions qui restent bloquées 20 à 50 secondes (corrigé le 22/11/2026)
+
+Symptôme : après quelques secondes sans rien faire, la requête suivante (connexion, code, ouverture d'un module) attendait
+20 à 50 secondes, puis tout redevenait normal. Le serveur répondait pourtant en quelques millisecondes.
+Cause (mesurée côté Chrome et par capture réseau sur le VPS) : sur le trajet entre l'utilisateur et le VPS, les connexions
+inactives sont coupées en silence ; Chrome réutilise la connexion morte, Windows réessaie pendant environ 20 secondes, puis
+Chrome en ouvre une nouvelle. Tous les sites du VPS étaient touchés (wazzapai.com aussi), pas Google.
+Correction : signaux de maintien TCP envoyés par le serveur toutes les 5 secondes sur les connexions inactives, réglés une
+seule fois sur le port 443 (IPv4) et donc valables pour tous les sites du VPS, dans le bloc `admin.pagio.site` :
+`listen 443 ssl so_keepalive=5s:5s:4;` (sauvegarde avant modification : `/root/nginx-pagio.bak-keepalive`).
+Journal de chronométrage des requêtes Pagio : `/var/log/nginx/pagio-chrono.log` (format `pagio_chrono` dans
+`/etc/nginx/conf.d/pagio-chrono.conf`).
+
 Mettre à jour le serveur après une modification du code (à lancer depuis l'ordinateur, dossier du projet) :
 
 ```
@@ -192,6 +205,16 @@ collez la clé, l'adresse d'expéditeur et l'adresse publique du serveur, active
 - Sans e-mails activés, rien ne change : les demandes de mot de passe oublié apparaissent dans *Avis et support* et se traitent à la main.
 - Un envoi refusé par Brevo est inscrit dans *Erreurs du serveur* (source « email ») et signalé dans les alertes.
 - Aucune modification de l'application Android n'a été nécessaire : elle affiche le message renvoyé par le serveur.
+- Brevo désactive une clé d'API restée 90 jours sans servir : le serveur la garde active par un contact sans envoi une fois par
+  semaine (lecture des statistiques d'envoi, droit « E-mails transactionnels » suffisant). Une clé refusée devient une alerte
+  critique « clé Brevo refusée » ; coller une nouvelle clé relance la vérification.
+- L'adresse publique doit être celle du site ouvert aux utilisateurs (`https://pagio.site`) : `admin.…` est refusée, car les liens des
+  e-mails ne s'ouvriraient pas chez les utilisateurs.
+
+Mise en place du 22/11/2026 : domaine `pagio.site` authentifié dans Brevo (code Brevo, DKIM `brevo1`/`brevo2._domainkey`, DMARC
+`p=none`), expéditeurs `noreply@pagio.site` et `contact@pagio.site`. Réception : ImprovMX (MX `mx1`/`mx2.improvmx.com`, SPF
+`include:spf.improvmx.com`) renvoie toutes les adresses `@pagio.site` vers la boîte de l'administrateur. Réponses en tant que
+`contact@pagio.site` depuis Gmail par le SMTP de Brevo (`smtp-relay.brevo.com:587`, clé SMTP distincte de la clé d'API).
 - Un nouveau mot de passe (lien « mot de passe oublié » ou changement par un administrateur) déconnecte aussitôt tous les
   téléphones connectés au compte : les badges émis avant le changement sont refusés (colonne `users.tokens_valid_after`).
   L'application efface alors son badge et demande de se reconnecter.
