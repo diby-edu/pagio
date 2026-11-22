@@ -243,7 +243,8 @@ fun FilesScreen(onOpenFile: (File) -> Unit, onTool: (Tool) -> Unit) {
         RenameDialog(file, onDismiss = { renaming = null }) { name ->
             renaming = null
             scope.launch {
-                val done = c.history.renameOutput(id, file, name)
+                // Un dossier (scan de plusieurs pages en images) se renomme en entier, pages comprises.
+                val done = if (file.isDirectory) c.history.renameFolder(id, file, name) else c.history.renameOutput(id, file, name)
                 android.widget.Toast.makeText(ctx, if (done != null) ctx.getString(R.string.renamed_to, done.name) else ctx.getString(R.string.rename_failed), android.widget.Toast.LENGTH_SHORT).show()
             }
         }
@@ -300,10 +301,11 @@ fun FilesScreen(onOpenFile: (File) -> Unit, onTool: (Tool) -> Unit) {
                             IconButton(onClick = { menuFor = e.id }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.more_options)) }
                             DropdownMenu(expanded = menuFor == e.id, onDismissRequest = { menuFor = null }) {
                                 val files = e.existingOutputs
+                                val folder = e.scanFolder?.takeIf { it.exists() }
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.rename)) }, leadingIcon = { Icon(Icons.Outlined.DriveFileRenameOutline, null) },
-                                    enabled = files.size == 1,
-                                    onClick = { menuFor = null; renaming = e.id to files.first() },
+                                    enabled = files.size == 1 || folder != null,
+                                    onClick = { menuFor = null; renaming = e.id to (folder ?: files.first()) },
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.share)) }, leadingIcon = { Icon(Icons.Outlined.Share, null) },
@@ -319,10 +321,19 @@ fun FilesScreen(onOpenFile: (File) -> Unit, onTool: (Tool) -> Unit) {
                         }
                     }
                     Text(e.message ?: "", style = MaterialTheme.typography.bodySmall, color = if (e.success) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+                    // Scan de plusieurs pages en images : le dossier, puis ses pages en retrait.
+                    val folder = e.scanFolder?.takeIf { it.exists() }
+                    if (folder != null) Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.FolderOpen, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(6.dp))
+                        Text(folder.name, style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(e.existingOutputs.sumOf { it.length() }.humanSize(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     e.existingOutputs.forEach { f ->
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).combinedClickable(onClick = {
                             if (f.extension.equals("pdf", true)) onOpenFile(f) else runCatching { ctx.startActivity(c.workspace.openWithIntent(f)) }
-                        }).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        }).padding(vertical = 6.dp).padding(start = if (folder != null) 26.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("• " + f.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(f.length().humanSize(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }

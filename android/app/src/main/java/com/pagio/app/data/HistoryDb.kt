@@ -23,6 +23,9 @@ data class HistoryEntry(
     val durationMs: Long,
 ) {
     val existingOutputs: List<File> get() = outputs.filter { it.exists() }
+
+    /** Scan de plusieurs pages enregistré en images : le dossier qui les contient (nommé par l'utilisateur), sinon null. */
+    val scanFolder: File? get() = if (toolId == "scan" && outputs.size > 1) outputs.mapNotNull { it.parentFile }.distinct().singleOrNull() else null
 }
 
 /** Historique des opérations (base SQLite locale, aucune donnée envoyée). */
@@ -89,14 +92,37 @@ class HistoryDb(context: Context) : SQLiteOpenHelper(context, "pagio.db", null, 
         refresh(); target
     }
 
+    /**
+     * Renomme le dossier d'un scan enregistré en images (plusieurs pages) et met l'historique à jour.
+     * « (2) », « (3) »… si le nom est pris. Renvoie le nouveau dossier, ou null en cas d'échec.
+     */
+    suspend fun renameFolder(id: Long, folder: File, newBase: String): File? = withContext(Dispatchers.IO) {
+        val entry = _entries.value.firstOrNull { it.id == id } ?: return@withContext null
+        val parent = folder.parentFile ?: return@withContext null
+        var target = File(parent, newBase); var i = 2
+        while (target.exists() && target.absolutePath != folder.absolutePath) { target = File(parent, "$newBase ($i)"); i++ }
+        if (target.absolutePath != folder.absolutePath && !folder.renameTo(target)) return@withContext null
+        val outputs = entry.outputs.map { if (it.parentFile?.absolutePath == folder.absolutePath) File(target, it.name) else it }
+        writableDatabase.update("history", ContentValues().apply {
+            put("outputs", JSONArray(outputs.map { it.absolutePath }).toString()); put("title", target.name)
+        }, "id = ?", arrayOf(id.toString()))
+        refresh(); target
+    }
+
+    /** Supprime les fichiers, puis leur dossier s'il est resté vide (dossier d'un scan en images). */
+    private fun deleteOutputs(files: List<File>) {
+        files.forEach { it.delete() }
+        files.mapNotNull { it.parentFile }.distinct().forEach { d -> if (d.listFiles()?.isEmpty() == true) d.delete() }
+    }
+
     suspend fun delete(id: Long, deleteFiles: Boolean) = withContext(Dispatchers.IO) {
-        if (deleteFiles) _entries.value.firstOrNull { it.id == id }?.outputs?.forEach { it.delete() }
+        if (deleteFiles) _entries.value.firstOrNull { it.id == id }?.outputs?.let { deleteOutputs(it) }
         writableDatabase.delete("history", "id = ?", arrayOf(id.toString()))
         refresh()
     }
 
     suspend fun clear(deleteFiles: Boolean) = withContext(Dispatchers.IO) {
-        if (deleteFiles) _entries.value.flatMap { it.outputs }.forEach { it.delete() }
+        if (deleteFiles) deleteOutputs(_entries.value.flatMap { it.outputs })
         writableDatabase.delete("history", null, null)
         refresh()
     }

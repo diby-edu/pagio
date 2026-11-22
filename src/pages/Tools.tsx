@@ -37,12 +37,13 @@ export default function Tools({ admin }: { admin: Admin }) {
       {flash}
       <Alert tone="info">Désactivez un outil pour le masquer dans l'application, réservez-le au Premium, ou limitez le nombre de fichiers et la taille (0 = limite de l'offre).
         <strong> Par jour (gratuit)</strong> : nombre d'utilisations par jour pour l'offre gratuite (0 = illimité ; le Premium n'est jamais limité). Pour le scanner,
-        1 scan = 1 document enregistré, quel que soit le nombre de pages. <strong>Limite atteinte</strong> : combien de fois des utilisateurs ont été bloqués en 30 jours,
+        1 scan = 1 document enregistré, quel que soit le nombre de pages. <strong>Scan en PDF : Premium</strong> : les scans sont enregistrés en images JPG ;
+        activé, la case « Enregistrer en PDF » est réservée au Premium et l'indique, désactivé, elle est offerte à tous sans mention. <strong>Limite atteinte</strong> : combien de fois des utilisateurs ont été bloqués en 30 jours,
         pour ajuster sans nouvelle version de l'application. Les changements sont lus par l'application à chaque démarrage (et conservés hors ligne).</Alert>
       {GROUPS.map(([title, ids]) => (
         <Card key={title} title={title}>
           <div className="table-wrap"><table className="table">
-            <thead><tr><th>Outil</th><th>Activé</th><th>Premium seulement</th><th>Par jour (gratuit)</th><th>Pages max par scan</th><th>Fichiers max</th><th>Taille max (Mo)</th><th>Utilisations 30 j</th><th>Limite atteinte 30 j</th></tr></thead>
+            <thead><tr><th>Outil</th><th>Activé</th><th>Premium seulement</th><th>Par jour (gratuit)</th><th>Pages max par scan</th><th>Scan en PDF : Premium</th><th>Fichiers max</th><th>Taille max (Mo)</th><th>Utilisations 30 j</th><th>Limite atteinte 30 j</th></tr></thead>
             <tbody>{ids.filter((id) => byId[id]).map((id) => {
               const t = byId[id];
               return (
@@ -55,6 +56,9 @@ export default function Tools({ admin }: { admin: Admin }) {
                   <td>{id === 'scan'
                     ? <input type="number" min={0} defaultValue={t.max_pages} disabled={!canEdit} style={{ width: 80 }} aria-label="Pages maximum par scan"
                         onBlur={(e) => Number(e.target.value) !== t.max_pages && update(id, { max_pages: Number(e.target.value) })} />
+                    : <span className="muted">—</span>}</td>
+                  <td>{id === 'scan'
+                    ? <Toggle checked={t.pdf_premium} disabled={!canEdit} onChange={(v) => update(id, { pdf_premium: v })} />
                     : <span className="muted">—</span>}</td>
                   <td><input type="number" min={0} defaultValue={t.max_files} disabled={!canEdit} style={{ width: 80 }}
                     onBlur={(e) => Number(e.target.value) !== t.max_files && update(id, { max_files: Number(e.target.value) })} /></td>

@@ -92,7 +92,7 @@ import com.pagio.app.ui.settings.SettingsScreen
 import com.pagio.app.ui.theme.PagioTheme
 import com.pagio.app.ui.scan.ScanNameDialog
 import com.pagio.app.ui.scan.ScanScreen
-import com.pagio.app.ui.scan.renameScan
+import com.pagio.app.ui.scan.saveScan
 import com.pagio.app.ui.tool.Handoff
 import com.pagio.app.ui.tool.ToolScreen
 import com.pagio.app.ui.viewer.ViewerScreen
@@ -168,10 +168,12 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
     }
 
     // --- Scanner (ML Kit : détection des bords, recadrage, filtres) ------------------------
-    // Scan validé en attente de son nom : chemin du PDF et nombre de pages. Conservé si Android ferme l'application.
+    // Scan validé en attente de son nom : dossier de ses pages (JPG) et nombre de pages. Conservé si Android ferme
+    // l'application ; hors du dossier de travail, que Pagio vide au démarrage.
     var namingPath by rememberSaveable { mutableStateOf<String?>(null) }
     var namingPages by rememberSaveable { mutableIntStateOf(0) }
-    fun askScanName(file: File, pages: Int) { namingPages = pages; namingPath = file.absolutePath }
+    fun askScanName(pagesDir: File, pages: Int) { namingPages = pages; namingPath = pagesDir.absolutePath }
+    fun newPendingScanDir() = File(c.workspace.outputRoot, "scan_en_attente_" + System.currentTimeMillis()).apply { mkdirs() }
 
     // Heure du dernier scan réussi [0] et du dernier appui sur « Scanner » [1].
     val scanTimes = remember { longArrayOf(0L, 0L) }
@@ -196,10 +198,15 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
         scanTimes[0] = System.currentTimeMillis()
         snackbar.currentSnackbarData?.dismiss()
         scope.launch {
-            val pdf = result.pdf ?: return@launch
-            val picked = c.workspace.import(pdf.uri, c.workspace.newOutputDir())
-            c.track("scan", mapOf("pages" to pdf.pageCount, "engine" to "google"))
-            askScanName(picked.file, pdf.pageCount)
+            // Pages en JPG (le PDF, s'il est demandé, est assemblé au moment d'enregistrer).
+            val pages = result.pages.orEmpty().ifEmpty { return@launch }
+            val dir = newPendingScanDir()
+            pages.forEachIndexed { i, p ->
+                val f = c.workspace.import(p.imageUri, dir).file
+                f.renameTo(File(dir, "%03d.jpg".format(java.util.Locale.ROOT, i + 1)))
+            }
+            c.track("scan", mapOf("pages" to pages.size, "engine" to "google"))
+            askScanName(dir, pages.size)
         }
     }
     fun startScan() {
@@ -215,7 +222,7 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
             nav.navigate("scan"); return
         }
         val options = GmsDocumentScannerOptions.Builder().setGalleryImportAllowed(true).setPageLimit(c.scanPageLimit().takeIf { it > 0 }?.coerceAtMost(100) ?: 100)
-            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_PDF).setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL).build()
+            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG).setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL).build()
         val client = GmsDocumentScanning.getClient(options)
         // Relais : le scanner de Pagio (détection des bords intégrée, sans services Google). La raison est remontée
         // aux statistiques : sans elle, l'échec du scanner de Google est impossible à diagnostiquer.
@@ -339,18 +346,25 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
         }
     }
 
-    // Après chaque scan : nommer le document, l'enregistrer dans Fichiers, puis y aller.
+    // Après chaque scan : nommer le document (images par défaut, PDF si la case est cochée), l'enregistrer dans
+    // Fichiers, puis y aller.
     namingPath?.let { path ->
-        ScanNameDialog(namingPages) { name ->
+        val (pdfPremium, pdfAllowed) = c.scanPdfAccess()
+        ScanNameDialog(namingPages, pdfPremium, pdfAllowed) { name, asPdf ->
             namingPath = null
             scope.launch {
                 val source = File(path)
                 if (!source.exists()) return@launch
-                val saved = withContext(Dispatchers.IO) { renameScan(source, name) }
+                val saved = withContext(Dispatchers.IO) { runCatching { saveScan(source, c.workspace.newOutputDir(), name, asPdf) } }.getOrElse {
+                    snackbar.showSnackbar(context.getString(R.string.scan_failed)); return@launch
+                }
                 c.recordToolUse("scan") // 1 scan = 1 document enregistré, quel que soit le nombre de pages
-                c.history.add("scan", saved.name, true, emptyList(), listOf(saved), "${namingPages} page(s) numérisée(s)", 0)
+                // Plusieurs pages en images : le titre est le nom du dossier.
+                val title = if (saved.size > 1) saved.first().parentFile!!.name else saved.first().name
+                c.history.add("scan", title, true, emptyList(), saved, "${namingPages} page(s) numérisée(s)" + if (asPdf) " · PDF" else " · images", 0)
+                c.track("scan_saved", mapOf("pages" to namingPages, "format" to if (asPdf) "pdf" else "jpg"))
                 nav.navigate("files") { popUpTo("home") { saveState = true }; launchSingleTop = true }
-                snackbar.showSnackbar(context.getString(R.string.scan_saved_as, saved.name), duration = SnackbarDuration.Short)
+                snackbar.showSnackbar(context.getString(R.string.scan_saved_as, title), duration = SnackbarDuration.Short)
             }
         }
     }

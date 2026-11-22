@@ -13,7 +13,7 @@ import java.net.URLEncoder
 /** Réglages d'un outil pilotés depuis le tableau de bord admin. */
 /** `dailyFree` : utilisations par jour pour l'offre gratuite (0 = illimité) ; `maxPages` : pages maximum par scan (0 = illimité). */
 data class ToolFlag(val enabled: Boolean = true, val premium: Boolean = false, val maxFiles: Int = 0, val maxMb: Int = 0,
-                    val dailyFree: Int = 0, val maxPages: Int = 0)
+                    val dailyFree: Int = 0, val maxPages: Int = 0, val pdfPremium: Boolean = false)
 
 data class PlanLimits(val dailyTasks: Int = 0, val maxFiles: Int = 0, val maxMb: Int = 0, val aiCredits: Int = 0)
 
@@ -43,7 +43,7 @@ data class RemoteConfig(
                 t.keys().forEach { k ->
                     val o = t.getJSONObject(k)
                     tools[k] = ToolFlag(o.optBoolean("enabled", true), o.optBoolean("premium", false), o.optInt("max_files", 0), o.optInt("max_mb", 0),
-                        o.optInt("daily_free", 0), o.optInt("max_pages", 0))
+                        o.optInt("daily_free", 0), o.optInt("max_pages", 0), o.optBoolean("pdf_premium", false))
                 }
             }
             fun limits(o: JSONObject?) = if (o == null) PlanLimits() else PlanLimits(o.optInt("daily_tasks"), o.optInt("max_files"), o.optInt("max_mb"), o.optInt("ai_credits"))

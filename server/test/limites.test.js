@@ -17,6 +17,11 @@ test('limites gratuites : réglages de départ, modification, configuration de l
     assert.deepEqual([cfg.scan.daily_free, cfg.scan.max_pages], [10, 20]);
     assert.equal(cfg.merge.daily_free, 5);
     assert.equal(cfg.assistant.daily_free, 0);
+    // Scanner : PDF réservé au Premium au départ, réglable
+    assert.equal(cfg.scan.pdf_premium, true);
+    assert.equal(cfg.merge.pdf_premium, false);
+    assert.equal((await call('PUT', '/api/admin/tools/scan', { pdf_premium: false }, owner)).json.tool.pdf_premium, false);
+    assert.equal((await call('GET', '/api/app/config')).json.tools.scan.pdf_premium, false);
 
     // Modification depuis le tableau de bord, valeurs aberrantes ramenées dans les bornes
     const r = await call('PUT', '/api/admin/tools/scan', { daily_free: 15, max_pages: 30 }, owner);
@@ -46,6 +51,7 @@ test('limites gratuites : base d\'une version précédente migrée une seule foi
     assert.deepEqual({ ...db.prepare("SELECT daily_free, max_pages FROM tools WHERE id = 'scan'").get() }, { daily_free: 10, max_pages: 20 });
     assert.equal(db.prepare("SELECT daily_free FROM tools WHERE id = 'merge'").get().daily_free, 5);
     assert.equal(db.prepare("SELECT daily_free FROM tools WHERE id = 'assistant'").get().daily_free, 0);
+    assert.equal(db.prepare("SELECT pdf_premium FROM tools WHERE id = 'scan'").get().pdf_premium, 1);
     // L'administrateur change un réglage : un redémarrage ne l'écrase pas
     db.prepare("UPDATE tools SET daily_free = 3 WHERE id = 'scan'").run();
     db.close();

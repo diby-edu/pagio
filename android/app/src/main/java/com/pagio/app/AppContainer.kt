@@ -102,7 +102,7 @@ class AppContainer(val context: Context) {
         // On ne conserve que ce qui sert hors ligne (outils désactivés, quotas, annonce).
         val tools = JSONObject()
         c.tools.forEach { (k, v) -> tools.put(k, JSONObject().put("enabled", v.enabled).put("premium", v.premium).put("max_files", v.maxFiles).put("max_mb", v.maxMb)
-            .put("daily_free", v.dailyFree).put("max_pages", v.maxPages)) }
+            .put("daily_free", v.dailyFree).put("max_pages", v.maxPages).put("pdf_premium", v.pdfPremium)) }
         fun lim(l: com.pagio.cloud.PlanLimits) = JSONObject().put("daily_tasks", l.dailyTasks).put("max_files", l.maxFiles).put("max_mb", l.maxMb).put("ai_credits", l.aiCredits)
         return JSONObject().put("tools", tools).put("announcement", c.announcement).put("announcement_level", c.announcementLevel)
             .put("min_version_code", c.minVersionCode).put("latest_version_name", c.latestVersionName).put("update_url", c.updateUrl)
@@ -145,6 +145,9 @@ class AppContainer(val context: Context) {
 
     /** Pages maximum par scan pour cet utilisateur (0 = illimité). */
     fun scanPageLimit(): Int = if (isPremium) 0 else config.value.tool("scan").maxPages
+
+    /** Scan en PDF : (réservé au Premium ? , autorisé pour cet utilisateur ?). Sinon les pages sont enregistrées en JPG. */
+    fun scanPdfAccess(): Pair<Boolean, Boolean> = config.value.tool("scan").pdfPremium.let { it to (!it || isPremium) }
 
     /** Assistant IA selon les réglages (clé personnelle) ou les crédits du serveur Pagio. */
     suspend fun assistant(): DocumentAssistant {

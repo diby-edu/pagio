@@ -137,6 +137,10 @@ export function openDb(file) {
     const set = db.prepare('UPDATE tools SET daily_free = ?, max_pages = ? WHERE id = ?');
     for (const t of db.prepare('SELECT id FROM tools').all()) { const d = freeDefaults(t.id); set.run(d.daily_free, d.max_pages, t.id); }
   }
+  // Scanner : enregistrement en PDF réservé au Premium (sinon les pages sont enregistrées en images JPG).
+  const hadPdfPremium = db.prepare('PRAGMA table_info(tools)').all().some((c) => c.name === 'pdf_premium');
+  addColumn('tools', 'pdf_premium', 'INTEGER NOT NULL DEFAULT 0');
+  if (!hadPdfPremium) db.prepare("UPDATE tools SET pdf_premium = 1 WHERE id = 'scan'").run();
   seedTools(db);
   return db;
 }
@@ -146,13 +150,13 @@ export const AI_TOOL_IDS = ['assistant', 'translate', 'invoice', 'classify'];
 
 /** Réglages de départ de l'offre gratuite (décidés le 20/11/2026) : 10 scans de 20 pages, 5 opérations pour les autres outils. */
 export function freeDefaults(id) {
-  if (id === 'scan') return { daily_free: 10, max_pages: 20 };
-  return { daily_free: AI_TOOL_IDS.includes(id) ? 0 : 5, max_pages: 0 };
+  if (id === 'scan') return { daily_free: 10, max_pages: 20, pdf_premium: 1 };
+  return { daily_free: AI_TOOL_IDS.includes(id) ? 0 : 5, max_pages: 0, pdf_premium: 0 };
 }
 
 export function seedTools(db) {
-  const insertTool = db.prepare('INSERT OR IGNORE INTO tools (id, daily_free, max_pages) VALUES (?, ?, ?)');
-  for (const id of TOOL_IDS) { const d = freeDefaults(id); insertTool.run(id, d.daily_free, d.max_pages); }
+  const insertTool = db.prepare('INSERT OR IGNORE INTO tools (id, daily_free, max_pages, pdf_premium) VALUES (?, ?, ?, ?)');
+  for (const id of TOOL_IDS) { const d = freeDefaults(id); insertTool.run(id, d.daily_free, d.max_pages, d.pdf_premium); }
 }
 
 export function getSettings(db) {

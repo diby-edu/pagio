@@ -178,9 +178,12 @@ fun ScanScreen(onBack: () -> Unit, onDone: (File, Int) -> Unit) {
             if (!commit() || pages.isEmpty()) return@launch
             busy = true
             val started = System.currentTimeMillis()
-            val target = File(c.workspace.newOutputDir(), "scan_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ROOT).format(Date()) + ".pdf")
-            val r = withContext(Dispatchers.IO) { runCatching { PdfCreate.imagesToPdf(pages.toList(), ImagePdfOptions(), target) } }
-            if (r.isFailure) { busy = false; backToCamera(); problem = context.getString(R.string.scan_failed); return@launch }
+            // Pages en JPG, dans l'ordre, en attente du nom ; le PDF n'est assemblé que si l'utilisateur le demande.
+            val target = File(c.workspace.outputRoot, "scan_en_attente_" + System.currentTimeMillis())
+            val r = withContext(Dispatchers.IO) {
+                runCatching { target.mkdirs(); pages.forEachIndexed { i, p -> p.copyTo(File(target, "%03d.jpg".format(Locale.ROOT, i + 1)), overwrite = true) } }
+            }
+            if (r.isFailure) { target.deleteRecursively(); busy = false; backToCamera(); problem = context.getString(R.string.scan_failed); return@launch }
             // L'historique (écran Fichiers) est rempli après que l'utilisateur a nommé le document.
             c.track("scan", mapOf("pages" to pages.size, "engine" to "pagio", "ms" to (System.currentTimeMillis() - started)))
             busy = false

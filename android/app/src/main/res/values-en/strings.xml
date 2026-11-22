@@ -499,4 +499,9 @@
     <string name="legal_terms">Terms of use</string>
     <string name="legal_delete">Account deletion</string>
     <string name="legal_notice">Legal notice</string>
+    <!-- Scan: saved as images (default) or as PDF -->
+    <string name="scan_folder_label">Folder name</string>
+    <string name="scan_folder_hint">The %1$d pages will be saved as images in this folder: page 1, page 2…</string>
+    <string name="scan_save_pdf">Save as PDF</string>
+    <string name="scan_pdf_premium_only">Saving as PDF is part of the Premium plan. Your scan will be saved as images.</string>
 </resources>

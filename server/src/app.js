@@ -196,7 +196,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const s = getSettings(db);
     const tools = {};
     for (const t of db.prepare('SELECT * FROM tools').all()) {
-      tools[t.id] = { enabled: !!t.enabled, premium: !!t.premium, max_files: t.max_files, max_mb: t.max_mb, daily_free: t.daily_free, max_pages: t.max_pages };
+      tools[t.id] = { enabled: !!t.enabled, premium: !!t.premium, max_files: t.max_files, max_mb: t.max_mb, daily_free: t.daily_free, max_pages: t.max_pages, pdf_premium: !!t.pdf_premium };
     }
     ok(res, {
       maintenance: s.maintenance, maintenance_message: s.maintenance_message,
@@ -716,7 +716,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     // Combien de fois la limite gratuite a été atteinte : pour ajuster les réglages sans nouvelle APK.
     const blocked = count('limit_reached');
     ok(res, { tools: db.prepare('SELECT * FROM tools').all().sort((a, b) => TOOL_IDS.indexOf(a.id) - TOOL_IDS.indexOf(b.id))
-      .map((t) => ({ ...t, enabled: !!t.enabled, premium: !!t.premium, runs_30d: usage[t.id] || 0, limit_hits_30d: blocked[t.id] || 0 })) });
+      .map((t) => ({ ...t, enabled: !!t.enabled, premium: !!t.premium, pdf_premium: !!t.pdf_premium, runs_30d: usage[t.id] || 0, limit_hits_30d: blocked[t.id] || 0 })) });
   });
 
   app.put('/api/admin/tools/:id', adminAuth('admin'), (req, res) => {
@@ -730,11 +730,12 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       max_mb: 'max_mb' in b ? Math.max(0, Number(b.max_mb) || 0) : t.max_mb,
       daily_free: 'daily_free' in b ? Math.min(Math.max(0, Math.round(Number(b.daily_free)) || 0), 10_000) : t.daily_free,
       max_pages: 'max_pages' in b ? Math.min(Math.max(0, Math.round(Number(b.max_pages)) || 0), 1000) : t.max_pages,
+      pdf_premium: 'pdf_premium' in b ? (b.pdf_premium ? 1 : 0) : t.pdf_premium,
     };
-    db.prepare('UPDATE tools SET enabled = ?, premium = ?, max_files = ?, max_mb = ?, daily_free = ?, max_pages = ? WHERE id = ?')
-      .run(next.enabled, next.premium, next.max_files, next.max_mb, next.daily_free, next.max_pages, t.id);
+    db.prepare('UPDATE tools SET enabled = ?, premium = ?, max_files = ?, max_mb = ?, daily_free = ?, max_pages = ?, pdf_premium = ? WHERE id = ?')
+      .run(next.enabled, next.premium, next.max_files, next.max_mb, next.daily_free, next.max_pages, next.pdf_premium, t.id);
     audit(req.admin, 'tool.update', t.id, next);
-    ok(res, { tool: { id: t.id, ...next, enabled: !!next.enabled, premium: !!next.premium } });
+    ok(res, { tool: { id: t.id, ...next, enabled: !!next.enabled, premium: !!next.premium, pdf_premium: !!next.pdf_premium } });
   });
 
   // ------------------------------------------------------------- Réglages de l'application
