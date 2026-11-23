@@ -7,6 +7,7 @@ export function setLang(l: Lang) { lang = l; store.set('pagio.lang', l); documen
 document.documentElement.lang = lang;
 
 const FR = {
+  nav_tools: 'Outils', nav_privacy: 'Confidentialité', nav_ai: 'Assistant IA', nav_online: 'Outils en ligne', nav_cta: 'Télécharger',
   tools: 'Outils', account: 'Mon compte', signin: 'Se connecter', signout: 'Se déconnecter', signup: 'Créer un compte',
   hero: 'Vos PDF, directement dans le navigateur.', hero_sub: "Les outils de base fonctionnent sur votre ordinateur : vos fichiers ne sont pas envoyés. Conversion et IA passent par le serveur Pagio, avec le même compte que l'application Android.",
   local: 'Sur votre appareil', server: 'Serveur Pagio', needs_account: 'Compte requis', premium: 'Premium',
@@ -37,6 +38,7 @@ const FR = {
 };
 type Key = keyof typeof FR;
 const EN: Record<Key, string> = {
+  nav_tools: 'Tools', nav_privacy: 'Privacy', nav_ai: 'AI assistant', nav_online: 'Online tools', nav_cta: 'Download',
   tools: 'Tools', account: 'My account', signin: 'Sign in', signout: 'Sign out', signup: 'Create an account',
   hero: 'Your PDFs, right in the browser.', hero_sub: 'Basic tools run on your computer: your files are not uploaded. Conversion and AI go through the Pagio server, with the same account as the Android app.',
   local: 'On your device', server: 'Pagio server', needs_account: 'Account required', premium: 'Premium',

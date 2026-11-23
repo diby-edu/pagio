@@ -33,16 +33,23 @@ export default function App() {
 
   return (
     <>
+      {/* Même menu que la page d'accueil de pagio.site : on navigue entre les deux sans perdre ses repères. */}
       <header className="top">
-        <div className="wrap bar">
+        <div className="wrap nav">
           <a className="brand" href="/"><img src="/favicon.svg" alt="" />Pagio</a>
-          <nav>
-            <a href="#/">{t('tools')}</a>
-            {user ? <a href="#/compte">{t('account')}</a> : <a className="btn small" href="#/connexion">{t('signin')}</a>}
+          <nav aria-label="Sections">
+            <a href="/#outils">{t('nav_tools')}</a>
+            <a href="/#confidentialite">{t('nav_privacy')}</a>
+            <a href="/#ia">{t('nav_ai')}</a>
+            <a className={`nav-online${path === '/' || path.startsWith('/outil/') ? ' current' : ''}`} href="#/" aria-current={path === '/' ? 'page' : undefined}>{t('nav_online')}</a>
+            {user
+              ? <a className={`nav-signin${path === '/compte' ? ' current' : ''}`} href="#/compte">{t('account')}</a>
+              : <a className={`nav-signin${['/connexion', '/inscription', '/oubli'].includes(path) ? ' current' : ''}`} href="#/connexion">{t('signin')}</a>}
           </nav>
           <div className="lang" role="group" aria-label="Langue / Language">
             {(['fr', 'en'] as Lang[]).map((l) => <button key={l} type="button" aria-pressed={initialLangIs(l)} onClick={() => switchLang(l)}>{l.toUpperCase()}</button>)}
           </div>
+          <a className="btn-dl" href="/#telecharger">{t('nav_cta')}</a>
         </div>
       </header>
       {config?.maintenance && <div className="wrap"><p className="notice warn">{config.maintenance_message || 'Maintenance en cours.'}</p></div>}
