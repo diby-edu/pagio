@@ -1,113 +1,126 @@
-# Plan Pagio — établi le 20 novembre 2026
+# Plan Pagio — refait le 23 novembre 2026
 
-État de départ : serveur en ligne sur `https://pagio.site` (HTTPS, corrections de l'audit déployées, contre-audit
-48 contrôles sans faille), APK v9 signée dans `android/apk/pagio-v9.apk`.
+Ce qui est déjà en place est résumé tout en bas (« Fait »). Tout le reste est ici, dans l'ordre, avec qui le fait.
 
-## Étape 0 — À faire par vous, tout de suite (≈ 15 min)
+---
 
-- [ ] Activer la double authentification sur le compte propriétaire (*Mon compte et sécurité › Double authentification*) et noter les 8 codes de secours hors de l'ordinateur.
-- [ ] Installer la v9 sur un vrai téléphone : connexion, conversion d'un Word, une requête IA.
-- [ ] Copier hors du serveur `jwt-secret.key`, `secrets.key` et une sauvegarde téléchargée depuis le tableau de bord.
-- [ ] Créer une surveillance gratuite (UptimeRobot ou équivalent) sur `https://pagio.site/api/health`, toutes les 5 minutes, alerte par e-mail ou SMS.
+## A. À faire par vous (en attente)
 
-## Étape 1 — Petits travaux serveur
+| # | Action | Pourquoi | Durée |
+|---|---|---|---|
+| A1 | **Essayer la 2.1.0** sur votre téléphone : `https://pagio.site/telecharger/pagio-2.1.0-essai.apk` (scan en images, case PDF, flash, limites, liens légaux) | Je la publie ensuite pour tous | 15 min |
+| A2 | **Installer Pagio Admin** + le certificat du téléphone (fichiers dans `Documents\Pagio-admin`, mode d'emploi dans `docs/SERVEUR.md`) | Notifications sur le téléphone | 10 min |
+| A3 | **UptimeRobot** : surveillance de `https://pagio.site/api/health` toutes les 5 min, alerte par e-mail + application mobile | Être prévenu si le VPS entier tombe | 5 min |
+| A4 | **OpenAI** : sur platform.openai.com › *Billing › Limits*, fixer un **plafond de dépense mensuel** (ex. 10 $) | Jamais de facture surprise | 5 min |
+| A5 | **Identifiant client Google** pour « Continuer avec Google » (`docs/GOOGLE.md`, partie A ; origines `https://pagio.site` et `https://www.pagio.site`) | Connexion avec Google sur le site | 10 min |
+| A6 | **Codes de secours** de la double authentification notés **hors de l'ordinateur** | Accès de secours à l'administration | 2 min |
+| A7 | **Copie de sécurité hors du serveur** : `jwt-secret.key`, `secrets.key` + une sauvegarde (je peux les télécharger dans `Documents\Pagio-admin`, vous les copiez ensuite sur la clé USB) | Reprise si le VPS est perdu | 5 min |
+| A8 | **Hostinger** : vérifier que le moyen de paiement est à jour — le VPS **expire le 20/12/2026** (renouvellement automatique activé) | Éviter l'arrêt du VPS | 2 min |
+| A9 | Si disponibles : **RCCM** et **adresse du siège** de KODY BUSINESS | Mentions légales complètes | — |
+| A10 | **Google Search Console** : créer la propriété `pagio.site` (je pose ensuite la ligne de vérification chez Hostinger) | Référencement | 5 min |
+| A11 | **Google Analytics** : créer une propriété « Pagio », copier l'identifiant `G-XXXX` dans l'administration | Statistiques Google | 5 min |
+| A12 | Plus tard : **compte Play Console** (25 $, D-U-N-S pour KODY BUSINESS), fiche, produits (`docs/GOOGLE.md`, partie B) | Publication Play Store | — |
+| A13 | Plus tard : **compte chez un agrégateur de paiement** (CinetPay, PayDunya…) pour mobile money et carte | Paiement sur le site | — |
 
-- [x] Enregistrer dans Git la documentation et le script de test mis à jour.
-- [ ] Régler « compte exigé pour la conversion en ligne » (LibreOffice fermé aux anonymes).
-- [x] Faire tourner LibreOffice avec un utilisateur sans droits dans le conteneur (fait le 20/11/2026).
-- [ ] (Hors Pagio, avec votre accord) certificats expirés ou presque : `numerik360.com`, `sms.numerik360.com`.
+Décisions qui vous restent : fermer ou non la conversion en ligne aux visiteurs **sans compte** (recommandé : oui) ; me laisser ou non
+renouveler les certificats expirés de vos **autres sites** (`numerik360.com`, `sms.numerik360.com`).
 
-## Étape 2 — Limites de l'offre gratuite (APK 2.1.0, faite le 22/11/2026, en attente de votre essai)
+---
 
-- [x] Scan enregistré en images JPG par défaut ; case « Enregistrer en PDF » réservée au Premium (réglable) ; bouton flash.
+## B. Ce que je fais, dans l'ordre
 
-- [x] **1 scan = 1 document enregistré**, quel que soit le nombre de pages ; compté à l'enregistrement, un scan abandonné ne compte pas.
-- [x] Nouvelle colonne **« Par jour (gratuit) »** pour chaque outil dans *Outils et limites* (0 = illimité), plus **« Pages max par scan »** pour le scanner.
-- [x] L'application vérifie la limite **au début** d'une opération (jamais en plein travail) et affiche un message clair avec le passage au Premium.
-- [x] Réglages de départ : **10 scans / jour** (20 pages max par scan), **5 / jour** pour les autres outils ; Premium illimité.
-- [ ] Ajuster ensuite selon les chiffres du tableau de bord (combien atteignent la limite, combien passent au Premium) — sans nouvelle APK.
+### Étape 1 — Tarifs et administration des ventes
+- [ ] Prix réglables dans l'administration : **semaine 1 000 F, mois 3 000 F, année 30 000 F**, recharges IA (ex. 100 crédits).
+- [ ] Crédits IA **inclus** dans le Premium chaque mois (ex. 300) + **recharges** achetables à part.
+- [ ] **Offrir le Premium** (testeurs, promotions, avec motif) et **enregistrer un paiement manuel** (montant, moyen : espèces,
+      Orange Money, Wave, MTN, virement… ; référence ; durée) → Premium activé, historique.
+- [ ] Écran **Revenus** : total du mois, par offre, par moyen de paiement.
+- [ ] **Coût estimé de l'IA** en FCFA (par jour, par utilisateur), à partir de la consommation mesurée.
+- [ ] Réglage **majoration Google Play** (15 % ou 17,6 % pour toucher le même montant net) : l'administration calcule les prix
+      à saisir dans la console Google.
+- [ ] **Assistant IA réservé au Premium** (case « Premium seulement » de l'outil).
 
-## Étape 3 — Tableau de bord invisible et site public
+### Étape 2 — Page d'accueil, référencement, statistiques
+- [ ] Section **Tarifs** sur pagio.site : 3 offres en cartes, avantages Gratuit / Premium, prix lus dans l'administration.
+- [ ] **Nombre d'outils calculé automatiquement** (on dépasse 36).
+- [ ] **Une page par outil** (FR/EN), ex. `pagio.site/pdf-en-word/` : explication + « Faire en ligne » ou « Avec l'application ».
+- [ ] SEO technique : `sitemap.xml`, `robots.txt`, données structurées (application), versions FR/EN déclarées, titres et descriptions.
+- [ ] **Google Search Console** (après A10) et **Google Analytics** (identifiant réglable, après A11), en mode « sans cookies tant
+      que la personne n'a pas accepté », petit bandeau discret.
+- [ ] **Statistiques intégrées** au tableau de bord, sans cookies : visites, pages, pays, provenance, outils les plus utilisés.
 
-- [x] Page publique sur `pagio.site` : présentation, politique de confidentialité, suppression de compte, en français et en anglais.
-- [x] Le tableau de bord et `/api/admin` retirés de pagio.site, www et pagio.hebergementci.com (20/11/2026).
-- [x] Accès admin réservé à vos appareils par **certificat d'appareil** (en place le 20/11/2026) :
-  - `admin.pagio.site` (enregistrement DNS chez Hostinger + certificat HTTPS) ; Nginx exige un certificat client signé par une autorité Pagio privée, sinon la connexion est refusée ;
-  - un certificat par appareil (PC, téléphone), installé une fois, révocable un par un ;
-  - l'autorité privée et ses clés restent sur le VPS (hors du conteneur) avec une copie hors du serveur ;
-  - ensuite, mot de passe + double authentification comme aujourd'hui.
-- [x] **APK admin** (faite le 22/11/2026, `android/admin`, avec notifications et gardien du VPS) : gérer l'application depuis le téléphone exactement comme sur PC (tous les modules du
-  tableau de bord). Application à part, jamais publiée : affiche le tableau de bord de `admin.pagio.site` ; au premier lancement elle crée
-  une clé dans la puce de sécurité du téléphone et affiche un code, approuvé depuis le PC (*Appareils autorisés*) ; retrait possible depuis le PC.
-  Plus tard : notifications (serveur en panne, nouveau message de support).
+### Étape 3 — Version 2.1.0 de l'application
+- [ ] **Animation du logo** à chaque ouverture (moins d'une seconde) + **3 à 4 écrans de présentation** au premier lancement
+      (avec « Passer »).
+- [ ] Après votre essai (A1) : **publication** de la 2.1.0 (`publier-apk.sh`, bouton du site).
 
-- [x] Landing page animée FR/EN sur `pagio.site` (20/11/2026), sans aucun lien de connexion.
-- [x] Pages légales FR/EN en ligne le 22/11/2026 : `pagio.site/confidentialite/`, `/conditions/`, `/suppression-compte/`,
-  `/mentions-legales/`, liées en pied de page du site. Le serveur efface maintenant tout le compte (messages au support,
-  historique des offres) et applique seul les durées annoncées (statistiques 13 mois, erreurs 6 mois, support 2 ans).
-  Reste : liens depuis l'application (prochaine APK) ; le RCCM et l'adresse du siège de KODY BUSINESS à ajouter aux mentions légales.
-- [x] Statistiques : rattachées au compte quand l'utilisateur est connecté (décision du 22/11/2026, pour garder l'activité dans
-  la fiche utilisateur). Le mot « anonymes » est retiré du site (fait) et de l'application (textes corrigés, dans la prochaine APK).
-- [x] ~~Pages légales~~ (demandées le 20/11/2026), liées en pied de page du site et depuis l'application :
-  politique de confidentialité (RGPD : données collectées, finalités, durée de conservation, sous-traitants — fournisseur d'IA, Brevo,
-  hébergeur —, droits d'accès / rectification / effacement, contact), conditions d'utilisation (offres, crédits IA, abonnements),
-  suppression de compte (exigée par Google Play : page publique expliquant comment supprimer son compte et ses données), mentions légales.
-  Informations à fournir : nom de l'éditeur (personne ou société), pays, adresse e-mail de contact publique.
+### Étape 4 — Tous les outils en ligne (sauf le scanner, réservé au téléphone)
+- [ ] **Vague 1, dans le navigateur** : diviser, réorganiser (miniatures), extraire le texte, PDF en images, extraire les images,
+      texte en PDF, créer un PDF, modifier, signer, remplir un formulaire, en-tête et pied de page, propriétés, effacer les métadonnées.
+- [ ] **Vague 2, par le serveur** : compresser, réparer, protéger, déverrouiller, remplacer du texte, masquer une information,
+      signature numérique et vérification, HTML en PDF.
+- [ ] **Vague 3** : OCR, PDF en Word / Excel / PowerPoint.
+- [ ] **File d'attente** des traitements lourds (un à la fois sur le VPS à 1 cœur), **Premium prioritaire** ; limites gratuites
+      (ex. 2 par jour, 10 Mo, 20 pages). Passer au VPS **KVM 2** quand l'usage augmente.
+- [ ] Chaque outil réglable dans *Outils et limites* (activé, **Premium seulement**, limites) : les nouveaux y apparaissent seuls.
 
-- [x] Bouton « Fichier APK » (téléchargement direct, `pagio.site/telecharger/pagio.apk`) et badge Google Play noir habituel (21/11/2026).
-- [x] **Outils en ligne et connexion sur pagio.site** (23/11/2026, pas d'adresse à part) : boutons « Outils en ligne » et
-  « Se connecter » du menu → `pagio.site/app` ; mêmes comptes ; fusion, extraction, suppression de pages, rotation, images en PDF,
-  numérotation, filigrane dans le navigateur ; Office en PDF et IA par le serveur. Plus tard : signature, formulaires, protection, OCR.
-- [x] Connexion « avec Google » sur le web (23/11/2026) : reste à saisir l'identifiant client (docs/GOOGLE.md, partie A). Dans l'application Android : plus tard.
-- [x] Pages légales : éditeur **KODY BUSINESS**, Côte d'Ivoire, +225 0554585927 ; loi ivoirienne n° 2013-450 (ARTCI) + RGPD pour
-  les utilisateurs européens. Adresse de contact publique : `contact@pagio.site` (créée le 22/11/2026 : réception par
-  ImprovMX renvoyée vers la boîte de l'administrateur, réponses depuis Gmail par le SMTP de Brevo).
-- [x] **Module Système enrichi** (fait le 22/11/2026 : gardien du VPS) : redémarrage automatique si Pagio ne répond plus,
-  historique des pannes et disponibilité du mois, alerte avant l'expiration des certificats HTTPS ; alertes existantes envoyées
-  aussi en notification sur l'APK admin, qui vérifie en plus le serveur toutes les 15 minutes (panne complète du VPS).
-  UptimeRobot reste en secours.
-- [x] Lenteurs de 20 à 50 s après quelques secondes d'inactivité corrigées (maintien TCP sur le port 443, 22/11/2026).
-- [x] Clé Brevo gardée active par un contact hebdomadaire sans envoi ; clé refusée = alerte critique (22/11/2026).
+### Étape 5 — Nouveaux outils retenus
+- [ ] **Carte d'identité recto verso sur une page** (gratuit, illimité : attire du monde).
+- [ ] **Dossier de candidature** : CV + diplômes + lettre en un seul PDF, **sous la taille maximale** demandée (1 Mo, 2 Mo…).
+- [ ] **Modèles de documents administratifs** : attestations, demandes, procurations, lettres de démission… (formulaire → PDF) ;
+      quelques modèles gratuits, tous en Premium ; une page par modèle pour le référencement.
 
-## Étape 4 — Modèle économique et paiements
+### Étape 6 — Assistant IA (Premium)
+- [ ] **Discussion avec un PDF**, réponses avec **la page citée** (clic → la page s'ouvre).
+- [ ] **Extraction vers Excel** : factures, reçus, relevés bancaires, CV → tableau Excel (plusieurs documents d'un coup).
+- [ ] **Traduction** en gardant la mise en page : Word et PowerPoint d'abord, PDF ensuite (mise en page proche).
+- [ ] Mention **« Créé avec Pagio »** en gratuit, avec « Retirez cette mention avec Premium ».
 
-Principe : outils du téléphone gratuits et généreux (ils ne coûtent rien), usage du serveur payant (IA, conversions).
+### Étape 7 — Paiement sur le site (version APK)
+- [ ] Mobile money (Orange Money, MTN, Wave, Moov) et carte, via l'agrégateur choisi (après A13) ; Premium reconnu partout par le compte.
 
-| Offre | Contenu | Prix à tester (FCFA) |
+### Étape 8 — Google Play (à la fin)
+- [ ] Fiche : titre, description, captures d'écran (je prépare textes et captures), sécurité des données.
+- [ ] **Paiement Google Play** dans l'application (après A12 et la première publication), prix majorés, vérification des achats par le serveur.
+- [ ] Connexion « avec Google » dans l'application Android.
+- [ ] Test d'accessibilité avec TalkBack.
+
+### En continu / plus tard
+- [ ] Vers le **15/12/2026** : durcir DMARC (`p=none` → `p=quarantine`).
+- [ ] Passer le dépôt GitHub en privé ; renforcer scrypt ; Play Integrity ; test de charge ; Sentry au lancement Play Store.
+
+---
+
+## Tarifs décidés (23/11/2026)
+
+| | Gratuit | Premium |
 |---|---|---|
-| Gratuit | outils du téléphone dans les limites de l'étape 2, quelques crédits IA par mois | 0 |
-| Pass semaine | Premium complet 7 jours | 300 à 500 |
-| Premium mensuel | IA incluse (plafond raisonnable), conversions et outils illimités | 1 000 à 2 000 |
-| Premium annuel | environ 2 mois offerts | 10 000 à 15 000 |
-| Recharges IA | sans abonnement | ex. 100 crédits pour 500 |
-
-- [ ] Paiement Google Play dans la version Play Store (obligatoire pour les achats faits dans une application du Play Store) ; profil marchand Google déjà existant. Google adapte les prix à chaque pays.
-- [ ] Version APK directe (hors Play Store) : pas de paiement Google Play possible → paiement sur `pagio.site` : carte (Stripe ou équivalent) pour l'international, mobile money (Orange Money, MTN, Wave, Moov via CinetPay, PayDunya…) pour l'Afrique.
-- [ ] Le Premium acheté sur le site est reconnu dans l'application par le compte, quelle que soit la version installée.
-- [ ] Prix par zone : grille FCFA ci-dessus pour l'Afrique ; grille en euros / dollars pour les autres pays (Play Store : prix réglés pays par pays).
-- [ ] Vérifier les règles Play Store du moment sur les paiements extérieurs avant de lancer.
-- [ ] À étudier : mention « Créé avec Pagio » sur les PDF en gratuit ; vidéo récompensée (+3 opérations) ; offre Pro / équipe pour secrétariats, cybercafés, écoles, PME.
-- [ ] Vérifier le coût réel de l'IA sur les factures du fournisseur avant de fixer les prix.
-
-## Étape 5 — Publication sur Google Play (À LA FIN, décision du 21/11/2026)
-
-- [x] Numéro de version : 2.0.0 (code 20000), calculé automatiquement depuis `versionName` (21/11/2026).
-- [x] Publication de l'APK sur le site : `android/publier-apk.sh` (le bouton « Fichier APK » donne toujours la dernière version).
-- [ ] Fiche Play Store : titre, description avec les mots recherchés (PDF, scanner, fusionner, compresser), captures d'écran.
-- [x] Domaine `pagio.site` authentifié dans Brevo (DKIM, DMARC) et e-mails automatiques actifs depuis `noreply@pagio.site` (22/11/2026).
-- [ ] Vers la mi-décembre 2026 : durcir DMARC (`p=none` → `p=quarantine`) une fois les envois bien établis.
-- [ ] Tester l'accessibilité avec TalkBack.
-
-## Plus tard
-
-- Passer le dépôt GitHub en privé.
-- Renforcer scrypt (`N=65536`) après mesure de la mémoire du VPS.
-- Play Integrity pour les outils Premium hors ligne.
-- Test de charge sur le VPS à une heure creuse.
-- Sentry (analyse des plantages) au lancement Play Store, s'il y a beaucoup d'utilisateurs ; à citer alors comme sous-traitant.
+| Prix | 0 | **1 000 F / semaine — 3 000 F / mois — 30 000 F / an** (réglables) ; Google Play : + majoration |
+| Outils sur l'appareil / dans le navigateur | 5 par jour et par outil | Illimité |
+| Scanner | 10 par jour, 20 pages, en images | Illimité, 100 pages, en PDF |
+| Carte d'identité recto verso | Illimité | Illimité |
+| Dossier de candidature | 1 par jour | Illimité |
+| Modèles de documents | quelques modèles | Tous, avec logo |
+| Outils lourds (OCR, compression, PDF en Word…) | 2 par jour, 10 Mo, 20 pages | Illimité, 100 Mo, prioritaire |
+| Assistant IA | — | Inclus (crédits mensuels) + recharges |
+| Mention « Créé avec Pagio » | Oui, discrète | Non |
 
 ## Décisions
+- Public : international (français et anglais). Distribution : Play Store **et** APK directe.
+- Outils en ligne et connexion **sur pagio.site** (boutons du menu), pas d'adresse à part.
+- Statistiques : rattachées au compte quand l'utilisateur est connecté (le mot « anonymes » est retiré).
+- Google Analytics **et** statistiques intégrées.
 
-- Public visé : international (application déjà en français et en anglais).
-- Distribution : Play Store **et** APK directe.
-- Paiement : profil marchand Google existant ; un compte chez un agrégateur de paiement reste à ouvrir pour les ventes sur le site.
+---
+
+## Fait (jusqu'au 23/11/2026)
+- Serveur en ligne sur `https://pagio.site` (HTTPS, audit de sécurité corrigé, contre-audit 48 contrôles sans faille) ; lenteurs réseau corrigées.
+- Administration réservée aux appareils autorisés (`admin.pagio.site`, certificat d'appareil + mot de passe + double authentification).
+- **Pagio Admin** (APK du tableau de bord) avec notifications ; **gardien** du VPS (redémarrage automatique, pannes, certificats).
+- Page d'accueil animée FR/EN, bouton « Fichier APK » toujours à jour, badge Google Play, menu toujours visible.
+- **Pages légales** (confidentialité, conditions, suppression de compte, mentions légales) ; suppression complète des comptes ;
+  durées de conservation appliquées automatiquement.
+- E-mails : `contact@pagio.site` (réception et réponses), e-mails automatiques par Brevo, clé gardée active.
+- **Outils en ligne et connexion** sur `pagio.site/app` (9 outils) ; connexion avec Google prête (attend A5).
+- **Version 2.1.0** prête (limites gratuites par outil, scan en images + PDF Premium, flash, liens légaux) — attend A1.
+- Version 2.0.0 publiée ; publication par `android/publier-apk.sh`.
