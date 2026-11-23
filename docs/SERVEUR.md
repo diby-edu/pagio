@@ -82,6 +82,18 @@ Installer sur Windows : double-clic sur le `.p12` → Utilisateur actuel → cod
 (ne pas installer d'autorité racine). Fermer complètement Chrome, puis ouvrir `https://admin.pagio.site` et choisir le certificat.
 Appareil `pc-bureau` autorisé le 20/11/2026.
 
+### IPv6 (depuis le 23/11/2026)
+
+Le VPS a aussi une adresse **IPv6 : `2a02:4780:41:acdb::1`**. Enquête du 23/11/2026 : chez Orange Côte d'Ivoire, l'IPv4 passe par un
+partage d'adresses (DS-Lite / CGNAT, adresse de box en 10.x, saut 192.0.0.1) qui perdait jusqu'à 10 connexions sur 12 vers l'Europe
+(pagio.site, GitHub, hostinger.com…), alors que l'IPv6 passait sans perte. Enregistrements **AAAA** ajoutés : `pagio.site` (et `www`),
+`admin.pagio.site`, `wazzapai.com` (et `www`), `miditloungegarden.com` (et `www`) chez Hostinger ; `whatsai.duckdns.org` et
+`photopilot.duckdns.org` chez DuckDNS (`/root/duckdns.sh` envoie aussi l'IPv6 de whatsai). Nginx écoute `[::]:80` et `[::]:443`
+pour ces sites (sauvegardes des fichiers modifiés : `/root/nginx-*.bak-ipv6`). Renouvellement des certificats testé en IPv6.
+Reste : `gestionscolaire` et `pagio` `.hebergementci.com` (DNS chez **LWS**, serveur déjà prêt). `numerik360.com` ne répond plus
+dans le DNS (domaine probablement expiré). Pour l'administration depuis un PC chez Orange, se connecter en IPv6 :
+`ssh -o HostKeyAlias=72.62.148.170 root@2a02:4780:41:acdb::1`.
+
 ### Connexions qui restent bloquées 20 à 50 secondes (corrigé le 22/11/2026)
 
 Symptôme : après quelques secondes sans rien faire, la requête suivante (connexion, code, ouverture d'un module) attendait
