@@ -70,7 +70,7 @@ export default function Auth({ mode, config, onSignedIn, go }: { mode: Mode; con
         {mode === 'connexion' && <><a href="#/oubli">{t('forgot')}</a><a href="#/inscription">{t('no_account')}</a></>}
         {mode !== 'connexion' && <a href="#/connexion" onClick={() => go('/connexion')}>{t('have_account')}</a>}
       </div>
-      {mode === 'inscription' && <p className="muted small">En créant un compte, vous acceptez les <a href="https://pagio.site/conditions/">conditions d'utilisation</a> et la <a href="https://pagio.site/confidentialite/">politique de confidentialité</a>.</p>}
+      {mode === 'inscription' && <p className="muted small">En créant un compte, vous acceptez les <a href="/conditions/">conditions d'utilisation</a> et la <a href="/confidentialite/">politique de confidentialité</a>.</p>}
     </section>
   );
 }

@@ -43,7 +43,7 @@ export default function AppControl() {
           <Toggle checked={s.conversion_enabled} onChange={(v) => setS({ ...s, conversion_enabled: v })} label="Conversion haute fidélité (LibreOffice)" />
           <p className={libreoffice ? 'ok-text' : 'warn-text'}>{libreoffice ? '✔ LibreOffice est installé sur ce serveur.' : '✘ LibreOffice n\'est pas détecté : installez-le (ou utilisez l\'image Docker) pour activer ce service.'}</p>
           <Field label="E-mail du support"><input value={s.support_email} onChange={(e) => setS({ ...s, support_email: e.target.value })} /></Field>
-          <Field label="Connexion avec Google : identifiant client" hint="Google Cloud › API et services › Identifiants › ID client OAuth (type « Application Web », origine https://app.pagio.site). Vide = bouton masqué.">
+          <Field label="Connexion avec Google : identifiant client" hint="Google Cloud › API et services › Identifiants › ID client OAuth (type « Application Web », origines https://pagio.site et https://www.pagio.site). Vide = bouton masqué.">
             <input value={s.google_client_id ?? ''} placeholder="123456789-xxxx.apps.googleusercontent.com" onChange={(e) => setS({ ...s, google_client_id: e.target.value })} />
           </Field>
           <button className="btn primary" onClick={() => submit(['registration_open', 'conversion_enabled', 'support_email', 'google_client_id'], 'Services enregistrés')}>Enregistrer</button>

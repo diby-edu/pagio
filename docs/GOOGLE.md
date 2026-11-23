@@ -13,7 +13,7 @@ Empreintes de la clé de signature de Pagio (servent à Google pour reconnaître
 
 ---
 
-## A. Connexion avec Google (site app.pagio.site) — 10 minutes
+## A. Connexion avec Google (outils en ligne de pagio.site) — 10 minutes
 
 1. Ouvrir **console.cloud.google.com** avec votre compte Google, créer un projet **Pagio** (le même servira pour Google Play).
 2. **API et services › Écran de consentement OAuth** (ou « Google Auth Platform ») :
@@ -25,10 +25,10 @@ Empreintes de la clé de signature de Pagio (servent à Google pour reconnaître
    - **Publier l'application** (statut « En production »), sinon seuls les comptes de test peuvent se connecter.
 3. **API et services › Identifiants › Créer des identifiants › ID client OAuth** :
    - type **Application Web**, nom « Pagio web » ;
-   - **Origines JavaScript autorisées** : `https://app.pagio.site` (aucune URI de redirection n'est nécessaire).
+   - **Origines JavaScript autorisées** : `https://pagio.site` et `https://www.pagio.site` (aucune URI de redirection n'est nécessaire).
 4. Copier l'**ID client** (il se termine par `.apps.googleusercontent.com`) et le coller dans le tableau de bord :
    *Pilotage de l'application › Services › Connexion avec Google : identifiant client*, puis **Enregistrer**.
-   Le bouton « Continuer avec Google » apparaît aussitôt sur app.pagio.site.
+   Le bouton « Continuer avec Google » apparaît aussitôt sur pagio.site (bouton « Se connecter »).
 
 Plus tard, pour le même bouton **dans l'application Android** : créer un second ID client de type **Android**, nom du paquet
 `com.pagio.app`, empreinte **SHA-1** ci-dessus (et une seconde avec l'empreinte de Google Play, voir B.4).

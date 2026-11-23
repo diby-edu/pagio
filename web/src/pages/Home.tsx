@@ -32,7 +32,7 @@ export default function Home({ config, user, go }: { config: Config | null; user
           );
         })}
       </section>
-      <p className="apk">📱 {t('apk')} <a href="https://pagio.site/">{t('get_apk')} →</a></p>
+      <p className="apk">📱 {t('apk')} <a href="/">{t('get_apk')} →</a></p>
     </>
   );
 }

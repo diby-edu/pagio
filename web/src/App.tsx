@@ -35,7 +35,7 @@ export default function App() {
     <>
       <header className="top">
         <div className="wrap bar">
-          <a className="brand" href="#/"><img src="/favicon.svg" alt="" />Pagio</a>
+          <a className="brand" href="/"><img src="/favicon.svg" alt="" />Pagio</a>
           <nav>
             <a href="#/">{t('tools')}</a>
             {user ? <a href="#/compte">{t('account')}</a> : <a className="btn small" href="#/connexion">{t('signin')}</a>}
@@ -50,10 +50,10 @@ export default function App() {
       <footer className="wrap foot">
         <span>© {new Date().getFullYear()} Pagio · KODY BUSINESS</span>
         <nav>
-          <a href="https://pagio.site/confidentialite/">{t('legal')}</a>
-          <a href="https://pagio.site/conditions/">{t('terms')}</a>
-          <a href="https://pagio.site/suppression-compte/">{t('del_page')}</a>
-          <a href="https://pagio.site/mentions-legales/">{t('notice')}</a>
+          <a href="/confidentialite/">{t('legal')}</a>
+          <a href="/conditions/">{t('terms')}</a>
+          <a href="/suppression-compte/">{t('del_page')}</a>
+          <a href="/mentions-legales/">{t('notice')}</a>
           <a href="mailto:contact@pagio.site">contact@pagio.site</a>
         </nav>
       </footer>

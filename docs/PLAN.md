@@ -34,7 +34,7 @@
   - un certificat par appareil (PC, téléphone), installé une fois, révocable un par un ;
   - l'autorité privée et ses clés restent sur le VPS (hors du conteneur) avec une copie hors du serveur ;
   - ensuite, mot de passe + double authentification comme aujourd'hui.
-- [ ] **APK admin** (demandée le 20/11/2026) : gérer l'application depuis le téléphone exactement comme sur PC (tous les modules du
+- [x] **APK admin** (faite le 22/11/2026, `android/admin`, avec notifications et gardien du VPS) : gérer l'application depuis le téléphone exactement comme sur PC (tous les modules du
   tableau de bord). Application à part, jamais publiée : affiche le tableau de bord de `admin.pagio.site` ; au premier lancement elle crée
   une clé dans la puce de sécurité du téléphone et affiche un code, approuvé depuis le PC (*Appareils autorisés*) ; retrait possible depuis le PC.
   Plus tard : notifications (serveur en panne, nouveau message de support).
@@ -53,10 +53,10 @@
   Informations à fournir : nom de l'éditeur (personne ou société), pays, adresse e-mail de contact publique.
 
 - [x] Bouton « Fichier APK » (téléchargement direct, `pagio.site/telecharger/pagio.apk`) et badge Google Play noir habituel (21/11/2026).
-- [ ] **Application web** (`app.pagio.site`, proposée le 21/11/2026) : même compte et même Premium que l'APK ; outils dans le navigateur
-  (fusion, découpe, rotation, organisation, signature, formulaires, filigrane, numérotation, protection, OCR), conversions et IA par le
-  serveur ; photo de document depuis le navigateur du téléphone. Réutilise React/TypeScript du tableau de bord. Après le lancement Play Store.
-- [ ] Connexion « avec Google » dans l'application et sur le web (en plus de l'e-mail + mot de passe).
+- [x] **Outils en ligne et connexion sur pagio.site** (23/11/2026, pas d'adresse à part) : boutons « Outils en ligne » et
+  « Se connecter » du menu → `pagio.site/app` ; mêmes comptes ; fusion, extraction, suppression de pages, rotation, images en PDF,
+  numérotation, filigrane dans le navigateur ; Office en PDF et IA par le serveur. Plus tard : signature, formulaires, protection, OCR.
+- [x] Connexion « avec Google » sur le web (23/11/2026) : reste à saisir l'identifiant client (docs/GOOGLE.md, partie A). Dans l'application Android : plus tard.
 - [ ] Pages légales : éditeur **KODY BUSINESS**, Côte d'Ivoire, +225 0554585927 ; loi ivoirienne n° 2013-450 (ARTCI) + RGPD pour
   les utilisateurs européens. Adresse de contact publique : `contact@pagio.site` (créée le 22/11/2026 : réception par
   ImprovMX renvoyée vers la boîte de l'administrateur, réponses depuis Gmail par le SMTP de Brevo).

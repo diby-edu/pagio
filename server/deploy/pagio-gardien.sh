@@ -49,7 +49,7 @@ fi
 # Certificats HTTPS, une fois par heure.
 if [ ! -f "$DIR/certificats.json" ] || [ $((now - $(stat -c %Y "$DIR/certificats.json"))) -ge 3600 ]; then
   out="["; sep=""
-  for d in pagio.site admin.pagio.site app.pagio.site pagio.hebergementci.com; do
+  for d in pagio.site admin.pagio.site pagio.hebergementci.com; do
     f=/etc/letsencrypt/live/$d/cert.pem
     [ -f "$f" ] || continue
     fin=$(date -d "$(openssl x509 -enddate -noout -in "$f" | cut -d= -f2)" +%s)

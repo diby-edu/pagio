@@ -254,21 +254,24 @@ avec les mêmes modules que sur PC. Construction : `./gradlew.bat :admin:assembl
    alertes nouvelles, messages des utilisateurs, pannes réparées par le gardien, et « Pagio ne répond pas » après 30 minutes sans réponse.
 Retirer le téléphone : `/root/admin-appareils.sh retirer telephone` (plus d'accès) et *Système › Téléphones notifiés › Retirer*.
 
-## Application web (app.pagio.site, depuis le 23/11/2026)
+## Outils en ligne et connexion sur pagio.site (depuis le 23/11/2026)
 
-Source : `web/` (React + TypeScript + Vite, `pdf-lib` et `pdf.js`). Mêmes comptes que l'application Android (inscription libre,
-« Mot de passe oublié », connexion avec Google). Outils dans le navigateur, sans envoi de fichier : fusionner, extraire ou supprimer des
-pages, pivoter, images en PDF, numéroter, filigrane. Par le serveur (compte requis) : Office en PDF, résumé ou question par l'IA (seul
-le texte du PDF est envoyé). Limites gratuites par outil comptées dans le navigateur, comme sur le téléphone. Pas de statistiques d'usage.
-Nginx : bloc `app.pagio.site` (`server/deploy/nginx-pagio-app.conf`), fichiers dans `/var/www/pagio/app-web`, `/api` relayé sans
-l'administration, en-têtes de sécurité (CSP limitée au bouton Google). Mise à jour :
+Boutons **« Outils en ligne »** et **« Se connecter »** dans le menu de pagio.site → `https://pagio.site/app/` (pas d'adresse à part ;
+`app.pagio.site`, créé puis retiré le 23/11/2026, n'existe plus). Source : `web/` (React + TypeScript + Vite, `pdf-lib` et `pdf.js`).
+Mêmes comptes que l'application Android (inscription libre, « Mot de passe oublié », connexion avec Google). Outils dans le navigateur,
+sans envoi de fichier : fusionner, extraire ou supprimer des pages, pivoter, images en PDF, numéroter, filigrane. Par le serveur
+(compte requis) : Office en PDF, résumé ou question par l'IA (seul le texte du PDF est envoyé). Limites gratuites par outil comptées
+dans le navigateur, comme sur le téléphone. Pas de statistiques d'usage.
+Nginx : `location /app/` dans `server/deploy/nginx-pagio-public.conf` (en-têtes de sécurité, CSP limitée au bouton Google, module
+`.mjs` de pdf.js servi comme JavaScript). Mise à jour :
 ```
 npm --prefix web run build
-tar -cf - -C web/dist . | ssh root@72.62.148.170 "cd /var/www/pagio/app-web && rm -rf ./* && tar -xf - && chmod -R a+rX ."
+tar -cf - -C web/dist . | ssh root@72.62.148.170 "cd /var/www/pagio/site/app && rm -rf ./* && tar -xf - && chmod -R a+rX ."
 ```
-**Connexion avec Google** : créer un « ID client OAuth » de type *Application Web* (voir `docs/GOOGLE.md`) et le coller dans
-*Pilotage de l'application › Services › Connexion avec Google*. Sans identifiant, le bouton est masqué. Le serveur vérifie la signature
-du jeton de Google (clés publiques de Google), l'émetteur, le destinataire, l'expiration et l'adresse vérifiée (`server/src/google.js`).
+**Connexion avec Google** : créer un « ID client OAuth » de type *Application Web* (origines `https://pagio.site` et
+`https://www.pagio.site`, voir `docs/GOOGLE.md`) et le coller dans *Pilotage de l'application › Services › Connexion avec Google*.
+Sans identifiant, le bouton est masqué. Le serveur vérifie la signature du jeton de Google (clés publiques de Google), l'émetteur,
+le destinataire, l'expiration et l'adresse vérifiée (`server/src/google.js`).
 
 ## Ce que le tableau de bord permet
 
