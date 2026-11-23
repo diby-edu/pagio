@@ -12,24 +12,26 @@
 
 ## Étape 1 — Petits travaux serveur
 
-- [ ] Enregistrer dans Git la documentation et le script de test mis à jour.
+- [x] Enregistrer dans Git la documentation et le script de test mis à jour.
 - [ ] Régler « compte exigé pour la conversion en ligne » (LibreOffice fermé aux anonymes).
 - [x] Faire tourner LibreOffice avec un utilisateur sans droits dans le conteneur (fait le 20/11/2026).
 - [ ] (Hors Pagio, avec votre accord) certificats expirés ou presque : `numerik360.com`, `sms.numerik360.com`.
 
-## Étape 2 — Limites de l'offre gratuite (nouvelle APK v10)
+## Étape 2 — Limites de l'offre gratuite (APK 2.1.0, faite le 22/11/2026, en attente de votre essai)
 
-- [ ] **1 scan = 1 document enregistré**, quel que soit le nombre de pages ; compté à l'enregistrement, un scan abandonné ne compte pas.
-- [ ] Nouvelle colonne **« Par jour (gratuit) »** pour chaque outil dans *Outils et limites* (0 = illimité), plus **« Pages max par scan »** pour le scanner.
-- [ ] L'application vérifie la limite **au début** d'une opération (jamais en plein travail) et affiche un message clair avec le passage au Premium.
-- [ ] Réglages de départ proposés : **10 scans / jour** (20 pages max par scan), **5 / jour** pour les autres outils ; Premium illimité.
+- [x] Scan enregistré en images JPG par défaut ; case « Enregistrer en PDF » réservée au Premium (réglable) ; bouton flash.
+
+- [x] **1 scan = 1 document enregistré**, quel que soit le nombre de pages ; compté à l'enregistrement, un scan abandonné ne compte pas.
+- [x] Nouvelle colonne **« Par jour (gratuit) »** pour chaque outil dans *Outils et limites* (0 = illimité), plus **« Pages max par scan »** pour le scanner.
+- [x] L'application vérifie la limite **au début** d'une opération (jamais en plein travail) et affiche un message clair avec le passage au Premium.
+- [x] Réglages de départ : **10 scans / jour** (20 pages max par scan), **5 / jour** pour les autres outils ; Premium illimité.
 - [ ] Ajuster ensuite selon les chiffres du tableau de bord (combien atteignent la limite, combien passent au Premium) — sans nouvelle APK.
 
 ## Étape 3 — Tableau de bord invisible et site public
 
-- [ ] Page publique sur `pagio.site` : présentation, politique de confidentialité, suppression de compte (exigées par Google Play), en français et en anglais. **Validé.**
+- [x] Page publique sur `pagio.site` : présentation, politique de confidentialité, suppression de compte, en français et en anglais.
 - [x] Le tableau de bord et `/api/admin` retirés de pagio.site, www et pagio.hebergementci.com (20/11/2026).
-- [ ] Accès admin réservé à vos appareils par **certificat d'appareil** (choisi le 20/11/2026) :
+- [x] Accès admin réservé à vos appareils par **certificat d'appareil** (en place le 20/11/2026) :
   - `admin.pagio.site` (enregistrement DNS chez Hostinger + certificat HTTPS) ; Nginx exige un certificat client signé par une autorité Pagio privée, sinon la connexion est refusée ;
   - un certificat par appareil (PC, téléphone), installé une fois, révocable un par un ;
   - l'autorité privée et ses clés restent sur le VPS (hors du conteneur) avec une copie hors du serveur ;
@@ -57,10 +59,10 @@
   « Se connecter » du menu → `pagio.site/app` ; mêmes comptes ; fusion, extraction, suppression de pages, rotation, images en PDF,
   numérotation, filigrane dans le navigateur ; Office en PDF et IA par le serveur. Plus tard : signature, formulaires, protection, OCR.
 - [x] Connexion « avec Google » sur le web (23/11/2026) : reste à saisir l'identifiant client (docs/GOOGLE.md, partie A). Dans l'application Android : plus tard.
-- [ ] Pages légales : éditeur **KODY BUSINESS**, Côte d'Ivoire, +225 0554585927 ; loi ivoirienne n° 2013-450 (ARTCI) + RGPD pour
+- [x] Pages légales : éditeur **KODY BUSINESS**, Côte d'Ivoire, +225 0554585927 ; loi ivoirienne n° 2013-450 (ARTCI) + RGPD pour
   les utilisateurs européens. Adresse de contact publique : `contact@pagio.site` (créée le 22/11/2026 : réception par
   ImprovMX renvoyée vers la boîte de l'administrateur, réponses depuis Gmail par le SMTP de Brevo).
-- [ ] **Module Système enrichi** (demandé le 22/11/2026, avec l'APK admin) : redémarrage automatique si Pagio ne répond plus,
+- [x] **Module Système enrichi** (fait le 22/11/2026 : gardien du VPS) : redémarrage automatique si Pagio ne répond plus,
   historique des pannes et disponibilité du mois, alerte avant l'expiration des certificats HTTPS ; alertes existantes envoyées
   aussi en notification sur l'APK admin, qui vérifie en plus le serveur toutes les 15 minutes (panne complète du VPS).
   UptimeRobot reste en secours.
