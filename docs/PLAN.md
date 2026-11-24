@@ -40,6 +40,14 @@ renouveler les certificats expirés de vos **autres sites** (`numerik360.com`, `
       à saisir dans la console Google.
 - [ ] **Assistant IA réservé au Premium** (case « Premium seulement » de l'outil).
 
+### Étape 1 bis — Module Système plus complet (demandé le 24/11/2026)
+- [ ] **Graphiques sur 24 h / 7 j / 30 j** : processeur, mémoire, disque, réseau (entrant / sortant) du VPS.
+- [ ] **Temps de réponse** de pagio.site et nombre de requêtes par heure (journal Nginx), erreurs 4xx / 5xx.
+- [ ] **Disponibilité en %** (jour, semaine, mois) d'après le gardien, liste des pannes avec durée.
+- [ ] **Conteneur Pagio** : redémarrages, mémoire utilisée vs limite (1 200 Mo), taille de la base et des sauvegardes.
+- [ ] **Autres sites du VPS** : état de chacun (répond / ne répond pas), certificats et jours restants.
+- [ ] Prévision : « disque plein dans N jours » au rythme actuel ; seuils d'alerte réglables.
+
 ### Étape 2 — Page d'accueil, référencement, statistiques
 - [ ] Section **Tarifs** sur pagio.site : 3 offres en cartes, avantages Gratuit / Premium, prix lus dans l'administration.
 - [ ] **Nombre d'outils calculé automatiquement** (on dépasse 36).
