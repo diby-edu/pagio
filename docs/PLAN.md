@@ -8,8 +8,8 @@ Ce qui est déjà en place est résumé tout en bas (« Fait »). Tout le reste 
 
 | # | Action | Pourquoi | Durée |
 |---|---|---|---|
-| A1 | **2.1.0 publiée et testée** le 24/11 (scan 1 page et plusieurs pages, case PDF Premium, liens légaux). Reste à essayer vous-même le **bouton flash** avec une vraie feuille | Je ne peux pas filmer une feuille | 2 min |
-| A2 | **Installer Pagio Admin** + le certificat du téléphone (fichiers dans `Documents\Pagio-admin`, mode d'emploi dans `docs/SERVEUR.md`) | Notifications sur le téléphone | 10 min |
+| A1 | ~~Essayer la 2.1.0~~ **fait le 24/11** (scan, case PDF, flash, liens légaux ; 2.1.0 publiée) ; outils IA passés en Premium | — | — |
+| A2 | ~~Pagio Admin + certificat du téléphone~~ **fait le 24/11** (téléphone inscrit aux notifications) | — | — |
 | A3 | **UptimeRobot** : surveillance de `https://pagio.site/api/health` toutes les 5 min, alerte par e-mail + application mobile | Être prévenu si le VPS entier tombe | 5 min |
 | A4 | **OpenAI** : sur platform.openai.com › *Billing › Limits*, fixer un **plafond de dépense mensuel** (ex. 10 $) | Jamais de facture surprise | 5 min |
 | A5 | **Identifiant client Google** pour « Continuer avec Google » (`docs/GOOGLE.md`, partie A ; origines `https://pagio.site` et `https://www.pagio.site`) | Connexion avec Google sur le site | 10 min |
