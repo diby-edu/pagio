@@ -19,6 +19,7 @@ import Conversions from './pages/Conversions';
 import AiUsage from './pages/AiUsage';
 import Mail from './pages/Mail';
 import Sales from './pages/Sales';
+import Stats from './pages/Stats';
 
 type Go = (page: string) => void;
 type Page = { id: string; label: string; icon: string; group: string; min: Admin['role']; el: (a: Admin, go: Go) => JSX.Element };
@@ -48,6 +49,7 @@ const PAGES: Page[] = [
   { id: 'app', label: "Pilotage de l'application", icon: '⚙', group: 'appli', min: 'admin', el: () => <AppControl /> },
   { id: 'ai', label: "Réglages de l'IA", icon: '✦', group: 'ia', min: 'admin', el: () => <AiSettings /> },
   { id: 'aiusage', label: 'Consommation IA', icon: '◔', group: 'ia', min: 'support', el: () => <AiUsage /> },
+  { id: 'stats', label: 'Statistiques', icon: '▤', group: 'suivi', min: 'support', el: () => <Stats /> },
   { id: 'events', label: 'Événements', icon: '≡', group: 'suivi', min: 'support', el: () => <Events /> },
   { id: 'errors', label: 'Erreurs du serveur', icon: '⚠', group: 'suivi', min: 'admin', el: (a) => <Errors admin={a} /> },
   { id: 'audit', label: "Journal d'audit", icon: '⌂', group: 'suivi', min: 'admin', el: () => <Audit /> },

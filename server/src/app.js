@@ -14,6 +14,7 @@ import {
 import { aiComplete, convertWithLibreOffice, libreOfficeAvailable } from './services.js';
 import { listBackups, createBackup, backupPath, restoreBackup, importBackup, verifyBackup } from './backup.js';
 import { verifyGoogleToken } from './google.js';
+import { visitorId, isBot, parseUA, classifySource, countryOf } from './sitestats.js';
 import { sendWithBrevo, pingBrevo, messages, newToken, hashToken, resetForm, messagePage } from './mail.js';
 
 const DAY = 86_400_000;
@@ -237,6 +238,65 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
         props.ok === undefined ? null : (props.ok ? 1 : 0), JSON.stringify(props).slice(0, 2000));
     }
     ok(res, { stored: Math.min(events.length, 200) });
+  });
+
+  // ================================================================== Statistiques du site (sans cookies)
+  const siteLimit = rateLimiter(120, 60_000);
+  const OWN_HOSTS = ['pagio.site', 'pagio.hebergementci.com'];
+  const clean = (v, max) => (v == null ? null : String(v).slice(0, max));
+
+  // Une page vue sur pagio.site (envoyée par /site-stats.js ou par les outils en ligne). Robots ignorés.
+  app.post('/api/site/hit', (req, res) => {
+    const ua = String(req.headers['user-agent'] || '');
+    if (isBot(ua) || !siteLimit(`h:${req.ip}`)) return res.status(204).end();
+    const b = req.body || {};
+    const p = String(b.path || '/').split('?')[0].split('#')[0].slice(0, 200) || '/';
+    const { source, ref_domain: refDomain } = classifySource(b.ref, b.utm, OWN_HOSTS);
+    const { device, browser, os: system } = parseUA(ua);
+    db.prepare(`INSERT INTO site_hits (ts, visitor, path, source, ref_domain, country, lang, device, browser, os, screen_w, new_visit)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(Date.now(), visitorId(req.ip, ua), p, source, refDomain, countryOf(b.tz, b.lang),
+      clean(String(b.lang || '').split('-')[0].toLowerCase(), 8), device, browser, system, int(b.w, 0, 10000, 0), b.first ? 1 : 0);
+    res.status(204).end();
+  });
+
+  // Utilisation d'un outil en ligne : rangée avec les statistiques de l'application (version « web »).
+  app.post('/api/site/event', userAuth(false), (req, res) => {
+    const ua = String(req.headers['user-agent'] || '');
+    if (isBot(ua) || !siteLimit(`e:${req.ip}`)) return res.status(204).end();
+    const b = req.body || {};
+    const name = ['tool_run', 'limit_reached', 'signup', 'login'].includes(b.name) ? b.name : null;
+    if (!name) return res.status(204).end();
+    const props = { tool: clean(b.tool, 48), ok: b.ok === undefined ? undefined : !!b.ok, ms: int(b.ms, 0, 3_600_000, undefined),
+      files: int(b.files, 0, 1000, undefined), bytes_in: int(b.bytes_in, 0, 2e9, undefined), error: clean(b.error, 80) ?? undefined,
+      ...parseUA(ua), country: countryOf(b.tz, b.lang) };
+    db.prepare('INSERT INTO events (ts, device_id, user_id, app_version, name, tool, ok, props) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(Date.now(), `web:${visitorId(req.ip, ua)}`, req.user?.id ?? null, 'web', name, props.tool, props.ok === undefined ? null : (props.ok ? 1 : 0), JSON.stringify(props));
+    res.status(204).end();
+  });
+
+  // Tableau de bord : fréquentation du site sur la période.
+  app.get('/api/admin/site-stats', adminAuth(), (req, res) => {
+    const days = int(req.query.days, 1, 395, 30);
+    const since = Date.now() - days * DAY;
+    const all = (sql, ...a) => db.prepare(sql).all(...a);
+    const one = (sql, ...a) => db.prepare(sql).get(...a);
+    const dayExpr = "date(ts / 1000, 'unixepoch')";
+    // Visiteur unique = une empreinte par jour : le total d'une période additionne les visiteurs de chaque jour.
+    const totals = one(`SELECT COUNT(*) views, COUNT(DISTINCT ${dayExpr} || visitor) visitors FROM site_hits WHERE ts >= ?`, since);
+    const top = (col, n = 12) => all(`SELECT ${col} k, COUNT(*) views, COUNT(DISTINCT ${dayExpr} || visitor) visitors FROM site_hits WHERE ts >= ? AND ${col} IS NOT NULL GROUP BY ${col} ORDER BY visitors DESC, views DESC LIMIT ${n}`, since);
+    const perVisit = one(`SELECT AVG(n) v FROM (SELECT COUNT(*) n FROM site_hits WHERE ts >= ? GROUP BY ${dayExpr}, visitor)`, since).v || 0;
+    const bounces = one(`SELECT COUNT(*) n FROM (SELECT COUNT(*) c FROM site_hits WHERE ts >= ? GROUP BY ${dayExpr}, visitor HAVING c = 1)`, since).n;
+    const visits = one(`SELECT COUNT(*) n FROM (SELECT 1 FROM site_hits WHERE ts >= ? GROUP BY ${dayExpr}, visitor)`, since).n;
+    ok(res, {
+      days, views: totals.views, visitors: totals.visitors, pages_per_visit: Math.round(perVisit * 10) / 10,
+      bounce_pct: visits ? Math.round((bounces / visits) * 100) : 0,
+      by_day: all(`SELECT ${dayExpr} day, COUNT(*) views, COUNT(DISTINCT visitor) visitors FROM site_hits WHERE ts >= ? GROUP BY day ORDER BY day`, since),
+      by_hour: all("SELECT CAST(strftime('%H', ts / 1000, 'unixepoch') AS INTEGER) hour, COUNT(*) views FROM site_hits WHERE ts >= ? GROUP BY hour ORDER BY hour", since),
+      pages: top('path', 20), sources: top('source'), referrers: top('ref_domain'), countries: top('country', 20), languages: top('lang'),
+      devices: top('device', 5), browsers: top('browser'), systems: top('os'),
+      online_tools: all("SELECT tool, COUNT(*) runs, SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) errors, COUNT(DISTINCT device_id) visitors FROM events WHERE app_version = 'web' AND name = 'tool_run' AND ts >= ? GROUP BY tool ORDER BY runs DESC", since),
+      apk_downloads: one("SELECT COUNT(*) n FROM site_hits WHERE ts >= ? AND path LIKE '/telecharger/%'", since).n,
+    });
   });
 
   app.post('/api/app/feedback', userAuth(false), (req, res) => {
@@ -1523,7 +1583,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
    */
   app.locals.purgeOld = (now = Date.now()) => {
     const out = {};
-    const rules = [['events', 395], ['ai_usage', 395], ['conversions', 395], ['server_errors', 183], ['feedback', 730]];
+    const rules = [['events', 395], ['site_hits', 395], ['ai_usage', 395], ['conversions', 395], ['server_errors', 183], ['feedback', 730]];
     for (const [t, days] of rules) out[t] = Number(db.prepare(`DELETE FROM ${t} WHERE ts < ?`).run(now - days * DAY).changes);
     return out;
   };

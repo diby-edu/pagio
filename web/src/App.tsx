@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Config, User, getConfig, me, session } from './api';
+import { Config, User, getConfig, me, session, siteHit } from './api';
 import { Lang, lang as initialLang, setLang, t } from './i18n';
 import Account from './pages/Account';
 import Auth from './pages/Auth';
@@ -19,6 +19,8 @@ export default function App() {
 
   useEffect(() => { const f = () => { setPath(route()); window.scrollTo(0, 0); }; addEventListener('hashchange', f); return () => removeEventListener('hashchange', f); }, []);
   useEffect(() => { getConfig().then(setConfig).catch(() => setConfig(null)); }, []);
+  // Page vue (statistiques du site) : /app/, /app/outil/merge, /app/connexion…
+  useEffect(() => { siteHit(`/app${path === '/' ? '/' : path}`); }, [path]);
   const refreshUser = () => (session.token ? me().then(setUser).catch(() => setUser(null)) : Promise.resolve(setUser(null)));
   useEffect(() => { refreshUser().finally(() => setChecking(false)); }, []);
 

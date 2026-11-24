@@ -43,3 +43,15 @@ export function recordUse(tool: string) {
   store.set('pagio.web.uses', JSON.stringify(o));
 }
 // Pas de statistiques d'usage sur le web : la politique de confidentialité ne les prévoit qu'avec un accord explicite.
+
+// Statistiques d'usage du site (sans cookies, voir pagio.site/confidentialite) : pages vues et utilisations des outils.
+const ctx = () => ({ lang: navigator.language || '', tz: Intl.DateTimeFormat().resolvedOptions().timeZone || '', w: screen.width || 0 });
+export function siteHit(path: string) {
+  fetch('/api/site/hit', { method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
+    body: JSON.stringify({ path, ref: document.referrer || '', utm: new URLSearchParams(location.search).get('utm_source') || '', ...ctx() }) }).catch(() => {});
+}
+export function siteEvent(name: string, props: Record<string, unknown> = {}) {
+  fetch('/api/site/event', { method: 'POST', keepalive: true,
+    headers: { 'content-type': 'application/json', ...(session.token ? { authorization: `Bearer ${session.token}` } : {}) },
+    body: JSON.stringify({ name, ...props, ...ctx() }) }).catch(() => {});
+}

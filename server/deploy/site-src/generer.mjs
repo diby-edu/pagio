@@ -104,7 +104,8 @@ function pied(l) {
   <nav><a href="${listeUrl(l)}">${t.tous}</a>${t.legal.map(([h, n]) => `<a href="${h}">${n}</a>`).join('')}</nav>
   © ${new Date().getFullYear()} KODY BUSINESS · <a href="mailto:contact@pagio.site">contact@pagio.site</a>
 </div></footer>
-<script src="/outil.js"></script>`;
+<script src="/outil.js"></script>
+<script src="/site-stats.js" defer></script>`;
 }
 
 function page({ l, titre, description, chemin, autreChemin, corps, jsonld }) {

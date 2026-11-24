@@ -73,7 +73,7 @@ export const OFFER_DAYS = { week: 7, month: 30, year: 365 };
 export const PAYMENT_METHODS = ['orange_money', 'wave', 'mtn', 'moov', 'cash', 'transfer', 'card', 'google_play', 'other', 'gift'];
 
 /** Tables recopiées lors d'une restauration (les sessions d'administration en cours sont conservées). */
-export const DATA_TABLES = ['admins', 'users', 'settings', 'tools', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'plan_history', 'server_errors', 'payments'];
+export const DATA_TABLES = ['admins', 'users', 'settings', 'tools', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'plan_history', 'server_errors', 'payments', 'site_hits'];
 
 /** Inscrit une erreur du serveur au journal consultable dans le tableau de bord. Ne lève jamais d'erreur. */
 export function logServerError(db, source, error, context = {}) {
@@ -146,6 +146,11 @@ export function openDb(file) {
       actor TEXT, note TEXT, refunded INTEGER NOT NULL DEFAULT 0, refunded_at INTEGER);
     CREATE INDEX IF NOT EXISTS idx_payments_ts ON payments(ts);
     CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
+    -- Pages vues sur pagio.site, sans cookies : visitor = empreinte valable un seul jour (aucune adresse IP enregistrée).
+    CREATE TABLE IF NOT EXISTS site_hits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, visitor TEXT NOT NULL, path TEXT NOT NULL, source TEXT,
+      ref_domain TEXT, country TEXT, lang TEXT, device TEXT, browser TEXT, os TEXT, screen_w INTEGER, new_visit INTEGER NOT NULL DEFAULT 0);
+    CREATE INDEX IF NOT EXISTS idx_site_hits_ts ON site_hits(ts);
   `);
   // Évolutions du schéma : colonnes ajoutées aux bases créées par une version précédente.
   const addColumn = (table, column, definition) => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiError, Config, User, api, recordUse, session, usesToday } from '../api';
+import { ApiError, Config, User, api, recordUse, session, usesToday, siteEvent } from '../api';
 import { t } from '../i18n';
 import * as pdf from '../pdf';
 import { TOOLS, desc, title } from '../tools';
@@ -48,8 +48,14 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
 
   async function run() {
     const why = blocker();
-    if (why) { setError(why); return; }
+    if (why) {
+      setError(why);
+      if (why === t('limit_reached', flag?.daily_free ?? 0)) siteEvent('limit_reached', { tool: tool!.id });
+      return;
+    }
     setBusy(true); setError(null); setResult(null);
+    const started = Date.now();
+    const stats = { tool: tool!.id, files: files.length, bytes_in: files.reduce((n, x) => n + x.size, 0) };
     try {
       let r: Result;
       const f = files[0];
@@ -83,9 +89,11 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
         default: throw new Error('Outil indisponible');
       }
       recordUse(tool!.id);
+      siteEvent('tool_run', { ...stats, ok: true, ms: Date.now() - started });
       setResult(r);
     } catch (e) {
       const err = e as Error;
+      siteEvent('tool_run', { ...stats, ok: false, ms: Date.now() - started, error: err instanceof ApiError ? `http_${err.status}` : err.name });
       setError(/password|encrypt/i.test(err.message) ? 'Ce PDF est protégé par un mot de passe : déverrouillez-le d\'abord.' : err.message);
     } finally { setBusy(false); }
   }
