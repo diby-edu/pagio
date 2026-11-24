@@ -12,7 +12,7 @@ Ce qui est déjà en place est résumé tout en bas (« Fait »). Tout le reste 
 | A2 | ~~Pagio Admin + certificat du téléphone~~ **fait le 24/11** (téléphone inscrit aux notifications) | — | — |
 | A3 | ~~UptimeRobot~~ **fait le 24/11** : `pagio.site` et `pagio.site/api/health` toutes les 5 min, alerte par e-mail (application mobile UptimeRobot : à installer si vous voulez les alertes sur le téléphone) | — | — |
 | A4 | ~~Plafond OpenAI~~ **fait le 24/11** : projet OpenAI « PAGIO » séparé, plafond **bloquant de 10 $/mois**, nouvelle clé collée dans l'administration (ancienne clé « ILOVE » à désactiver) | — | — |
-| A5 | **Identifiant client Google** pour « Continuer avec Google » (`docs/GOOGLE.md`, partie A ; origines `https://pagio.site` et `https://www.pagio.site`) | Connexion avec Google sur le site | 10 min |
+| A5 | ~~Identifiant Google~~ **fait le 24/11** : projet Google Cloud `pagio-515720` (compte kodybusiness), application « En production », ID client web enregistré ; bouton « Continuer avec Google » visible sur pagio.site/app | — | — |
 | A6 | **Codes de secours** de la double authentification notés **hors de l'ordinateur** | Accès de secours à l'administration | 2 min |
 | A7 | **Copie de sécurité hors du serveur** : `jwt-secret.key`, `secrets.key` + une sauvegarde (je peux les télécharger dans `Documents\Pagio-admin`, vous les copiez ensuite sur la clé USB) | Reprise si le VPS est perdu | 5 min |
 | A8 | **Hostinger** : vérifier que le moyen de paiement est à jour — le VPS **expire le 20/12/2026** (renouvellement automatique activé) | Éviter l'arrêt du VPS | 2 min |

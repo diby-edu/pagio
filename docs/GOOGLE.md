@@ -15,6 +15,10 @@ Empreintes de la clé de signature de Pagio (servent à Google pour reconnaître
 
 ## A. Connexion avec Google (outils en ligne de pagio.site) — 10 minutes
 
+**Fait le 24/11/2026** : compte Google Cloud **kodybusiness**, projet `pagio-515720` (« Pagio »), application « En production »,
+client web « Pagio web » (origines `https://pagio.site` et `https://www.pagio.site`), ID enregistré dans le réglage `google_client_id`.
+Le projet servira aussi pour Google Play (partie B).
+
 1. Ouvrir **console.cloud.google.com** avec votre compte Google, créer un projet **Pagio** (le même servira pour Google Play).
 2. **API et services › Écran de consentement OAuth** (ou « Google Auth Platform ») :
    - type d'utilisateurs **Externe** ; nom de l'application **Pagio** ; e-mail d'assistance : votre adresse ;
