@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getSettings } from '../src/db.js';
-import { deriveKey, totpCode, verifyTotp, newTotpSecret, encryptSecret, decryptSecret } from '../src/security.js';
+import { deriveKey, totpCode, verifyTotp, newTotpSecret, encryptSecret, decryptSecret, hashRecoveryCode } from '../src/security.js';
 import { boot, loginOwner } from './helpers.js';
 
 test('sessions : chaque connexion est révocable immédiatement', async () => {
@@ -76,10 +76,24 @@ test('double authentification : activation, connexion, rejeu, codes de secours, 
     assert.equal((await loginOwner(call, { code: rc })).status, 200);
     assert.equal((await loginOwner(call, { code: rc })).status, 401);
 
-    // Désactivation : mot de passe et code exigés
+    // Nouveaux codes de secours : mot de passe + code de l'application ; les anciens cessent de marcher
     const admin = withCode.json.token;
+    assert.equal((await call('GET', '/api/admin/me', null, admin)).json.admin.recovery_left, 7);
+    assert.equal((await call('POST', '/api/admin/me/2fa/recovery', { password: 'faux', code: totpCode(setup.secret, step + 2) }, admin)).status, 400);
+    assert.equal((await call('POST', '/api/admin/me/2fa/recovery', { password: 'motdepasse-admin', code: enabled.json.recovery_codes[2] }, admin)).status, 400);
+    // Les codes de l'application des pas step et step + 1 sont déjà consommés : on simule le passage au pas suivant.
+    db.prepare("UPDATE admins SET totp_last_step = ? WHERE email = 'owner@test.fr'").run(step - 2);
+    const renewed = await call('POST', '/api/admin/me/2fa/recovery', { password: 'motdepasse-admin', code: totpCode(setup.secret, step) }, admin);
+    assert.equal(renewed.status, 200);
+    assert.equal(renewed.json.recovery_codes.length, 8);
+    // (sans nouvelle connexion : le test resterait sous la limite d'essais de connexion) les anciens codes sont effacés
+    const storedCodes = db.prepare("SELECT recovery_codes FROM admins WHERE email = 'owner@test.fr'").get().recovery_codes;
+    assert.ok(!storedCodes.includes(hashRecoveryCode(enabled.json.recovery_codes[3])));
+    assert.ok(storedCodes.includes(hashRecoveryCode(renewed.json.recovery_codes[0])));
+
+    // Désactivation : mot de passe et code exigés
     assert.equal((await call('POST', '/api/admin/me/2fa/disable', { password: 'motdepasse-admin', code: '111111' }, admin)).status, 400);
-    assert.equal((await call('POST', '/api/admin/me/2fa/disable', { password: 'motdepasse-admin', code: enabled.json.recovery_codes[1] }, admin)).status, 200);
+    assert.equal((await call('POST', '/api/admin/me/2fa/disable', { password: 'motdepasse-admin', code: renewed.json.recovery_codes[1] }, admin)).status, 200);
     assert.equal((await loginOwner(call)).status, 200);
   } finally {
     server.close();

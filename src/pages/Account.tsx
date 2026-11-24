@@ -22,7 +22,9 @@ function TwoFactor({ show }: { show: (msg: string, tone?: 'success' | 'error') =
   const [code, setCode] = useState('');
   const [recovery, setRecovery] = useState<string[] | null>(null);
   const [disabling, setDisabling] = useState(false);
-  useEffect(() => { api<{ admin: Admin }>('GET', '/api/admin/me').then((r) => setEnabled(!!r.admin.totp_enabled)).catch(() => setEnabled(false)); }, []);
+  const [renewing, setRenewing] = useState(false);
+  const [left, setLeft] = useState(0);
+  useEffect(() => { api<{ admin: Admin }>('GET', '/api/admin/me').then((r) => { setEnabled(!!r.admin.totp_enabled); setLeft(r.admin.recovery_left ?? 0); }).catch(() => setEnabled(false)); }, []);
   const run = async (f: () => Promise<void>) => { try { await f(); } catch (e) { show((e as Error).message, 'error'); } };
 
   if (enabled === null) return <Card title="Double authentification"><div className="muted">Chargement…</div></Card>;
@@ -42,7 +44,22 @@ function TwoFactor({ show }: { show: (msg: string, tone?: 'success' | 'error') =
   if (enabled) return (
     <Card title="Double authentification" actions={<Badge tone="teal">active</Badge>}>
       <p className="muted">À chaque connexion, un code de votre application d'authentification est demandé en plus du mot de passe.</p>
-      {!disabling ? <button className="btn danger" onClick={() => setDisabling(true)}>Désactiver…</button> : (
+      <p className="muted">Codes de secours restants : <b>{left}</b> sur 8. Ils servent si vous perdez votre téléphone : gardez-les sur papier, hors de l'ordinateur.</p>
+      {renewing ? (
+        <>
+          <Alert tone="warning">Les anciens codes de secours cesseront de fonctionner dès que les nouveaux seront créés.</Alert>
+          <Field label="Mot de passe"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+          <Field label="Code à 6 chiffres de l'application"><input value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" inputMode="numeric" /></Field>
+          <div className="row gap">
+            <button className="btn primary" disabled={!password || !code} onClick={() => run(async () => {
+              const r = await api<{ recovery_codes: string[] }>('POST', '/api/admin/me/2fa/recovery', { password, code: code.trim() });
+              setRecovery(r.recovery_codes); setLeft(r.recovery_codes.length); setRenewing(false); setPassword(''); setCode('');
+            })}>Créer les nouveaux codes</button>
+            <button className="btn ghost" onClick={() => { setRenewing(false); setPassword(''); setCode(''); }}>Annuler</button>
+          </div>
+        </>
+      ) : !disabling && <div className="row gap" style={{ marginBottom: 12 }}><button className="btn" onClick={() => setRenewing(true)}>Générer de nouveaux codes de secours…</button></div>}
+      {renewing ? null : !disabling ? <button className="btn danger" onClick={() => setDisabling(true)}>Désactiver…</button> : (
         <>
           <Field label="Mot de passe"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
           <Field label="Code à 6 chiffres ou code de secours"><input value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" /></Field>

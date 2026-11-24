@@ -127,7 +127,8 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     };
   }
 
-  const publicAdmin = (a) => ({ id: a.id, email: a.email, name: a.name, role: a.role, totp_enabled: !!a.totp_enabled });
+  const recoveryLeft = (a) => { try { return JSON.parse(a.recovery_codes || '[]').length; } catch { return 0; } };
+  const publicAdmin = (a) => ({ id: a.id, email: a.email, name: a.name, role: a.role, totp_enabled: !!a.totp_enabled, recovery_left: a.totp_enabled ? recoveryLeft(a) : 0 });
   const revokeSessions = (adminId, exceptId = null) =>
     Number(db.prepare('UPDATE admin_sessions SET revoked = 1 WHERE admin_id = ? AND revoked = 0 AND id != ?').run(adminId, exceptId ?? '').changes);
   // Clé d'IA : la variable d'environnement AI_API_KEY, si elle existe, remplace celle du tableau de bord.
@@ -529,6 +530,19 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     db.prepare('UPDATE admins SET totp_enabled = 1, totp_last_step = ?, recovery_codes = ? WHERE id = ?').run(step, JSON.stringify(codes.map(hashRecoveryCode)), req.admin.id);
     const closed = revokeSessions(req.admin.id, req.sessionId);
     audit(req.admin, 'admin.2fa_enabled', req.admin.email, { sessions_closed: closed });
+    ok(res, { recovery_codes: codes });
+  });
+
+  // Nouveaux codes de secours (les anciens cessent aussitôt de marcher) : mot de passe + code de l'application exigés.
+  app.post('/api/admin/me/2fa/recovery', adminAuth(), (req, res) => {
+    if (!req.admin.totp_enabled) return fail(res, 400, "La double authentification n'est pas active");
+    if (!verifyPassword(String(req.body?.password || ''), req.admin.password_hash)) return fail(res, 400, 'Mot de passe incorrect');
+    if (!/^\d{6}$/.test(String(req.body?.code || '').replace(/\s/g, '')) || !checkSecondFactor(req.admin, req.body?.code)) {
+      return fail(res, 400, "Code de l'application d'authentification incorrect (les codes de secours ne sont pas acceptés ici)");
+    }
+    const codes = newRecoveryCodes();
+    db.prepare('UPDATE admins SET recovery_codes = ? WHERE id = ?').run(JSON.stringify(codes.map(hashRecoveryCode)), req.admin.id);
+    audit(req.admin, 'admin.recovery_codes_renewed', req.admin.email);
     ok(res, { recovery_codes: codes });
   });
 
