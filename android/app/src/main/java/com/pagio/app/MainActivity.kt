@@ -201,9 +201,23 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
             // Pages en JPG (le PDF, s'il est demandé, est assemblé au moment d'enregistrer).
             val pages = result.pages.orEmpty().ifEmpty { return@launch }
             val dir = newPendingScanDir()
-            pages.forEachIndexed { i, p ->
-                val f = c.workspace.import(p.imageUri, dir).file
-                f.renameTo(File(dir, "%03d.jpg".format(java.util.Locale.ROOT, i + 1)))
+            // Le scanner de Google dépose ses pages dans le dossier privé de Pagio (liens file://), que
+            // workspace.import refuse par sécurité : ces pages, sûres car rendues par le scanner, sont copiées directement.
+            val copied = withContext(Dispatchers.IO) {
+                runCatching {
+                    pages.forEachIndexed { i, p ->
+                        val target = File(dir, "%03d.jpg".format(java.util.Locale.ROOT, i + 1))
+                        val uri = p.imageUri
+                        if (uri.scheme == "file") File(uri.path ?: "").copyTo(target, overwrite = true)
+                        else c.workspace.import(uri, dir).file.renameTo(target)
+                    }
+                }
+            }
+            if (copied.isFailure) {
+                dir.deleteRecursively()
+                c.track("scan_failed", mapOf("ok" to false, "error" to (copied.exceptionOrNull()?.javaClass?.simpleName ?: "")))
+                snackbar.showSnackbar(context.getString(R.string.scan_failed))
+                return@launch
             }
             c.track("scan", mapOf("pages" to pages.size, "engine" to "google"))
             askScanName(dir, pages.size)

@@ -34,11 +34,12 @@ ssh -o ServerAliveInterval=10 "$VPS" "set -e; cd $DOSSIER
   ln -sfn pagio-$VERSION.apk pagio.apk.new && mv -T pagio.apk.new pagio.apk
   printf '{\"version\":\"%s\",\"code\":%s,\"taille_mo\":%s,\"sha256\":\"%s\",\"date\":\"%s\"}\n' $VERSION $CODE $MO $SHA \$(date +%F) > version.json.new
   mv version.json.new version.json
-  ls -la"
+  ls -la
+  # Numéro annoncé aux applications (bandeau « Nouvelle version ») : mis à jour en même temps que le fichier.
+  docker exec pagio node -e \"const {DatabaseSync}=require('node:sqlite');new DatabaseSync('/data/pagio.db').prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run('latest_version_name', JSON.stringify('$VERSION'))\" && echo 'Dernière version annoncée : $VERSION'"
 echo "== Vérification"
 curl -s "$SERVEUR/telecharger/version.json"; echo
 echo
 echo "Publié : $SERVEUR/telecharger/pagio.apk → Pagio $VERSION"
-echo "Dans le tableau de bord (Pilotage de l'application › Versions) : dernière version = $VERSION,"
-echo "lien de mise à jour = $SERVEUR/telecharger/pagio.apk (une seule fois). Version minimale obligatoire = $CODE seulement si"
+echo "La dernière version annoncée aux applications est réglée automatiquement. Version minimale obligatoire = $CODE seulement si"
 echo "les anciennes versions doivent être bloquées."

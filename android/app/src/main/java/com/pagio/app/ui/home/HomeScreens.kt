@@ -124,7 +124,7 @@ fun HomeScreen(onTool: (Tool) -> Unit, onOpenFile: (File) -> Unit, onSeeAll: () 
             }
         }
         if (config.minVersionCode > 0 && BuildConfig.VERSION_CODE < config.minVersionCode) Unit
-        else if (config.latestVersionName.isNotBlank() && config.latestVersionName != BuildConfig.VERSION_NAME) item(span = { GridItemSpan(maxLineSpan) }) {
+        else if (isNewerVersion(config.latestVersionName, BuildConfig.VERSION_NAME)) item(span = { GridItemSpan(maxLineSpan) }) {
             Banner(Icons.Outlined.SystemUpdate, stringResource(R.string.update_available, config.latestVersionName), MaterialTheme.colorScheme.tertiaryContainer, null)
         }
         if (config.announcement.isNotBlank() && !dismissed) item(span = { GridItemSpan(maxLineSpan) }) {
@@ -369,4 +369,16 @@ private fun RenameDialog(file: File, onDismiss: () -> Unit, onRename: (String) -
         confirmButton = { TextButton(onClick = submit, enabled = value.text.isNotBlank()) { Text(stringResource(R.string.rename)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/** Vrai seulement si [latest] (ex. « 2.1.0 ») est plus récent que [current] : une annonce en retard ne propose jamais une version plus ancienne. */
+internal fun isNewerVersion(latest: String, current: String): Boolean {
+    fun parts(v: String) = v.trim().split('.').map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
+    val a = parts(latest); val b = parts(current)
+    if (latest.isBlank()) return false
+    for (i in 0 until maxOf(a.size, b.size)) {
+        val x = a.getOrElse(i) { 0 }; val y = b.getOrElse(i) { 0 }
+        if (x != y) return x > y
+    }
+    return false
 }
