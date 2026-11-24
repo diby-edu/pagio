@@ -31,7 +31,7 @@ test('ventes : tarifs, paiement mobile money, prolongation, Premium offert, rech
     assert.equal(p1.status, 200);
     assert.equal(p1.json.user.plan, 'premium');
     assert.equal(p1.json.user.premium_until, day(30));
-    assert.equal(p1.json.user.ai_credits, 500);
+    assert.equal(p1.json.user.ai_credits, 300);
     // Même référence : refusée (doublon)
     assert.equal((await call('POST', `/api/admin/users/${u.id}/payments`, { offer: 'month', amount: 3500, method: 'orange_money', reference: 'OM123' }, admin)).status, 409);
 
@@ -47,7 +47,7 @@ test('ventes : tarifs, paiement mobile money, prolongation, Premium offert, rech
 
     // Recharge IA : crédits ajoutés au solde
     const pack = await call('POST', `/api/admin/users/${u.id}/payments`, { kind: 'ai_pack', amount: 1000, method: 'mtn' }, admin);
-    assert.equal(pack.json.user.ai_credits, 600);
+    assert.equal(pack.json.user.ai_credits, 400);
 
     // Historique des offres et journal d'audit
     const fiche = (await call('GET', `/api/admin/users/${u.id}`, null, admin)).json;
@@ -98,7 +98,7 @@ test('Premium : crédits IA inclus remis à niveau une fois par mois, jamais dim
     db.prepare("UPDATE users SET ai_credits = 12, credits_month = '2000-01' WHERE id = ?").run(u.id);
     const token = (await call('POST', '/api/auth/login', { email: 'mensuel@test.fr', password: 'motdepasse1' })).json.token;
     const me = (await call('GET', '/api/me', null, token)).json.user;
-    assert.equal(me.ai_credits, 500);
+    assert.equal(me.ai_credits, 300);
     // Un solde plus élevé (recharges achetées) n'est jamais réduit
     db.prepare("UPDATE users SET ai_credits = 900, credits_month = '2000-01' WHERE id = ?").run(u.id);
     assert.equal((await call('GET', '/api/me', null, token)).json.user.ai_credits, 900);

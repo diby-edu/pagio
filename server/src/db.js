@@ -35,7 +35,7 @@ export const DEFAULT_SETTINGS = {
   conversion_enabled: true,
   plans: {
     free: { daily_tasks: 0, max_files: 0, max_mb: 0, ai_credits: 20 },
-    premium: { daily_tasks: 0, max_files: 0, max_mb: 0, ai_credits: 500 },
+    premium: { daily_tasks: 0, max_files: 0, max_mb: 0, ai_credits: 300 },
   },
   ai: { enabled: false, provider: 'openai', base_url: '', model: '', api_key: '', cost_per_request: 1, max_tokens: 1800 },
   registration_open: true,
