@@ -278,7 +278,7 @@ Nginx : `location /app/` dans `server/deploy/nginx-pagio-public.conf` (en-têtes
 `.mjs` de pdf.js servi comme JavaScript). Mise à jour :
 ```
 npm --prefix web run build
-tar -cf - -C web/dist . | ssh root@72.62.148.170 "cd /var/www/pagio/site/app && rm -rf ./* && tar -xf - && chmod -R a+rX ."
+tar -cf - -C web/dist . | ssh root@72.62.148.170 "cd /var/www/pagio/site/app && rm -rf ./* && tar --no-same-owner -xf - && chmod -R a+rX ."
 ```
 **Connexion avec Google** : créer un « ID client OAuth » de type *Application Web* (origines `https://pagio.site` et
 `https://www.pagio.site`, voir `docs/GOOGLE.md`) et le coller dans *Pilotage de l'application › Services › Connexion avec Google*.
@@ -311,7 +311,7 @@ les listes `/outils/` et `/en/tools/`, `sitemap.xml`, `robots.txt`, et met à jo
 mène à `/app/#/outil/<id>`, les autres à leur page. Mise en ligne du site :
 ```
 node server/deploy/site-src/generer.mjs
-tar -cf - -C server/deploy/site . | ssh root@72.62.148.170 "cd /var/www/pagio/site && tar -xf - && chmod -R a+rX ."
+tar -cf - -C server/deploy/site . | ssh root@72.62.148.170 "cd /var/www/pagio/site && tar --no-same-owner -xf - && chmod -R a+rX ."
 ```
 
 ## Mesures du serveur (module Système, depuis le 24/11/2026)

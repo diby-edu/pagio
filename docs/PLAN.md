@@ -169,3 +169,5 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
 - **Outils en ligne et connexion** sur `pagio.site/app` (9 outils) ; connexion avec Google prête (attend A5).
 - **Version 2.1.0** prête (limites gratuites par outil, scan en images + PDF Premium, flash, liens légaux) — attend A1.
 - Version 2.0.0 publiée ; publication par `android/publier-apk.sh`.
+- **Version 2.2.0 publiée le 24/11** : statistiques d'usage prévues par les conditions (description de l'appareil, gardées hors
+  connexion) ; conditions et politique de confidentialité mises à jour le même jour.
