@@ -30,15 +30,15 @@ renouveler les certificats expirés de vos **autres sites** (`numerik360.com`, `
 ## B. Ce que je fais, dans l'ordre
 
 ### Étape 1 — Tarifs et administration des ventes
-- [ ] Prix réglables dans l'administration : **semaine 1 000 F, mois 3 000 F, année 30 000 F**, recharges IA (ex. 100 crédits).
-- [ ] Crédits IA **inclus** dans le Premium chaque mois (ex. 300) + **recharges** achetables à part.
-- [ ] **Offrir le Premium** (testeurs, promotions, avec motif) et **enregistrer un paiement manuel** (montant, moyen : espèces,
+- [x] Prix réglables dans l'administration : **semaine 1 000 F, mois 3 000 F, année 30 000 F**, recharges IA (ex. 100 crédits).
+- [x] Crédits IA **inclus** dans le Premium chaque mois (ex. 300) + **recharges** achetables à part.
+- [x] **Offrir le Premium** (testeurs, promotions, avec motif) et **enregistrer un paiement manuel** (montant, moyen : espèces,
       Orange Money, Wave, MTN, virement… ; référence ; durée) → Premium activé, historique.
-- [ ] Écran **Revenus** : total du mois, par offre, par moyen de paiement.
-- [ ] **Coût estimé de l'IA** en FCFA (par jour, par utilisateur), à partir de la consommation mesurée.
-- [ ] Réglage **majoration Google Play** (15 % ou 17,6 % pour toucher le même montant net) : l'administration calcule les prix
+- [x] Écran **Revenus** : total du mois, par offre, par moyen de paiement.
+- [x] **Coût estimé de l'IA** en FCFA (par jour, par utilisateur), à partir de la consommation mesurée.
+- [x] Réglage **majoration Google Play** (15 % ou 17,6 % pour toucher le même montant net) : l'administration calcule les prix
       à saisir dans la console Google.
-- [ ] **Assistant IA réservé au Premium** (case « Premium seulement » de l'outil).
+- [x] **Assistant IA réservé au Premium** (case « Premium seulement » de l'outil).
 
 ### Étape 1 bis — Module Système plus complet (demandé le 24/11/2026)
 - [ ] **Graphiques sur 24 h / 7 j / 30 j** : processeur, mémoire, disque, réseau (entrant / sortant) du VPS.

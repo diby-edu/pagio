@@ -13,11 +13,37 @@ export interface User {
 }
 export interface Tool { id: string; enabled: boolean; premium: boolean; max_files: number; max_mb: number; daily_free: number; max_pages: number; pdf_premium: boolean; runs_30d: number; limit_hits_30d: number }
 export interface PlanLimits { daily_tasks: number; max_files: number; max_mb: number; ai_credits: number }
+/** Tarifs en francs CFA, majoration Google Play et paramètres du coût de l'IA. */
+export interface Sales {
+  price_week: number; price_month: number; price_year: number; ai_pack_credits: number; ai_pack_price: number;
+  play_markup_pct: number; usd_xof: number; ai_usd_per_m_in: number; ai_usd_per_m_out: number;
+}
+export interface Payment {
+  id: number; ts: number; user_id: string | null; user_email: string | null; kind: 'premium' | 'ai_pack'; offer: string | null;
+  amount: number; currency: string; method: string; reference: string | null; days: number; credits: number;
+  premium_until: string | null; actor: string | null; note: string | null; refunded: boolean; refunded_at: number | null;
+}
+export interface PlayPrice { base: number; price: number; net: number }
+export interface Revenue {
+  days: number; total: number; count: number; month: number; month_count: number; buyers: number; average: number;
+  by_day: { day: string; amount: number; n: number }[]; by_offer: { offer: string; amount: number; n: number }[];
+  by_method: { method: string; amount: number; n: number }[]; gifts: { n: number; days: number }; refunds: { n: number; amount: number };
+  premium_active: number; premium_expiring_7d: number; margin: number;
+  ai: { requests: number; users: number; cost: number; cost_per_request: number; by_day: { day: string; requests: number; cost: number }[] };
+  play: { markup_pct: number; week: PlayPrice; month: PlayPrice; year: PlayPrice; ai_pack: PlayPrice };
+}
+export const METHOD_LABELS: Record<string, string> = {
+  orange_money: 'Orange Money', wave: 'Wave', mtn: 'MTN MoMo', moov: 'Moov Money', cash: 'Espèces', transfer: 'Virement',
+  card: 'Carte bancaire', google_play: 'Google Play', other: 'Autre', gift: 'Offert',
+};
+export const OFFER_LABELS: Record<string, string> = { week: 'Semaine', month: 'Mois', year: 'Année', custom: 'Durée libre', ai_pack: 'Recharge IA' };
+export const fmtMoney = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} F`;
 export interface Settings {
   maintenance: boolean; maintenance_message: string; announcement: string; announcement_level: string;
   min_version_code: number; latest_version_name: string; update_url: string; support_email: string;
   conversion_enabled: boolean; registration_open: boolean; google_client_id?: string;
   plans: { free: PlanLimits; premium: PlanLimits };
+  sales: Sales;
   ai: { enabled: boolean; provider: 'openai' | 'anthropic' | 'gemini'; base_url: string; model: string; api_key: string; has_key?: boolean; key_from_env?: boolean; key_error?: boolean; cost_per_request: number; max_tokens: number };
   limits: Limits;
   backup: BackupSettings;

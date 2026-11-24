@@ -18,6 +18,7 @@ import Errors from './pages/Errors';
 import Conversions from './pages/Conversions';
 import AiUsage from './pages/AiUsage';
 import Mail from './pages/Mail';
+import Sales from './pages/Sales';
 
 type Go = (page: string) => void;
 type Page = { id: string; label: string; icon: string; group: string; min: Admin['role']; el: (a: Admin, go: Go) => JSX.Element };
@@ -39,7 +40,8 @@ function readFolded(): string[] {
 const PAGES: Page[] = [
   { id: 'overview', label: "Vue d'ensemble", icon: '◧', group: '', min: 'support', el: (_a, go) => <Overview go={go} /> },
   { id: 'users', label: 'Utilisateurs', icon: '◉', group: 'clients', min: 'support', el: (a) => <Users admin={a} /> },
-  { id: 'plans', label: 'Offres et crédits', icon: '★', group: 'clients', min: 'admin', el: () => <Plans /> },
+  { id: 'sales', label: 'Ventes et revenus', icon: '₣', group: 'clients', min: 'support', el: (a) => <Sales canEdit={a.role !== 'support'} /> },
+  { id: 'plans', label: 'Offres et tarifs', icon: '★', group: 'clients', min: 'admin', el: () => <Plans /> },
   { id: 'feedback', label: 'Avis et support', icon: '✉', group: 'clients', min: 'support', el: () => <Feedback /> },
   { id: 'tools', label: 'Outils et limites', icon: '▦', group: 'appli', min: 'support', el: (a) => <Tools admin={a} /> },
   { id: 'conversions', label: 'Conversions', icon: '⇄', group: 'appli', min: 'support', el: () => <Conversions /> },

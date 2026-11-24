@@ -53,10 +53,24 @@ export const DEFAULT_SETTINGS = {
   backup: { enabled: true, hour: 3, keep_days: 30 },
   // E-mails automatiques (Brevo). public_url : adresse publique du serveur, utilisée dans les liens envoyés.
   mail: { enabled: false, api_key: '', from_email: '', from_name: 'Pagio', public_url: '', verify_signup: true, alerts_enabled: false, alerts_to: '' },
+  // Tarifs (décidés le 23/11/2026), en francs CFA. Les crédits IA inclus chaque mois sont ceux de l'offre Premium (plans.premium.ai_credits).
+  // play_markup_pct : majoration des prix saisis dans Google Play (Google prélève 15 %). Coût de l'IA : prix du fournisseur en
+  // dollars par million de jetons (environ 4 caractères par jeton) et taux du dollar en francs CFA.
+  sales: {
+    price_week: 1000, price_month: 3000, price_year: 30000,
+    ai_pack_credits: 100, ai_pack_price: 1000,
+    play_markup_pct: 15,
+    usd_xof: 600, ai_usd_per_m_in: 0.4, ai_usd_per_m_out: 1.6,
+  },
 };
 
+/** Durée de chaque offre Premium, en jours. */
+export const OFFER_DAYS = { week: 7, month: 30, year: 365 };
+/** Moyens de paiement enregistrables à la main dans le tableau de bord. */
+export const PAYMENT_METHODS = ['orange_money', 'wave', 'mtn', 'moov', 'cash', 'transfer', 'card', 'google_play', 'other', 'gift'];
+
 /** Tables recopiées lors d'une restauration (les sessions d'administration en cours sont conservées). */
-export const DATA_TABLES = ['admins', 'users', 'settings', 'tools', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'plan_history', 'server_errors'];
+export const DATA_TABLES = ['admins', 'users', 'settings', 'tools', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'plan_history', 'server_errors', 'payments'];
 
 /** Inscrit une erreur du serveur au journal consultable dans le tableau de bord. Ne lève jamais d'erreur. */
 export function logServerError(db, source, error, context = {}) {
@@ -120,6 +134,15 @@ export function openDb(file) {
     CREATE INDEX IF NOT EXISTS idx_server_errors_ts ON server_errors(ts);
     CREATE INDEX IF NOT EXISTS idx_ai_usage_ts ON ai_usage(ts);
     CREATE INDEX IF NOT EXISTS idx_conversions_ts ON conversions(ts);
+    -- Ventes : paiements enregistrés (à la main pour l'instant : mobile money, espèces…) et Premium offerts (montant 0).
+    -- kind : premium | ai_pack ; offer : week | month | year | custom ; days et credits : ce que le paiement a apporté.
+    CREATE TABLE IF NOT EXISTS payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, user_id TEXT, user_email TEXT, kind TEXT NOT NULL,
+      offer TEXT, amount INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'XOF', method TEXT NOT NULL,
+      reference TEXT, days INTEGER NOT NULL DEFAULT 0, credits INTEGER NOT NULL DEFAULT 0, premium_until TEXT,
+      actor TEXT, note TEXT, refunded INTEGER NOT NULL DEFAULT 0, refunded_at INTEGER);
+    CREATE INDEX IF NOT EXISTS idx_payments_ts ON payments(ts);
+    CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
   `);
   // Évolutions du schéma : colonnes ajoutées aux bases créées par une version précédente.
   const addColumn = (table, column, definition) => {
@@ -134,6 +157,8 @@ export function openDb(file) {
   addColumn('users', 'tokens_valid_after', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('users', 'verify_token', 'TEXT');
   addColumn('users', 'verify_expires', 'INTEGER');
+  // Mois (AAAA-MM) de la dernière remise à niveau des crédits IA inclus dans le Premium.
+  addColumn('users', 'credits_month', 'TEXT');
   // Offre gratuite : opérations par jour pour chaque outil (0 = illimité) et pages maximum par scan (0 = illimité).
   const hadDailyFree = db.prepare('PRAGMA table_info(tools)').all().some((c) => c.name === 'daily_free');
   addColumn('tools', 'daily_free', 'INTEGER NOT NULL DEFAULT 0');
@@ -174,6 +199,7 @@ export function getSettings(db) {
   s.ai = { ...DEFAULT_SETTINGS.ai, ...s.ai };
   s.limits = { ...DEFAULT_SETTINGS.limits, ...s.limits };
   s.backup = { ...DEFAULT_SETTINGS.backup, ...s.backup };
+  s.sales = { ...DEFAULT_SETTINGS.sales, ...s.sales };
   // La clé d'IA est chiffrée en base ; elle n'est en clair qu'en mémoire, le temps de la requête.
   try { s.ai.api_key = reveal(db, s.ai.api_key); } catch { s.ai.api_key = ''; s.ai.key_error = true; }
   s.mail = { ...DEFAULT_SETTINGS.mail, ...s.mail };

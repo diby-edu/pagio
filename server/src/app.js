@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { TOOL_IDS, getSettings, setSetting, protect, reveal, logServerError } from './db.js';
+import { TOOL_IDS, OFFER_DAYS, PAYMENT_METHODS, getSettings, setSetting, protect, reveal, logServerError } from './db.js';
 import {
   hashPassword, verifyPassword, signToken, verifyToken, rateLimiter,
   hashPasswordAsync, verifyPasswordAsync, verifyAgainstNothing,
@@ -74,14 +74,22 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   const selfUser = (u) => { const { note: _note, banned: _banned, ...rest } = publicUser(u); return rest; };
 
   // Premium expiré → retour automatique à l'offre gratuite.
+  // Premium actif : les crédits IA inclus sont remis à niveau une fois par mois (jamais diminués).
   const effective = (u) => {
     if (u && u.plan === 'premium' && u.premium_until && u.premium_until < today()) {
       db.prepare("UPDATE users SET plan = 'free' WHERE id = ?").run(u.id);
       planChange(u.id, null, 'premium', 'free', null, 'Premium arrivé à échéance');
       u.plan = 'free';
     }
+    if (u && u.plan === 'premium' && u.credits_month !== today().slice(0, 7)) topUpMonthly(u);
     return u;
   };
+  function topUpMonthly(u) {
+    const included = Number(getSettings(db).plans.premium.ai_credits) || 0;
+    const month = today().slice(0, 7);
+    db.prepare('UPDATE users SET ai_credits = MAX(ai_credits, ?), credits_month = ? WHERE id = ?').run(included, month, u.id);
+    u.ai_credits = Math.max(u.ai_credits || 0, included); u.credits_month = month;
+  }
 
   /** Historique des offres : chaque passage Gratuit ↔ Premium ou changement d'échéance est conservé. */
   const planChange = (userId, actor, oldPlan, newPlan, until, reason) =>
@@ -211,6 +219,8 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       server_conversion: !!(s.conversion_enabled && libreOfficeAvailable()),
       registration_open: s.registration_open,
       google_client_id: s.google_client_id || '',
+      prices: { currency: 'XOF', week: s.sales.price_week, month: s.sales.price_month, year: s.sales.price_year,
+        ai_pack_credits: s.sales.ai_pack_credits, ai_pack_price: s.sales.ai_pack_price, premium_ai_credits: s.plans.premium.ai_credits },
     });
   });
 
@@ -373,6 +383,8 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     db.prepare('DELETE FROM plan_history WHERE user_id = ?').run(id);
     db.prepare('DELETE FROM feedback WHERE user_id = ? OR (? IS NOT NULL AND lower(email) = ?)').run(id, u?.email ?? null, u?.email ?? null);
     for (const t of ['events', 'ai_usage', 'conversions']) db.prepare(`UPDATE ${t} SET user_id = NULL WHERE user_id = ?`).run(id);
+    // Les ventes restent dans les comptes (montants), sans l'identité de l'acheteur.
+    db.prepare('UPDATE payments SET user_id = NULL, user_email = NULL, reference = NULL, note = NULL WHERE user_id = ?').run(id);
   }
 
   app.delete('/api/me', userAuth(true), (req, res) => {
@@ -753,6 +765,120 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     ok(res, { updated: Number(r1.changes) + Number(r2.changes) });
   });
 
+  // ------------------------------------------------------------- Ventes
+  // Paiement enregistré à la main (mobile money, espèces, virement…) ou Premium offert (montant 0, moyen « gift », motif exigé).
+  // Premium : la durée s'ajoute à l'échéance en cours (ou à aujourd'hui) et les crédits IA inclus sont remis à niveau.
+  // Recharge IA : les crédits s'ajoutent au solde.
+  const addDays = (isoDay, days) => { const d = new Date(`${isoDay}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
+  const paymentRow = (p) => ({ ...p, refunded: !!p.refunded });
+
+  app.post('/api/admin/users/:id/payments', adminAuth('admin'), (req, res) => {
+    const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    if (!u) return fail(res, 404, 'Utilisateur introuvable');
+    const b = req.body || {};
+    const s = getSettings(db);
+    const kind = b.kind === 'ai_pack' ? 'ai_pack' : 'premium';
+    const method = String(b.method || '');
+    if (!PAYMENT_METHODS.includes(method)) return fail(res, 400, 'Moyen de paiement inconnu');
+    const gift = method === 'gift';
+    const note = String(b.note || '').trim().slice(0, 300);
+    if (gift && !note) return fail(res, 400, 'Indiquez le motif du Premium offert (testeur, promotion, geste commercial…)');
+    const reference = String(b.reference || '').trim().slice(0, 120) || null;
+    const amount = gift ? 0 : int(b.amount, 0, 100_000_000, -1);
+    if (amount < 0) return fail(res, 400, 'Montant invalide');
+    let offer = null; let days = 0; let credits = 0; let until = u.premium_until;
+    if (kind === 'premium') {
+      offer = ['week', 'month', 'year', 'custom'].includes(b.offer) ? b.offer : '';
+      if (!offer) return fail(res, 400, 'Choisissez une offre (semaine, mois, année ou durée libre)');
+      days = offer === 'custom' ? int(b.days, 1, 3660, 0) : OFFER_DAYS[offer];
+      if (!days) return fail(res, 400, 'Indiquez une durée en jours');
+      const from = u.plan === 'premium' && u.premium_until && u.premium_until >= today() ? u.premium_until : today();
+      until = addDays(from, days);
+    } else {
+      credits = int(b.credits ?? s.sales.ai_pack_credits, 1, 1_000_000, 0);
+      if (!credits) return fail(res, 400, 'Indiquez un nombre de crédits');
+    }
+    if (reference && !gift && db.prepare('SELECT 1 FROM payments WHERE method = ? AND reference = ? AND refunded = 0').get(method, reference)) {
+      return fail(res, 409, 'Ce paiement (même moyen, même référence) est déjà enregistré');
+    }
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      if (kind === 'premium') {
+        const included = Number(s.plans.premium.ai_credits) || 0;
+        db.prepare("UPDATE users SET plan = 'premium', premium_until = ?, ai_credits = MAX(ai_credits, ?), credits_month = ? WHERE id = ?").run(until, included, today().slice(0, 7), u.id);
+        planChange(u.id, req.admin.email, u.plan, 'premium', until, gift ? `Premium offert : ${note}` : `Paiement ${method}${reference ? ` ${reference}` : ''}`);
+      } else {
+        db.prepare('UPDATE users SET ai_credits = ai_credits + ? WHERE id = ?').run(credits, u.id);
+      }
+      const r = db.prepare(`INSERT INTO payments (ts, user_id, user_email, kind, offer, amount, method, reference, days, credits, premium_until, actor, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(Date.now(), u.id, u.email, kind, offer, amount, method, reference, days, credits, kind === 'premium' ? until : null, req.admin.email, note || null);
+      db.exec('COMMIT');
+      audit(req.admin, gift ? 'payment.gift' : 'payment.record', u.email, { kind, offer, amount, method, days, credits, premium_until: kind === 'premium' ? until : undefined });
+      ok(res, { payment: paymentRow(db.prepare('SELECT * FROM payments WHERE id = ?').get(r.lastInsertRowid)), user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(u.id)) });
+    } catch (e) {
+      db.exec('ROLLBACK');
+      logServerError(db, 'admin', e, { method: req.method, path: req.path, status: 500 });
+      fail(res, 500, `Rien n'a été enregistré : ${e.message}`);
+    }
+  });
+
+  app.get('/api/admin/payments', adminAuth(), (req, res) => {
+    const days = int(req.query.days, 1, 3660, 90);
+    const since = Date.now() - days * DAY;
+    const where = ['ts >= ?']; const args = [since];
+    if (req.query.user) { where.push('user_id = ?'); args.push(String(req.query.user)); }
+    if (req.query.method && PAYMENT_METHODS.includes(String(req.query.method))) { where.push('method = ?'); args.push(String(req.query.method)); }
+    const q = String(req.query.q || '').trim().toLowerCase();
+    if (q) { where.push('(lower(user_email) LIKE ? OR lower(reference) LIKE ?)'); args.push(`%${q}%`, `%${q}%`); }
+    ok(res, { payments: db.prepare(`SELECT * FROM payments WHERE ${where.join(' AND ')} ORDER BY ts DESC LIMIT 500`).all(...args).map(paymentRow) });
+  });
+
+  // Remboursement : la vente sort des revenus. Le Premium n'est pas retiré automatiquement (à décider compte par compte).
+  app.post('/api/admin/payments/:id/refund', adminAuth('admin'), (req, res) => {
+    const p = db.prepare('SELECT * FROM payments WHERE id = ?').get(req.params.id);
+    if (!p) return fail(res, 404, 'Paiement introuvable');
+    if (p.refunded) return fail(res, 400, 'Déjà remboursé');
+    db.prepare('UPDATE payments SET refunded = 1, refunded_at = ? WHERE id = ?').run(Date.now(), p.id);
+    audit(req.admin, 'payment.refund', p.user_email, { id: p.id, amount: p.amount, method: p.method });
+    ok(res, { payment: paymentRow(db.prepare('SELECT * FROM payments WHERE id = ?').get(p.id)) });
+  });
+
+  // Revenus et coût de l'IA sur la période (francs CFA), avec les prix à saisir dans Google Play.
+  app.get('/api/admin/revenue', adminAuth(), (req, res) => {
+    const s = getSettings(db).sales;
+    const days = int(req.query.days, 1, 3660, 30);
+    const since = Date.now() - days * DAY;
+    const paid = "refunded = 0 AND method != 'gift'";
+    const one = (sql, ...a) => db.prepare(sql).get(...a);
+    const totals = one(`SELECT COALESCE(SUM(amount), 0) amount, COUNT(*) n FROM payments WHERE ${paid} AND ts >= ?`, since);
+    const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
+    const month = one(`SELECT COALESCE(SUM(amount), 0) amount, COUNT(*) n FROM payments WHERE ${paid} AND ts >= ?`, monthStart.getTime());
+    const byDay = db.prepare(`SELECT date(ts / 1000, 'unixepoch') day, SUM(amount) amount, COUNT(*) n FROM payments WHERE ${paid} AND ts >= ? GROUP BY day ORDER BY day`).all(since);
+    const byOffer = db.prepare(`SELECT CASE WHEN kind = 'ai_pack' THEN 'ai_pack' ELSE offer END offer, SUM(amount) amount, COUNT(*) n FROM payments WHERE ${paid} AND ts >= ? GROUP BY 1 ORDER BY amount DESC`).all(since);
+    const byMethod = db.prepare(`SELECT method, SUM(amount) amount, COUNT(*) n FROM payments WHERE ${paid} AND ts >= ? GROUP BY method ORDER BY amount DESC`).all(since);
+    const gifts = one("SELECT COUNT(*) n, COALESCE(SUM(days), 0) days FROM payments WHERE method = 'gift' AND refunded = 0 AND ts >= ?", since);
+    const refunds = one('SELECT COUNT(*) n, COALESCE(SUM(amount), 0) amount FROM payments WHERE refunded = 1 AND refunded_at >= ?', since);
+    const buyers = one(`SELECT COUNT(DISTINCT user_id) n FROM payments WHERE ${paid} AND ts >= ? AND user_id IS NOT NULL`, since).n;
+    const premiumActive = one("SELECT COUNT(*) n FROM users WHERE plan = 'premium' AND (premium_until IS NULL OR premium_until >= ?)", today()).n;
+    const expiring7 = one("SELECT COUNT(*) n FROM users WHERE plan = 'premium' AND premium_until BETWEEN ? AND ?", today(), addDays(today(), 7)).n;
+    // Coût de l'IA : caractères envoyés et reçus → jetons (≈ 4 caractères) → dollars → francs CFA.
+    const cost = (cin, cout) => ((cin / 4 / 1e6) * s.ai_usd_per_m_in + (cout / 4 / 1e6) * s.ai_usd_per_m_out) * s.usd_xof;
+    const ai = one('SELECT COUNT(*) requests, COALESCE(SUM(chars_in), 0) cin, COALESCE(SUM(chars_out), 0) cout, COUNT(DISTINCT user_id) users FROM ai_usage WHERE ok = 1 AND ts >= ?', since);
+    const aiCost = Math.round(cost(ai.cin, ai.cout));
+    const aiByDay = db.prepare("SELECT date(ts / 1000, 'unixepoch') day, SUM(chars_in) cin, SUM(chars_out) cout, COUNT(*) n FROM ai_usage WHERE ok = 1 AND ts >= ? GROUP BY day ORDER BY day").all(since)
+      .map((r) => ({ day: r.day, requests: r.n, cost: Math.round(cost(r.cin, r.cout)) }));
+    // Prix Google Play : majorés pour compenser la commission de 15 %, arrondis à 50 F. « net » = ce que vous touchez.
+    const play = (price) => { const p = Math.round((price * (1 + s.play_markup_pct / 100)) / 50) * 50; return { base: price, price: p, net: Math.round(p * 0.85) }; };
+    ok(res, {
+      days, currency: 'XOF', total: totals.amount, count: totals.n, month: month.amount, month_count: month.n, buyers,
+      average: totals.n ? Math.round(totals.amount / totals.n) : 0, by_day: byDay, by_offer: byOffer, by_method: byMethod,
+      gifts, refunds, premium_active: premiumActive, premium_expiring_7d: expiring7,
+      ai: { requests: ai.requests, users: ai.users, cost: aiCost, cost_per_request: ai.requests ? Math.round((aiCost / ai.requests) * 100) / 100 : 0, by_day: aiByDay },
+      margin: totals.amount - aiCost,
+      play: { markup_pct: s.play_markup_pct, week: play(s.price_week), month: play(s.price_month), year: play(s.price_year), ai_pack: play(s.ai_pack_price) },
+    });
+  });
+
   // ------------------------------------------------------------- Outils
   app.get('/api/admin/tools', adminAuth(), (req, res) => {
     const since = Date.now() - 30 * DAY;
@@ -803,7 +929,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const b = req.body || {};
     const current = getSettings(db);
     const allowed = ['maintenance', 'maintenance_message', 'announcement', 'announcement_level', 'min_version_code', 'latest_version_name',
-      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup', 'mail', 'google_client_id'];
+      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup', 'mail', 'google_client_id', 'sales'];
     const changed = [];
     for (const k of allowed) {
       if (!(k in b)) continue;
@@ -844,6 +970,18 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
         if (/^https?:\/\/admin\./i.test(v.public_url)) return fail(res, 400, "L'adresse publique doit être celle du site ouvert aux utilisateurs (ex. https://pagio.site), pas celle de l'administration");
         if (v.api_key !== current.mail.api_key) setSetting(db, 'mail_key_check', null); // nouvelle clé : nouvelle vérification
         if (v.enabled && (!v.from_email || !(v.api_key || process.env.MAIL_API_KEY))) return fail(res, 400, "Pour activer les e-mails, renseignez la clé Brevo et l'adresse d'expéditeur");
+      }
+      if (k === 'sales') {
+        const c = { ...current.sales, ...(v || {}) };
+        const money = (x, fb) => int(x, 0, 100_000_000, fb);
+        const dec = (x, fb, max) => { const n = Number(x); return Number.isFinite(n) && n >= 0 && n <= max ? Math.round(n * 1000) / 1000 : fb; };
+        v = {
+          price_week: money(c.price_week, current.sales.price_week), price_month: money(c.price_month, current.sales.price_month),
+          price_year: money(c.price_year, current.sales.price_year), ai_pack_credits: int(c.ai_pack_credits, 1, 1_000_000, current.sales.ai_pack_credits),
+          ai_pack_price: money(c.ai_pack_price, current.sales.ai_pack_price), play_markup_pct: dec(c.play_markup_pct, current.sales.play_markup_pct, 100),
+          usd_xof: dec(c.usd_xof, current.sales.usd_xof, 100000), ai_usd_per_m_in: dec(c.ai_usd_per_m_in, current.sales.ai_usd_per_m_in, 1000),
+          ai_usd_per_m_out: dec(c.ai_usd_per_m_out, current.sales.ai_usd_per_m_out, 1000),
+        };
       }
       if (k === 'plans') v = { free: { ...current.plans.free, ...(v.free || {}) }, premium: { ...current.plans.premium, ...(v.premium || {}) } };
       if (k === 'min_version_code') v = Math.max(0, Number(v) || 0);

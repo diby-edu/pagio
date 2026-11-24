@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Admin, TOOL_LABELS, User, api, download, fmtBytes, fmtDate, fmtNum } from '../api';
 import { Alert, Badge, Card, Empty, Field, Toggle, useFlash } from '../ui';
+import { PaymentForm } from './Sales';
 
 const PAGE = 50;
 
@@ -119,6 +120,8 @@ function UserPanel({ user, canEdit, onClose, onChanged, onError }: {
   const [password, setPassword] = useState('');
   const [reason, setReason] = useState('');
   const [activity, setActivity] = useState<Detail | null>(null);
+  // Après un paiement ou une modification, les champs reprennent les valeurs à jour du compte.
+  useEffect(() => { setPlan(user.plan); setUntil(user.premium_until ?? ''); setCredits(String(user.ai_credits)); }, [user.plan, user.premium_until, user.ai_credits]);
   // Rechargée après chaque modification (l'historique des offres change).
   useEffect(() => { api<Detail>('GET', `/api/admin/users/${user.id}`).then(setActivity).catch(() => {}); }, [user.id, user.plan, user.premium_until, user.ai_credits, user.banned]);
 
@@ -134,7 +137,11 @@ function UserPanel({ user, canEdit, onClose, onChanged, onError }: {
         <p className="muted">{user.email} · {user.email_verified ? 'adresse confirmée' : 'adresse non confirmée'}<br />ID : <code>{user.id}</code></p>
         <div className="kv"><span>Inscrit le</span><b>{fmtDate(user.created_at)}</b><span>Dernière activité</span><b>{fmtDate(user.last_seen)}</b>
           <span>Tâches aujourd'hui</span><b>{user.tasks_today}</b><span>Tâches au total</span><b>{user.total_tasks}</b></div>
-        <h4>Offre</h4>
+        {canEdit && <>
+          <h4>Paiement ou Premium offert</h4>
+          <PaymentForm user={user} onDone={(u, msg) => onChanged(u, msg)} onError={onError} />
+        </>}
+        <h4>Offre (réglage manuel)</h4>
         <div className="row gap wrap">
           <select value={plan} disabled={!canEdit} onChange={(e) => setPlan(e.target.value as User['plan'])}><option value="free">Gratuit</option><option value="premium">Premium</option></select>
           {plan === 'premium' && <input type="date" value={until} disabled={!canEdit} onChange={(e) => setUntil(e.target.value)} title="Fin du Premium (vide = sans limite)" />}
