@@ -68,11 +68,11 @@ class AppContainer(val context: Context) {
             workspace.cleanTemp(olderThanMs = 6 * 3600_000L) // restes d'une session interrompue
             settings.cachedRemoteConfig()?.let { runCatching { _config.value = RemoteConfig.parse(JSONObject(it), 0) } }
             refreshServer()
-            // Plantage lors de la session précédente : remonté avec les statistiques (si acceptées), sinon effacé.
+            // Plantage lors de la session précédente : remonté avec les statistiques d'usage.
             CrashReporter.takePending(context)?.let { r ->
                 track("app_crash", r.keys().asSequence().associateWith { k -> r.get(k) } + ("ok" to false))
             }
-            track("app_open")
+            track("app_open", com.pagio.app.data.DeviceInfo.describe(context))
         }
     }
 
@@ -156,10 +156,12 @@ class AppContainer(val context: Context) {
         return DocumentAssistant(provider)
     }
 
-    /** Statistiques d'usage anonymes, seulement si l'utilisateur l'a accepté. */
+    /**
+     * Statistiques d'usage (prévues dans les conditions d'utilisation, depuis la 2.2.0) : outils utilisés, durées, erreurs,
+     * appareil. Jamais le contenu ni le nom des documents. Liées au compte quand l'utilisateur est connecté.
+     */
     fun track(name: String, props: Map<String, Any?> = emptyMap()) {
         scope.launch {
-            if (!settings.current().telemetry) return@launch
             val o = JSONObject().put("name", name).put("ts", System.currentTimeMillis())
             val p = JSONObject(); props.forEach { (k, v) -> p.put(k, v) }
             o.put("props", p)
@@ -170,7 +172,7 @@ class AppContainer(val context: Context) {
 
     suspend fun flushEvents() {
         val s = settings.current()
-        if (!s.telemetry || _server.value != ServerState.ONLINE) return
+        if (_server.value != ServerState.ONLINE) return
         val batch = synchronized(pendingEvents) { pendingEvents.toList().also { pendingEvents.clear() } }
         if (batch.isEmpty()) return
         runCatching { backend.sendEvents(settings.ensureDeviceId(), BuildConfig.VERSION_NAME, batch) }

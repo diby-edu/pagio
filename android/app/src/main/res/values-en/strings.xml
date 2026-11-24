@@ -295,7 +295,7 @@
     <string name="previous">Previous</string>
     <string name="privacy">Privacy</string>
     <string name="privacy_storage">Privacy &amp; storage</string>
-    <string name="privacy_text">Your documents are processed on your phone. They only leave the device if you use an online feature (high-fidelity conversion, generative AI); they\'re then deleted from the server right after processing. Usage statistics are optional and can be turned off; they never contain your documents.</string>
+    <string name="privacy_text">Your documents are processed on your phone. They only leave the device if you use an online feature (high-fidelity conversion, generative AI); they\'re then deleted from the server right after processing. Usage statistics (tools used, errors, device model) are set out in the terms of use; they never contain your documents.</string>
     <string name="properties">Properties</string>
     <string name="protect_info">AES-256 encryption. Keep this password safe: without it the document can\'t be opened.</string>
     <string name="ranges">Page ranges</string>
@@ -447,7 +447,7 @@
     <string name="tables_info">Tables are rebuilt from text positions and exported to Excel (.xlsx) and CSV.</string>
     <string name="target_language">Target language</string>
     <string name="telemetry">Usage statistics</string>
-    <string name="telemetry_d">Tools used, durations, errors, linked to your account if you are signed in. Never your document contents.</string>
+    <string name="telemetry_d">Tools used, durations, errors and device model, linked to your account if you are signed in, as set out in the terms of use. Never your document contents. Learn more</string>
     <string name="test">Test</string>
     <string name="testing">Testing…</string>
     <string name="theme">Theme</string>

@@ -140,7 +140,12 @@ fun SettingsScreen(onAccount: () -> Unit, onAi: () -> Unit, onServer: () -> Unit
         }), onServer)
         HorizontalDivider()
         SectionTitle(stringResource(R.string.privacy_storage))
-        SwitchRow(stringResource(R.string.telemetry), settings.telemetry, { v -> scope.launch { c.settings.setTelemetry(v) } }, stringResource(R.string.telemetry_d))
+        // Statistiques d'usage : prévues dans les conditions d'utilisation (plus de case à cocher depuis la 2.2.0).
+        val statsUri = androidx.compose.ui.platform.LocalUriHandler.current
+        val statsEn = stringResource(R.string.legal) == "Legal information"
+        SettingRow(Icons.Outlined.Policy, stringResource(R.string.telemetry), stringResource(R.string.telemetry_d)) {
+            runCatching { statsUri.openUri("https://pagio.site/confidentialite/" + if (statsEn) "?lang=en" else "") }
+        }
         SwitchRow(stringResource(R.string.auto_save), settings.autoSaveToDownloads, { v -> scope.launch { c.settings.setAutoSave(v) } }, stringResource(R.string.auto_save_d))
         SettingRow(Icons.Outlined.CleaningServices, stringResource(R.string.clean_temp), stringResource(R.string.storage_line, usage.first.humanSize(), usage.second.humanSize())) {
             val freed = c.workspace.cleanTemp(0); cleaned = freed.humanSize()

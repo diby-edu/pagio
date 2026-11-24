@@ -22,7 +22,7 @@ android {
         targetSdk = 36
         // Numéro interne = majeur × 10000 + mineur × 100 + correctif (2.0.0 → 20000) : il doit toujours augmenter.
         // Publication : android/publier-apk.sh (construit, signe, envoie sur pagio.site et met à jour le bouton du site).
-        versionName = "2.1.0"
+        versionName = "2.2.0"
         versionCode = versionName!!.split('.').map { it.toInt() }.let { (a, b, c) -> a * 10000 + b * 100 + c }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Téléphones ARM 64/32 bits + émulateurs x86_64 (le x86 32 bits, obsolète, est exclu pour alléger l'APK).
