@@ -21,6 +21,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import java.util.Collections
 import com.pagio.app.data.CrashReporter
@@ -60,7 +61,10 @@ class AppContainer(val context: Context) {
     private val _server = MutableStateFlow(ServerState.UNKNOWN)
     val server: StateFlow<ServerState> = _server
 
-    private val pendingEvents = Collections.synchronizedList(mutableListOf<JSONObject>())
+    // Statistiques en attente : dans un fichier, pour survivre à l'absence de réseau et à la fermeture de l'application.
+    private val pendingEvents = com.pagio.app.data.EventQueue(java.io.File(context.filesDir, "statistiques-en-attente.jsonl"))
+    private val flushLock = kotlinx.coroutines.sync.Mutex()
+    @Volatile private var lastServerTry = 0L
 
     fun start() {
         scope.launch {
@@ -73,6 +77,15 @@ class AppContainer(val context: Context) {
                 track("app_crash", r.keys().asSequence().associateWith { k -> r.get(k) } + ("ok" to false))
             }
             track("app_open", com.pagio.app.data.DeviceInfo.describe(context))
+        }
+        // Retour du réseau : on reprend contact avec le serveur, ce qui envoie les statistiques gardées hors connexion.
+        runCatching {
+            val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+            cm.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: android.net.Network) {
+                    if (_server.value != ServerState.ONLINE || pendingEvents.size() > 0) scope.launch { refreshServer() }
+                }
+            })
         }
     }
 
@@ -165,17 +178,25 @@ class AppContainer(val context: Context) {
             val o = JSONObject().put("name", name).put("ts", System.currentTimeMillis())
             val p = JSONObject(); props.forEach { (k, v) -> p.put(k, v) }
             o.put("props", p)
-            pendingEvents += o
-            if (pendingEvents.size >= 10 || name == "app_open") flushEvents()
+            pendingEvents.add(o)
+            if (_server.value != ServerState.ONLINE) {
+                // Hors connexion : nouvel essai au plus toutes les 2 minutes (le retour du réseau déclenche aussi un essai).
+                if (System.currentTimeMillis() - lastServerTry > 120_000) { lastServerTry = System.currentTimeMillis(); refreshServer() }
+            } else if (pendingEvents.size() >= 10 || name == "app_open") flushEvents()
         }
     }
 
+    /** Envoie les statistiques en attente, par lots de 200, dans l'ordre ; ne retire un lot qu'une fois reçu par le serveur. */
     suspend fun flushEvents() {
-        val s = settings.current()
         if (_server.value != ServerState.ONLINE) return
-        val batch = synchronized(pendingEvents) { pendingEvents.toList().also { pendingEvents.clear() } }
-        if (batch.isEmpty()) return
-        runCatching { backend.sendEvents(settings.ensureDeviceId(), BuildConfig.VERSION_NAME, batch) }
-            .onFailure { pendingEvents.addAll(batch) }
+        flushLock.withLock {
+            repeat(30) {
+                val batch = pendingEvents.peek(200)
+                if (batch.isEmpty()) return
+                val sent = runCatching { backend.sendEvents(settings.ensureDeviceId(), BuildConfig.VERSION_NAME, batch) }.isSuccess
+                if (!sent) return
+                pendingEvents.drop(batch.size)
+            }
+        }
     }
 }
