@@ -78,10 +78,11 @@ export default function App() {
   return (
     <div className={`layout ${menuOpen ? 'menu-open' : ''}`}>
       <aside className="sidebar">
-        <div className="brand"><img src="./favicon.svg" alt="" /><div><strong>Pagio</strong><span>Administration</span></div></div>
+        <div className="brand"><img src="./favicon.svg" alt="" /><div><strong>Pagio</strong><span>Administration</span></div>
+          <button className="btn ghost menu-close" onClick={() => setMenuOpen(false)} aria-label="Fermer le menu">✕</button></div>
         <nav>
           {visible.map((p) => (
-            <button key={p.id} className={p.id === current.id ? 'active' : ''} onClick={() => setPage(p.id)}>
+            <button key={p.id} className={p.id === current.id ? 'active' : ''} onClick={() => { setPage(p.id); setMenuOpen(false); }}>
               <span className="nav-icon" aria-hidden>{p.icon}</span>{p.label}
             </button>
           ))}
@@ -95,9 +96,11 @@ export default function App() {
           <span className="server-line" title={session.server}>{session.server}</span>
         </div>
       </aside>
+      {/* Sur téléphone : toucher la zone assombrie referme le menu. */}
+      {menuOpen && <div className="menu-backdrop" onClick={() => setMenuOpen(false)} aria-hidden />}
       <main className="content">
         <header className="topbar">
-          <button className="btn ghost menu-btn" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">☰</button>
+          <button className="btn ghost menu-btn" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu" aria-expanded={menuOpen}>☰</button>
           <h1>{current.label}</h1>
         </header>
         <div className="page">{current.el(admin, setPage)}</div>
