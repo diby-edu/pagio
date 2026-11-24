@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { api, download, fmtBytes, fmtNum } from '../api';
 import { Alert, Card, useFlash } from '../ui';
 import { AlertList, ServerAlert } from './AlertList';
+import { SystemMetrics, Thresholds } from './SystemMetrics';
 
 interface Machine { disk: { total_mb: number; free_mb: number } | null; cpus: number; load: number[]; platform: string; mem_total_mb: number; mem_free_mb: number }
 interface Availability {
@@ -110,6 +111,13 @@ export default function System({ go }: { go?: (page: string) => void }) {
     <div className="stack">
       {flash}
       {s.alerts.length === 0 ? <Alert tone="success">Tout est en ordre : aucun point à surveiller.</Alert> : <AlertList alerts={s.alerts} go={go} />}
+      <SystemMetrics onSaveThresholds={async (t: Partial<Thresholds>) => {
+        try {
+          const cur = await api<{ settings: { monitor: Thresholds } }>('GET', '/api/admin/settings');
+          await api('PUT', '/api/admin/settings', { monitor: { ...cur.settings.monitor, ...t } });
+          show('Réglage enregistré'); load();
+        } catch (e) { show((e as Error).message, 'error'); }
+      }} />
       <div className="grid2">
         <AvailabilityCard av={s.availability} />
         <NotifyDevicesCard show={show} />

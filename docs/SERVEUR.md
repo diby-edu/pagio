@@ -313,3 +313,13 @@ mène à `/app/#/outil/<id>`, les autres à leur page. Mise en ligne du site :
 node server/deploy/site-src/generer.mjs
 tar -cf - -C server/deploy/site . | ssh root@72.62.148.170 "cd /var/www/pagio/site && tar -xf - && chmod -R a+rX ."
 ```
+
+## Mesures du serveur (module Système, depuis le 24/11/2026)
+
+Le gardien (`/root/pagio-gardien.sh`, chaque minute) écrit aussi dans `/var/www/pagio/data/gardien/` :
+`mesures.jsonl` (une ligne par minute, 30 jours : processeur, mémoire, échange, disque, réseau, mémoire et redémarrages du
+conteneur, taille de la base et des sauvegardes, requêtes de pagio.site avec erreurs 4xx/5xx et temps de réponse lus dans
+`/var/log/nginx/pagio-chrono.log`), `sites.json` (toutes les 5 minutes : réponse de chaque site servi par Nginx, en lecture
+seule, admin.pagio.site exclu) et `certificats.json` (tous les certificats de `/etc/letsencrypt/live`, chaque heure).
+Le tableau de bord (*Système*) en tire graphiques 24 h / 7 j / 30 j, disponibilité, prévision « disque plein », état des sites
+et seuils d'alerte réglables (réglage `monitor`). Sauvegarde de l'ancien gardien : `/root/pagio-gardien.sh.bak-mesures`.

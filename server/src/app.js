@@ -929,7 +929,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const b = req.body || {};
     const current = getSettings(db);
     const allowed = ['maintenance', 'maintenance_message', 'announcement', 'announcement_level', 'min_version_code', 'latest_version_name',
-      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup', 'mail', 'google_client_id', 'sales'];
+      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup', 'mail', 'google_client_id', 'sales', 'monitor'];
     const changed = [];
     for (const k of allowed) {
       if (!(k in b)) continue;
@@ -970,6 +970,18 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
         if (/^https?:\/\/admin\./i.test(v.public_url)) return fail(res, 400, "L'adresse publique doit être celle du site ouvert aux utilisateurs (ex. https://pagio.site), pas celle de l'administration");
         if (v.api_key !== current.mail.api_key) setSetting(db, 'mail_key_check', null); // nouvelle clé : nouvelle vérification
         if (v.enabled && (!v.from_email || !(v.api_key || process.env.MAIL_API_KEY))) return fail(res, 400, "Pour activer les e-mails, renseignez la clé Brevo et l'adresse d'expéditeur");
+      }
+      if (k === 'monitor') {
+        const c = { ...current.monitor, ...(v || {}) };
+        const m = current.monitor;
+        v = {
+          disk_warn_pct: int(c.disk_warn_pct, 1, 90, m.disk_warn_pct), disk_crit_pct: int(c.disk_crit_pct, 1, 90, m.disk_crit_pct),
+          mem_warn_pct: int(c.mem_warn_pct, 10, 100, m.mem_warn_pct), cpu_warn_pct: int(c.cpu_warn_pct, 10, 100, m.cpu_warn_pct),
+          rt_warn_ms: int(c.rt_warn_ms, 100, 60000, m.rt_warn_ms), cert_warn_days: int(c.cert_warn_days, 1, 90, m.cert_warn_days),
+          disk_forecast_days: int(c.disk_forecast_days, 1, 365, m.disk_forecast_days),
+          sites_ignored: Array.isArray(c.sites_ignored) ? [...new Set(c.sites_ignored.map((x) => String(x).toLowerCase().slice(0, 253)))].slice(0, 100) : m.sites_ignored,
+        };
+        if (v.disk_crit_pct >= v.disk_warn_pct) return fail(res, 400, "Le seuil critique du disque doit être plus bas que le seuil d'avertissement");
       }
       if (k === 'sales') {
         const c = { ...current.sales, ...(v || {}) };
@@ -1221,7 +1233,8 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       .sort((a, b) => b.debut - a.debut);
     const down = incidents.reduce((n, i) => n + Math.max(0, i.fin - Math.max(i.debut, since)), 0);
     let certificats = [];
-    try { certificats = JSON.parse(read('certificats.json') || '[]').map((c) => ({ ...c, expire: c.expire * 1000, jours: Math.floor((c.expire * 1000 - now) / DAY) })); } catch { /* fichier en cours d'écriture */ }
+    // Certificats de Pagio seulement : ceux des autres sites du VPS sont suivis dans « Sites hébergés » (alerte désactivable).
+    try { certificats = JSON.parse(read('certificats.json') || '[]').filter((c) => /pagio/.test(`${c.domaine} ${c.noms || ''}`)).map((c) => ({ ...c, expire: c.expire * 1000, jours: Math.floor((c.expire * 1000 - now) / DAY) })); } catch { /* fichier en cours d'écriture */ }
     const last = Number(read('derniere-verification')) * 1000 || 0;
     return { incidents, disponibilite_30j: Math.round((1 - down / (30 * DAY)) * 10000) / 100, derniere_verification: last, gardien_actif: now - last < 10 * 60_000, certificats };
   }
@@ -1233,12 +1246,28 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const out = [];
     const add = (level, code, message, page) => out.push({ level, code, message, page });
     const now = Date.now();
+    const mon = s.monitor;
     if (m.disk && m.disk.total_mb > 0) {
       const pct = Math.round((m.disk.free_mb / m.disk.total_mb) * 100);
-      if (pct < 10 || m.disk.free_mb < 500) add('critical', 'disk', `Disque presque plein : ${pct} % libre (${m.disk.free_mb} Mo). Le serveur s'arrêtera s'il est saturé.`, 'system');
-      else if (pct < 20) add('warning', 'disk', `Espace disque faible : ${pct} % libre.`, 'system');
+      if (pct < mon.disk_crit_pct || m.disk.free_mb < 500) add('critical', 'disk', `Disque presque plein : ${pct} % libre (${m.disk.free_mb} Mo). Le serveur s'arrêtera s'il est saturé.`, 'system');
+      else if (pct < mon.disk_warn_pct) add('warning', 'disk', `Espace disque faible : ${pct} % libre.`, 'system');
     }
-    if (m.mem_total_mb > 0 && m.mem_free_mb / m.mem_total_mb < 0.08) add('warning', 'memory', `Mémoire presque saturée : ${m.mem_free_mb} Mo libres sur ${m.mem_total_mb} Mo.`, 'system');
+    // Mesures du gardien (15 dernières minutes) : mémoire réelle du VPS, processeur, temps de réponse.
+    const recent = mesures().filter((r) => r.t * 1000 >= now - 15 * 60_000);
+    if (recent.length >= 5) {
+      const memPct = Math.round(recent.reduce((n, r) => n + (r.mem_total ? ((r.mem_total - r.mem_dispo) / r.mem_total) * 100 : 0), 0) / recent.length);
+      const cpu = Math.round(recent.reduce((n, r) => n + r.cpu, 0) / recent.length);
+      const t95 = Math.max(...recent.map((r) => r.t95));
+      if (memPct >= mon.mem_warn_pct) add('warning', 'memory', `Mémoire du serveur occupée à ${memPct} % depuis 15 minutes.`, 'system');
+      if (cpu >= mon.cpu_warn_pct) add('warning', 'cpu', `Processeur occupé à ${cpu} % en moyenne depuis 15 minutes.`, 'system');
+      if (t95 >= mon.rt_warn_ms) add('warning', 'slow', `Pagio répond lentement : jusqu'à ${(t95 / 1000).toLocaleString('fr-FR')} s sur les 15 dernières minutes.`, 'system');
+    } else if (m.mem_total_mb > 0 && m.mem_free_mb / m.mem_total_mb < 0.08) add('warning', 'memory', `Mémoire presque saturée : ${m.mem_free_mb} Mo libres sur ${m.mem_total_mb} Mo.`, 'system');
+    const fc = diskForecast(mesures());
+    if (fc && fc.days_to_full !== null && fc.days_to_full <= mon.disk_forecast_days) add('warning', 'disk_forecast', `Au rythme actuel (${fc.mb_per_day} Mo par jour), le disque sera plein dans ${fc.days_to_full} jour(s).`, 'system');
+    const down = sites(now).filter((x) => !x.ok && !x.ignore);
+    if (down.length) add('warning', 'sites', `${down.length} site(s) du serveur ne répondent pas : ${down.map((x) => x.domaine).join(', ')}.`, 'system');
+    const certs = sites(now).filter((x) => !x.ignore && x.cert_jours !== null && x.cert_jours < mon.cert_warn_days);
+    if (certs.length) add('warning', 'sites_cert', `Certificat HTTPS bientôt expiré : ${certs.map((x) => `${x.domaine} (${x.cert_jours} j)`).join(', ')}.`, 'system');
     if (s.ai.key_error) add('critical', 'ai_key', "La clé d'IA ne peut plus être déchiffrée : saisissez-la de nouveau.", 'ai');
     else if (s.ai.enabled && !aiConfig(s).api_key && !s.ai.base_url) add('warning', 'ai_key', "L'IA est activée mais aucune clé d'API n'est enregistrée.", 'ai');
     if (s.mail.key_error) add('critical', 'mail_key', 'La clé Brevo ne peut plus être déchiffrée : saisissez-la de nouveau.', 'mail');
@@ -1363,6 +1392,114 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (JSON.stringify(next) !== JSON.stringify(state)) setSetting(db, 'mail_alert_state', next);
     return due.length;
   };
+
+  // ------------------------------------------------------------- Mesures du VPS (relevées chaque minute par le gardien)
+  // Fichier data/gardien/mesures.jsonl : une ligne par minute (30 jours). Relu seulement s'il a changé.
+  let mesuresCache = { mtime: 0, size: 0, rows: [] };
+  function mesures() {
+    const f = dataDir && path.join(dataDir, 'gardien', 'mesures.jsonl');
+    if (!f || !fs.existsSync(f)) return [];
+    const st = fs.statSync(f);
+    if (st.mtimeMs !== mesuresCache.mtime || st.size !== mesuresCache.size) {
+      const rows = [];
+      for (const l of fs.readFileSync(f, 'utf8').split('\n')) {
+        if (!l) continue;
+        try { const r = JSON.parse(l); if (r && r.t) rows.push(r); } catch { /* ligne en cours d'écriture */ }
+      }
+      mesuresCache = { mtime: st.mtimeMs, size: st.size, rows };
+    }
+    return mesuresCache.rows;
+  }
+  const RANGES = { '24h': { ms: DAY, step: 5 * 60_000 }, '7d': { ms: 7 * DAY, step: HOUR }, '30d': { ms: 30 * DAY, step: 6 * HOUR } };
+
+  /** Disponibilité de Pagio sur une période, d'après les pannes notées par le gardien (null si le gardien est absent). */
+  function uptime(days, now = Date.now()) {
+    const av = availability(now);
+    if (!av) return null;
+    const since = now - days * DAY;
+    const down = av.incidents.reduce((n, i) => n + Math.max(0, i.fin - Math.max(i.debut, since)), 0);
+    return Math.round((1 - down / (days * DAY)) * 10000) / 100;
+  }
+
+  /** Prévision : jours avant que le disque soit plein, au rythme des 7 derniers jours (régression linéaire). null si stable. */
+  function diskForecast(rows) {
+    const last = rows[rows.length - 1];
+    const recent = rows.filter((r) => r.t * 1000 >= Date.now() - 7 * DAY && r.disque_total > 0);
+    if (!last || recent.length < 60) return null;
+    const n = recent.length;
+    const xs = recent.map((r) => r.t / 86400); const ys = recent.map((r) => r.disque_utilise);
+    const mx = xs.reduce((a, b) => a + b, 0) / n; const my = ys.reduce((a, b) => a + b, 0) / n;
+    let num = 0; let den = 0;
+    for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2; }
+    const perDay = den ? num / den : 0; // Mo par jour
+    if (perDay <= 1) return { mb_per_day: Math.round(perDay * 10) / 10, days_to_full: null };
+    return { mb_per_day: Math.round(perDay * 10) / 10, days_to_full: Math.floor((last.disque_total - last.disque_utilise) / perDay) };
+  }
+
+  /** Autres sites du VPS (vérifiés toutes les 5 minutes) avec les jours restants de leur certificat HTTPS. */
+  function sites(now = Date.now()) {
+    const dir = dataDir && path.join(dataDir, 'gardien');
+    if (!dir) return [];
+    let list = []; let certs = [];
+    try { list = JSON.parse(fs.readFileSync(path.join(dir, 'sites.json'), 'utf8')); } catch { /* pas encore vérifiés */ }
+    try { certs = JSON.parse(fs.readFileSync(path.join(dir, 'certificats.json'), 'utf8')); } catch { /* pas encore relevés */ }
+    const ignored = new Set(getSettings(db).monitor.sites_ignored || []);
+    return list.map((s) => {
+      const c = certs.find((x) => x.domaine === s.domaine || String(x.noms || '').split(' ').includes(s.domaine));
+      return { domaine: s.domaine, code: s.code, ms: s.ms, ok: s.code >= 200 && s.code < 400, verifie: s.verifie * 1000,
+        cert_jours: c ? Math.floor((c.expire * 1000 - now) / DAY) : null, ignore: ignored.has(s.domaine) };
+    });
+  }
+
+  app.get('/api/admin/system/metrics', adminAuth('admin'), (req, res) => {
+    const range = RANGES[req.query.range] ? String(req.query.range) : '24h';
+    const { ms, step } = RANGES[range];
+    const now = Date.now();
+    const all = mesures();
+    const rows = all.filter((r) => r.t * 1000 >= now - ms);
+    // Regroupement par tranche : moyennes (et maximum pour le processeur et le 95e centile), sommes pour le trafic.
+    const buckets = new Map();
+    for (const r of rows) {
+      const k = Math.floor((r.t * 1000) / step) * step;
+      const b = buckets.get(k) || { t: k, n: 0, cpu: 0, cpu_max: 0, mem: 0, swap: 0, disk: 0, rx: 0, tx: 0, pagio_mem: 0, req: 0, r4xx: 0, r5xx: 0, tsum: 0, t95: 0, ok: 0 };
+      b.n++; b.cpu += r.cpu; b.cpu_max = Math.max(b.cpu_max, r.cpu);
+      b.mem += r.mem_total ? ((r.mem_total - r.mem_dispo) / r.mem_total) * 100 : 0;
+      b.swap += Math.max(0, r.swap_total - r.swap_libre); b.disk += r.disque_utilise;
+      b.rx += r.rx; b.tx += r.tx; b.pagio_mem += r.pagio_mem;
+      b.req += r.req; b.r4xx += r.r4xx; b.r5xx += r.r5xx; b.tsum += r.tmoy * r.req; b.t95 = Math.max(b.t95, r.t95); b.ok += r.ok ? 1 : 0;
+      buckets.set(k, b);
+    }
+    const series = [...buckets.values()].sort((a, b) => a.t - b.t).map((b) => ({
+      t: b.t, cpu: Math.round(b.cpu / b.n), cpu_max: b.cpu_max, mem_pct: Math.round(b.mem / b.n), swap_mb: Math.round(b.swap / b.n),
+      disk_mb: Math.round(b.disk / b.n), rx_mb: Math.round((b.rx / 1048576) * 10) / 10, tx_mb: Math.round((b.tx / 1048576) * 10) / 10,
+      pagio_mem_mb: Math.round(b.pagio_mem / b.n), req: b.req, r4xx: b.r4xx, r5xx: b.r5xx,
+      t_moy_ms: b.req ? Math.round(b.tsum / b.req) : 0, t95_ms: b.t95, ok_pct: Math.round((b.ok / b.n) * 1000) / 10,
+    }));
+    const last = all[all.length - 1] || null;
+    const reqs = rows.reduce((n, r) => n + r.req, 0);
+    ok(res, {
+      range, step_ms: step, samples: rows.length, series,
+      current: last && {
+        t: last.t * 1000, cpu: last.cpu, load: last.charge, mem_total_mb: last.mem_total, mem_used_mb: last.mem_total - last.mem_dispo,
+        swap_total_mb: last.swap_total, swap_used_mb: Math.max(0, last.swap_total - last.swap_libre), disk_total_mb: last.disque_total,
+        disk_used_mb: last.disque_utilise, pagio_mem_mb: last.pagio_mem, pagio_limit_mb: last.pagio_limite, restarts: last.redemarrages,
+        db_mb: last.base, backups_mb: last.sauvegardes,
+      },
+      summary: {
+        cpu_avg: rows.length ? Math.round(rows.reduce((n, r) => n + r.cpu, 0) / rows.length) : 0,
+        cpu_max: rows.reduce((m, r) => Math.max(m, r.cpu), 0),
+        requests: reqs, r4xx: rows.reduce((n, r) => n + r.r4xx, 0), r5xx: rows.reduce((n, r) => n + r.r5xx, 0),
+        t_moy_ms: reqs ? Math.round(rows.reduce((n, r) => n + r.tmoy * r.req, 0) / reqs) : 0,
+        t95_ms: rows.reduce((m, r) => Math.max(m, r.t95), 0),
+        rx_mb: Math.round(rows.reduce((n, r) => n + r.rx, 0) / 1048576), tx_mb: Math.round(rows.reduce((n, r) => n + r.tx, 0) / 1048576),
+        restarts: rows.length ? Math.max(0, rows[rows.length - 1].redemarrages - rows[0].redemarrages) : 0,
+      },
+      uptime: { '24h': uptime(1, now), '7d': uptime(7, now), '30d': uptime(30, now) },
+      disk_forecast: diskForecast(all),
+      sites: sites(now),
+      thresholds: getSettings(db).monitor,
+    });
+  });
 
   app.get('/api/admin/system', adminAuth('admin'), (req, res) => {
     const file = db.prepare('PRAGMA database_list').all()[0]?.file;

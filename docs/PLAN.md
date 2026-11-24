@@ -41,12 +41,12 @@ renouveler les certificats expirés de vos **autres sites** (`numerik360.com`, `
 - [x] **Assistant IA réservé au Premium** (case « Premium seulement » de l'outil).
 
 ### Étape 1 bis — Module Système plus complet (demandé le 24/11/2026)
-- [ ] **Graphiques sur 24 h / 7 j / 30 j** : processeur, mémoire, disque, réseau (entrant / sortant) du VPS.
-- [ ] **Temps de réponse** de pagio.site et nombre de requêtes par heure (journal Nginx), erreurs 4xx / 5xx.
-- [ ] **Disponibilité en %** (jour, semaine, mois) d'après le gardien, liste des pannes avec durée.
-- [ ] **Conteneur Pagio** : redémarrages, mémoire utilisée vs limite (1 200 Mo), taille de la base et des sauvegardes.
-- [ ] **Autres sites du VPS** : état de chacun (répond / ne répond pas), certificats et jours restants.
-- [ ] Prévision : « disque plein dans N jours » au rythme actuel ; seuils d'alerte réglables.
+- [x] **Graphiques sur 24 h / 7 j / 30 j** : processeur, mémoire, disque, réseau (entrant / sortant) du VPS.
+- [x] **Temps de réponse** de pagio.site et nombre de requêtes par heure (journal Nginx), erreurs 4xx / 5xx.
+- [x] **Disponibilité en %** (jour, semaine, mois) d'après le gardien, liste des pannes avec durée.
+- [x] **Conteneur Pagio** : redémarrages, mémoire utilisée vs limite (1 200 Mo), taille de la base et des sauvegardes.
+- [x] **Autres sites du VPS** : état de chacun (répond / ne répond pas), certificats et jours restants.
+- [x] Prévision : « disque plein dans N jours » au rythme actuel ; seuils d'alerte réglables.
 
 ### Étape 1 ter — Tableau de bord « complet » (demandé le 24/11/2026)
 Statistiques très détaillées (le plus de données possible, sans le contenu des documents) :
