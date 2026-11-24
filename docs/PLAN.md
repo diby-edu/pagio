@@ -60,8 +60,6 @@ Statistiques très détaillées (le plus de données possible, sans le contenu d
       marge.
 - [ ] Filtres partout (période, pays, version, offre), **export CSV / Excel**, **rapport hebdomadaire par e-mail**.
 Gestion complète :
-- [ ] **Notifications push** aux utilisateurs (tous, un pays, gratuits, Premium, une version…), programmées, avec statistiques
-      d'ouverture (voir « Notifications de l'application » ci-dessous).
 - [ ] **Codes promo** (remise, Premium offert N jours, nombre d'utilisations), **parrainage**.
 - [ ] **Campagnes e-mail** aux utilisateurs (Brevo), avec désinscription.
 - [ ] **Support** : répondre aux messages depuis le tableau de bord (réponse envoyée par e-mail), statuts, modèles de réponse.
@@ -70,16 +68,24 @@ Gestion complète :
 - [ ] **Sécurité** : historique des connexions, activités suspectes, blocage d'adresses IP, demandes RGPD (export / suppression).
 - [ ] **Recherche globale** (utilisateur, paiement, message), **droits fins** par rôle.
 
-### Notifications de l'application (Firebase) — demandé le 24/11/2026
-- [ ] Vous : **console.firebase.google.com** → ajouter Firebase au projet Google Cloud existant `pagio-515720` (compte kodybusiness),
-      puis ajouter l'application Android `com.pagio.app` (empreinte SHA-1 dans `docs/GOOGLE.md`) → je récupère `google-services.json`.
-- [ ] Moi : réception des notifications dans l'application (avec autorisation demandée à l'utilisateur), clé de service côté
-      serveur (Firebase Cloud Messaging, gratuit), envoi depuis le tableau de bord, liens qui ouvrent un outil ou une offre.
+### Notifications de l'APK admin par Firebase (demandé le 24/11/2026)
+Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seulement à **Pagio Admin**.
+- [ ] Aujourd'hui, Pagio Admin vérifie toutes les 15 minutes (et Android peut retarder). Avec Firebase, l'alerte arrive
+      **en quelques secondes** : panne, nouveau message d'utilisateur, nouveau paiement, nouvel abonné Premium, plafond IA proche.
+- [ ] Vous : **console.firebase.google.com** → ajouter Firebase au projet `pagio-515720` (compte kodybusiness), application
+      Android `com.pagio.admin` → je récupère `google-services.json`.
+- [ ] Moi : réception dans Pagio Admin, envoi par le serveur (Firebase Cloud Messaging, gratuit), choix des alertes dans le
+      tableau de bord ; la vérification toutes les 15 minutes reste en secours.
 
 ### Étape 2 — Page d'accueil, référencement, statistiques
 - [ ] Section **Tarifs** sur pagio.site : 3 offres en cartes, avantages Gratuit / Premium, prix lus dans l'administration.
-- [ ] **Nombre d'outils calculé automatiquement** (on dépasse 36).
-- [ ] **Une page par outil** (FR/EN), ex. `pagio.site/pdf-en-word/` : explication + « Faire en ligne » ou « Avec l'application ».
+- [ ] **Liste des outils mise à jour** : l'application en compte **40** aujourd'hui (le site en annonce 36), plus les nouveaux
+      (carte d'identité, dossier de candidature, modèles) ; **nombre calculé automatiquement** à partir de la liste du serveur.
+- [ ] **Une page par outil** (FR/EN), ex. `pagio.site/pdf-en-word/` : présentation **explicite mais brève** (à quoi il sert,
+      3 étapes, gratuit ou Premium, sur téléphone et/ou en ligne), bouton « Utiliser maintenant » ou « Avec l'application ».
+- [ ] **Référencement de chaque page** : mots-clés recherchés (ex. « convertir PDF en Word gratuit », « fusionner PDF en ligne »,
+      « compresser PDF moins de 1 Mo »), titre et description uniques, adresse lisible, petite FAQ (questions réellement posées
+      sur Google), données structurées, liens entre outils proches, version anglaise, images légères avec texte alternatif.
 - [ ] **Menu simplifié** : « Outils » et « Outils en ligne » fusionnés en un seul **« Outils »** ; sur la page d'accueil, **chaque
       outil est cliquable** et ouvre directement l'outil dans le navigateur (ou sa page « avec l'application » s'il n'est pas
       encore en ligne, et le scanner).
