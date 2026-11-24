@@ -4,7 +4,7 @@ import { BarChart, Card, Empty, Field, Kpi, Toggle } from '../ui';
 
 export interface Thresholds {
   disk_warn_pct: number; disk_crit_pct: number; mem_warn_pct: number; cpu_warn_pct: number; rt_warn_ms: number;
-  cert_warn_days: number; disk_forecast_days: number; sites_ignored: string[];
+  cert_warn_days: number; disk_forecast_days: number; sites_ignored: string[]; other_sites_alerts: boolean;
 }
 interface Point {
   t: number; cpu: number; cpu_max: number; mem_pct: number; swap_mb: number; disk_mb: number; rx_mb: number; tx_mb: number;
@@ -77,7 +77,8 @@ export function SystemMetrics({ onSaveThresholds }: { onSaveThresholds: (t: Part
         <Card title="Disque utilisé (Mo)"><BarChart data={series('disk_mb')} color="#FF7A66" /></Card>
       </div>
       <div className="grid2">
-        <SitesCard sites={m.sites} ignored={th.sites_ignored} onSave={async (list) => { await onSaveThresholds({ sites_ignored: list }); load(); }} />
+        <SitesCard sites={m.sites} ignored={th.sites_ignored} others={th.other_sites_alerts}
+          onSave={async (t) => { await onSaveThresholds(t); load(); }} />
         <ThresholdsCard th={th} onSave={async (t) => { await onSaveThresholds(t); load(); }} />
       </div>
     </>
@@ -85,21 +86,26 @@ export function SystemMetrics({ onSaveThresholds }: { onSaveThresholds: (t: Part
 }
 
 /** Autres sites hébergés sur le VPS : réponse et certificat. « Surveiller » décoché = plus d'alerte pour ce site. */
-function SitesCard({ sites, ignored, onSave }: { sites: Site[]; ignored: string[]; onSave: (list: string[]) => Promise<void> }) {
+function SitesCard({ sites, ignored, others, onSave }: { sites: Site[]; ignored: string[]; others: boolean; onSave: (t: Partial<Thresholds>) => Promise<void> }) {
+  const isPagio = (d: string) => /pagio/.test(d);
   return (
     <Card title="Sites hébergés sur le serveur">
+      <Toggle checked={others} onChange={(v) => onSave({ other_sites_alerts: v })} label="Alertes aussi pour les autres sites (sinon seulement Pagio)" />
       {sites.length === 0 ? <Empty>Pas encore vérifiés (toutes les 5 minutes).</Empty> :
-        <div className="table-wrap"><table className="table small"><thead><tr><th>Site</th><th>État</th><th>Réponse</th><th>Certificat</th><th>Surveiller</th></tr></thead><tbody>
+        <div className="table-wrap"><table className="table small"><thead><tr><th>Site</th><th>État</th><th>Réponse</th><th>Certificat</th><th>Alertes</th></tr></thead><tbody>
           {sites.map((x) => (
             <tr key={x.domaine} style={x.ignore ? { opacity: 0.55 } : undefined}>
               <td><a href={`https://${x.domaine}/`} target="_blank" rel="noreferrer">{x.domaine}</a></td>
               <td>{x.ok ? <span style={{ color: '#14A37F' }}>✔ répond ({x.code})</span> : <span style={{ color: '#E5484D' }}>✘ {x.code ? `erreur ${x.code}` : 'injoignable'}</span>}</td>
               <td>{x.ok ? sec(x.ms) : '—'}</td>
               <td style={{ color: x.cert_jours !== null && x.cert_jours < 14 ? '#E5484D' : undefined }}>{x.cert_jours === null ? '—' : x.cert_jours < 0 ? 'expiré' : `${x.cert_jours} j`}</td>
-              <td><Toggle checked={!x.ignore} onChange={(v) => onSave(v ? ignored.filter((d) => d !== x.domaine) : [...ignored, x.domaine])} /></td>
+              <td>{isPagio(x.domaine) || others
+                ? <Toggle checked={!x.ignore} onChange={(v) => onSave({ sites_ignored: v ? ignored.filter((d) => d !== x.domaine) : [...ignored, x.domaine] })} />
+                : <span className="muted small">affichage seul</span>}</td>
             </tr>))}
         </tbody></table></div>}
-      <p className="muted small">Vérifiés toutes les 5 minutes, en lecture seule : Pagio ne modifie jamais ces sites.</p>
+      <p className="muted small">Vérifiés toutes les 5 minutes, en lecture seule : Pagio ne modifie jamais ces sites. Les alertes portent sur Pagio ;
+        les autres sites restent affichés ici pour information.</p>
     </Card>
   );
 }

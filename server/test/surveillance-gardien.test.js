@@ -110,7 +110,11 @@ test('mesures du VPS : graphiques regroupés, disponibilité, prévision du disq
     assert.equal(r.sites.find((x) => x.domaine === 'wazzapai.com').cert_jours, 4);
     assert.equal((await call('GET', '/api/admin/system/metrics?range=7d', null, owner)).json.series.length > 150, true);
 
+    // Par défaut : alertes seulement pour Pagio, pas pour les autres sites du VPS
     let alerts = (await call('GET', '/api/admin/alerts', null, owner)).json.alerts;
+    assert.ok(!alerts.some((a) => ['sites', 'sites_cert'].includes(a.code)));
+    await call('PUT', '/api/admin/settings', { monitor: { other_sites_alerts: true } }, owner);
+    alerts = (await call('GET', '/api/admin/alerts', null, owner)).json.alerts;
     assert.ok(alerts.some((a) => a.code === 'disk_forecast'));
     assert.ok(alerts.some((a) => a.code === 'slow'));
     assert.ok(alerts.some((a) => a.code === 'sites' && /ancien\.exemple/.test(a.message)));

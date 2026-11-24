@@ -979,6 +979,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
           mem_warn_pct: int(c.mem_warn_pct, 10, 100, m.mem_warn_pct), cpu_warn_pct: int(c.cpu_warn_pct, 10, 100, m.cpu_warn_pct),
           rt_warn_ms: int(c.rt_warn_ms, 100, 60000, m.rt_warn_ms), cert_warn_days: int(c.cert_warn_days, 1, 90, m.cert_warn_days),
           disk_forecast_days: int(c.disk_forecast_days, 1, 365, m.disk_forecast_days),
+          other_sites_alerts: !!c.other_sites_alerts,
           sites_ignored: Array.isArray(c.sites_ignored) ? [...new Set(c.sites_ignored.map((x) => String(x).toLowerCase().slice(0, 253)))].slice(0, 100) : m.sites_ignored,
         };
         if (v.disk_crit_pct >= v.disk_warn_pct) return fail(res, 400, "Le seuil critique du disque doit être plus bas que le seuil d'avertissement");
@@ -1264,9 +1265,11 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     } else if (m.mem_total_mb > 0 && m.mem_free_mb / m.mem_total_mb < 0.08) add('warning', 'memory', `Mémoire presque saturée : ${m.mem_free_mb} Mo libres sur ${m.mem_total_mb} Mo.`, 'system');
     const fc = diskForecast(mesures());
     if (fc && fc.days_to_full !== null && fc.days_to_full <= mon.disk_forecast_days) add('warning', 'disk_forecast', `Au rythme actuel (${fc.mb_per_day} Mo par jour), le disque sera plein dans ${fc.days_to_full} jour(s).`, 'system');
-    const down = sites(now).filter((x) => !x.ok && !x.ignore);
+    // Par défaut, seulement les adresses de Pagio ; les autres sites du VPS restent visibles dans le module Système.
+    const watched = sites(now).filter((x) => !x.ignore && (mon.other_sites_alerts || /pagio/.test(x.domaine)));
+    const down = watched.filter((x) => !x.ok);
     if (down.length) add('warning', 'sites', `${down.length} site(s) du serveur ne répondent pas : ${down.map((x) => x.domaine).join(', ')}.`, 'system');
-    const certs = sites(now).filter((x) => !x.ignore && x.cert_jours !== null && x.cert_jours < mon.cert_warn_days);
+    const certs = watched.filter((x) => x.cert_jours !== null && x.cert_jours < mon.cert_warn_days);
     if (certs.length) add('warning', 'sites_cert', `Certificat HTTPS bientôt expiré : ${certs.map((x) => `${x.domaine} (${x.cert_jours} j)`).join(', ')}.`, 'system');
     if (s.ai.key_error) add('critical', 'ai_key', "La clé d'IA ne peut plus être déchiffrée : saisissez-la de nouveau.", 'ai');
     else if (s.ai.enabled && !aiConfig(s).api_key && !s.ai.base_url) add('warning', 'ai_key', "L'IA est activée mais aucune clé d'API n'est enregistrée.", 'ai');

@@ -56,8 +56,9 @@ export const DEFAULT_SETTINGS = {
   // Tarifs (décidés le 23/11/2026), en francs CFA. Les crédits IA inclus chaque mois sont ceux de l'offre Premium (plans.premium.ai_credits).
   // play_markup_pct : majoration des prix saisis dans Google Play (Google prélève 15 %). Coût de l'IA : prix du fournisseur en
   // dollars par million de jetons (environ 4 caractères par jeton) et taux du dollar en francs CFA.
-  // Seuils d'alerte du module Système (réglables) ; sites_ignored : sites du VPS à ne plus signaler.
-  monitor: { disk_warn_pct: 20, disk_crit_pct: 10, mem_warn_pct: 90, cpu_warn_pct: 85, rt_warn_ms: 1500, cert_warn_days: 14, disk_forecast_days: 30, sites_ignored: [] },
+  // Seuils d'alerte du module Système (réglables). other_sites_alerts : alertes aussi pour les autres sites du VPS (sinon
+  // seulement Pagio) ; sites_ignored : sites à ne plus signaler quand ces alertes sont activées.
+  monitor: { disk_warn_pct: 20, disk_crit_pct: 10, mem_warn_pct: 90, cpu_warn_pct: 85, rt_warn_ms: 1500, cert_warn_days: 14, disk_forecast_days: 30, sites_ignored: [], other_sites_alerts: false },
   sales: {
     price_week: 1000, price_month: 3000, price_year: 30000,
     ai_pack_credits: 100, ai_pack_price: 1000,
