@@ -89,7 +89,7 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
 - [x] **Menu simplifié** : « Outils » et « Outils en ligne » fusionnés en un seul **« Outils »** ; sur la page d'accueil, **chaque
       outil est cliquable** et ouvre directement l'outil dans le navigateur (ou sa page « avec l'application » s'il n'est pas
       encore en ligne, et le scanner).
-- [ ] SEO technique : `sitemap.xml`, `robots.txt`, données structurées (application), versions FR/EN déclarées, titres et descriptions.
+- [x] SEO technique : `sitemap.xml`, `robots.txt`, données structurées (application), versions FR/EN déclarées, titres et descriptions.
 - [ ] **Google Search Console** (après A10) et **Google Analytics** (identifiant réglable, après A11), en mode « sans cookies tant
       que la personne n'a pas accepté », petit bandeau discret.
 - [ ] **Statistiques intégrées** au tableau de bord, sans cookies : visites, pages, pays, provenance, outils les plus utilisés.
@@ -97,7 +97,7 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
 ### Étape 3 — Version 2.1.0 de l'application
 - [ ] **Animation du logo** à chaque ouverture (moins d'une seconde) + **3 à 4 écrans de présentation** au premier lancement
       (avec « Passer »).
-- [ ] Après votre essai (A1) : **publication** de la 2.1.0 (`publier-apk.sh`, bouton du site).
+- [x] Après votre essai (A1) : **publication** de la 2.1.0 (`publier-apk.sh`, bouton du site).
 
 ### Étape 4 — Tous les outils en ligne (sauf le scanner, réservé au téléphone)
 - [ ] **Vague 1, dans le navigateur** : diviser, réorganiser (miniatures), extraire le texte, PDF en images, extraire les images,
