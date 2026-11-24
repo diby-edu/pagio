@@ -55,6 +55,9 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; margin: 2px
 .sidebar nav button { font: inherit; font-size: 14px; text-align: left; color: inherit; background: none; border: 0; border-radius: 10px; padding: 10px 12px; cursor: pointer; display: flex; gap: 10px; align-items: center; }
 .sidebar nav button:hover { background: rgba(255,255,255,.06); }
 .sidebar nav button.active { background: var(--indigo); color: #fff; }
+.nav-group { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+.sidebar nav .nav-group-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; opacity: .6; padding: 6px 12px; justify-content: space-between; }
+.sidebar nav .nav-group-title:hover { opacity: .9; }
 .nav-icon { width: 18px; text-align: center; opacity: .85; }
 .sidebar-foot { border-top: 1px solid rgba(255,255,255,.1); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .sidebar-foot .btn { color: #d9d9ec; align-self: flex-start; }

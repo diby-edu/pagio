@@ -23,7 +23,7 @@ export default function Events() {
       </select>
       <Toggle checked={errors} onChange={(v) => { setErrors(v); setOffset(0); }} label="Erreurs seulement" />
     </>}>
-      <p className="muted small">Données anonymes envoyées par les appareils qui l'ont accepté. Le contenu des documents n'est jamais transmis.</p>
+      <p className="muted small">Statistiques d'usage envoyées par les appareils qui l'ont accepté, liées au compte quand l'utilisateur est connecté. Le contenu des documents n'est jamais transmis.</p>
       {!data ? <div className="muted">Chargement…</div> : data.events.length === 0 ? <Empty>Aucun événement.</Empty> : (
         <div className="table-wrap"><table className="table small">
           <thead><tr><th>Date</th><th>Événement</th><th>Outil</th><th>Résultat</th><th>Version</th><th>Appareil</th><th>Détails</th></tr></thead>

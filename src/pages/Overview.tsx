@@ -28,7 +28,7 @@ export default function Overview({ go }: { go?: (page: string) => void }) {
       <div className="kpis">
         <Kpi label="Utilisateurs inscrits" value={fmtNum(s.users.total)} hint={`+${s.users.new_period} sur la période`} />
         <Kpi label="Comptes Premium" value={fmtNum(s.users.premium)} hint={s.users.total ? `${Math.round((s.users.premium / s.users.total) * 100)} % des comptes` : '—'} tone="coral" />
-        <Kpi label="Appareils actifs" value={fmtNum(s.devices_period)} hint="statistiques anonymes acceptées" tone="teal" />
+        <Kpi label="Appareils actifs" value={fmtNum(s.devices_period)} hint="statistiques d'usage acceptées" tone="teal" />
         <Kpi label="Traitements" value={fmtNum(s.tasks_period)} hint={`${errRate} % d'erreurs`} tone={errRate > 5 ? 'red' : 'indigo'} />
         <Kpi label="Requêtes IA" value={fmtNum(s.ai_requests_period)} hint={`${fmtNum(s.ai_credits_period)} crédits consommés`} tone="violet" />
         <Kpi label="Conversions serveur" value={fmtNum(s.conversions_period)} hint={`${s.feedback_open} avis à traiter`} tone="amber" />
@@ -39,7 +39,7 @@ export default function Overview({ go }: { go?: (page: string) => void }) {
       </div>
       <div className="grid2">
         <Card title="Outils les plus utilisés">
-          {s.by_tool.length === 0 ? <Empty>Aucun traitement reçu. Les statistiques arrivent quand des utilisateurs acceptent l'envoi anonyme.</Empty> :
+          {s.by_tool.length === 0 ? <Empty>Aucun traitement reçu. Les statistiques arrivent quand des utilisateurs acceptent les statistiques d'usage.</Empty> :
             <div className="bars">{s.by_tool.slice(0, 12).map((t) => (
               <div key={t.tool} className="bar-row">
                 <span className="bar-label">{TOOL_LABELS[t.tool] ?? t.tool}</span>

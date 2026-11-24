@@ -20,27 +20,40 @@ import AiUsage from './pages/AiUsage';
 import Mail from './pages/Mail';
 
 type Go = (page: string) => void;
-type Page = { id: string; label: string; icon: string; min: Admin['role']; el: (a: Admin, go: Go) => JSX.Element };
+type Page = { id: string; label: string; icon: string; group: string; min: Admin['role']; el: (a: Admin, go: Go) => JSX.Element };
 const RANK = { support: 1, admin: 2, owner: 3 } as const;
+/** Catégories du menu, dans l'ordre d'affichage (la page sans catégorie reste tout en haut). */
+const GROUPS: { id: string; label: string }[] = [
+  { id: 'clients', label: 'Utilisateurs et ventes' },
+  { id: 'appli', label: 'Application et outils' },
+  { id: 'ia', label: 'Intelligence artificielle' },
+  { id: 'suivi', label: 'Suivi et journaux' },
+  { id: 'serveur', label: 'Serveur' },
+  { id: 'securite', label: 'Administrateurs et sécurité' },
+];
+const FOLD_KEY = 'pagio-admin-menu-replie';
+function readFolded(): string[] {
+  try { return JSON.parse(localStorage.getItem(FOLD_KEY) || '[]'); } catch { return []; }
+}
 
 const PAGES: Page[] = [
-  { id: 'overview', label: "Vue d'ensemble", icon: '◧', min: 'support', el: (_a, go) => <Overview go={go} /> },
-  { id: 'users', label: 'Utilisateurs', icon: '◉', min: 'support', el: (a) => <Users admin={a} /> },
-  { id: 'tools', label: 'Outils et limites', icon: '▦', min: 'support', el: (a) => <Tools admin={a} /> },
-  { id: 'plans', label: 'Offres et crédits', icon: '★', min: 'admin', el: () => <Plans /> },
-  { id: 'ai', label: 'Intelligence artificielle', icon: '✦', min: 'admin', el: () => <AiSettings /> },
-  { id: 'aiusage', label: 'Consommation IA', icon: '◔', min: 'support', el: () => <AiUsage /> },
-  { id: 'conversions', label: 'Conversions', icon: '⇄', min: 'support', el: () => <Conversions /> },
-  { id: 'app', label: "Pilotage de l'application", icon: '⚙', min: 'admin', el: () => <AppControl /> },
-  { id: 'mail', label: 'E-mails', icon: '@', min: 'admin', el: (a) => <Mail admin={a} /> },
-  { id: 'feedback', label: 'Avis et support', icon: '✉', min: 'support', el: () => <Feedback /> },
-  { id: 'events', label: 'Événements', icon: '≡', min: 'support', el: () => <Events /> },
-  { id: 'errors', label: 'Erreurs du serveur', icon: '⚠', min: 'admin', el: (a) => <Errors admin={a} /> },
-  { id: 'audit', label: "Journal d'audit", icon: '⌂', min: 'admin', el: () => <Audit /> },
-  { id: 'admins', label: 'Administrateurs', icon: '⚑', min: 'owner', el: (a) => <Admins admin={a} /> },
-  { id: 'backups', label: 'Sauvegardes', icon: '⛃', min: 'admin', el: (a) => <Backups admin={a} /> },
-  { id: 'system', label: 'Système', icon: '⛁', min: 'admin', el: (_a, go) => <System go={go} /> },
-  { id: 'account', label: 'Mon compte et sécurité', icon: '☺', min: 'support', el: (a) => <Account admin={a} /> },
+  { id: 'overview', label: "Vue d'ensemble", icon: '◧', group: '', min: 'support', el: (_a, go) => <Overview go={go} /> },
+  { id: 'users', label: 'Utilisateurs', icon: '◉', group: 'clients', min: 'support', el: (a) => <Users admin={a} /> },
+  { id: 'plans', label: 'Offres et crédits', icon: '★', group: 'clients', min: 'admin', el: () => <Plans /> },
+  { id: 'feedback', label: 'Avis et support', icon: '✉', group: 'clients', min: 'support', el: () => <Feedback /> },
+  { id: 'tools', label: 'Outils et limites', icon: '▦', group: 'appli', min: 'support', el: (a) => <Tools admin={a} /> },
+  { id: 'conversions', label: 'Conversions', icon: '⇄', group: 'appli', min: 'support', el: () => <Conversions /> },
+  { id: 'app', label: "Pilotage de l'application", icon: '⚙', group: 'appli', min: 'admin', el: () => <AppControl /> },
+  { id: 'ai', label: "Réglages de l'IA", icon: '✦', group: 'ia', min: 'admin', el: () => <AiSettings /> },
+  { id: 'aiusage', label: 'Consommation IA', icon: '◔', group: 'ia', min: 'support', el: () => <AiUsage /> },
+  { id: 'events', label: 'Événements', icon: '≡', group: 'suivi', min: 'support', el: () => <Events /> },
+  { id: 'errors', label: 'Erreurs du serveur', icon: '⚠', group: 'suivi', min: 'admin', el: (a) => <Errors admin={a} /> },
+  { id: 'audit', label: "Journal d'audit", icon: '⌂', group: 'suivi', min: 'admin', el: () => <Audit /> },
+  { id: 'mail', label: 'E-mails', icon: '@', group: 'serveur', min: 'admin', el: (a) => <Mail admin={a} /> },
+  { id: 'backups', label: 'Sauvegardes', icon: '⛃', group: 'serveur', min: 'admin', el: (a) => <Backups admin={a} /> },
+  { id: 'system', label: 'Système', icon: '⛁', group: 'serveur', min: 'admin', el: (_a, go) => <System go={go} /> },
+  { id: 'admins', label: 'Administrateurs', icon: '⚑', group: 'securite', min: 'owner', el: (a) => <Admins admin={a} /> },
+  { id: 'account', label: 'Mon compte et sécurité', icon: '☺', group: 'securite', min: 'support', el: (a) => <Account admin={a} /> },
 ];
 
 export default function App() {
@@ -48,6 +61,13 @@ export default function App() {
   const [checking, setChecking] = useState(!!session.token);
   const [page, setPage] = useState(() => location.hash.slice(1) || 'overview');
   const [menuOpen, setMenuOpen] = useState(false);
+  // Catégories repliées par l'administrateur (mémorisées sur cet appareil seulement).
+  const [folded, setFolded] = useState<string[]>(readFolded);
+  const toggleGroup = (g: string) => setFolded((f) => {
+    const next = f.includes(g) ? f.filter((x) => x !== g) : [...f, g];
+    try { localStorage.setItem(FOLD_KEY, JSON.stringify(next)); } catch { /* stockage indisponible : sans mémoire */ }
+    return next;
+  });
 
   useEffect(() => {
     setUnauthorizedHandler(() => setAdmin(null));
@@ -74,6 +94,11 @@ export default function App() {
 
   const visible = PAGES.filter((p) => RANK[admin.role] >= RANK[p.min]);
   const current = visible.find((p) => p.id === page) ?? visible[0];
+  const navButton = (p: Page) => (
+    <button key={p.id} className={p.id === current.id ? 'active' : ''} onClick={() => { setPage(p.id); setMenuOpen(false); }}>
+      <span className="nav-icon" aria-hidden>{p.icon}</span>{p.label}
+    </button>
+  );
 
   return (
     <div className={`layout ${menuOpen ? 'menu-open' : ''}`}>
@@ -81,11 +106,21 @@ export default function App() {
         <div className="brand"><img src="./favicon.svg" alt="" /><div><strong>Pagio</strong><span>Administration</span></div>
           <button className="btn ghost menu-close" onClick={() => setMenuOpen(false)} aria-label="Fermer le menu">✕</button></div>
         <nav>
-          {visible.map((p) => (
-            <button key={p.id} className={p.id === current.id ? 'active' : ''} onClick={() => { setPage(p.id); setMenuOpen(false); }}>
-              <span className="nav-icon" aria-hidden>{p.icon}</span>{p.label}
-            </button>
-          ))}
+          {visible.filter((p) => !p.group).map(navButton)}
+          {GROUPS.map((g) => {
+            const items = visible.filter((p) => p.group === g.id);
+            if (items.length === 0) return null;
+            // La catégorie de la page affichée reste toujours ouverte.
+            const open = !folded.includes(g.id) || items.some((p) => p.id === current.id);
+            return (
+              <div key={g.id} className="nav-group">
+                <button className="nav-group-title" onClick={() => toggleGroup(g.id)} aria-expanded={open}>
+                  <span>{g.label}</span><span className="nav-chevron" aria-hidden>{open ? '▾' : '▸'}</span>
+                </button>
+                {open && items.map(navButton)}
+              </div>
+            );
+          })}
         </nav>
         <div className="sidebar-foot">
           <div className="who"><strong>{admin.name || admin.email}</strong><span>{admin.email} · {admin.role}</span></div>
