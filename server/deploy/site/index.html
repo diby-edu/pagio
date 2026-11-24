@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pagio — Tous vos PDF, dans votre poche</title>
-<meta name="description" content="Pagio : scanner, fusionner, compresser, signer, convertir et résumer vos PDF sur Android. 36 outils, la plupart sans connexion.">
+<meta name="description" content="Pagio : scanner, fusionner, compresser, signer, convertir et résumer vos PDF sur Android. 40 outils, la plupart sans connexion.">
 <meta property="og:title" content="Pagio — Tous vos PDF, dans votre poche">
-<meta property="og:description" content="Scanner, fusionner, compresser, signer, convertir et résumer vos PDF. 36 outils sur Android.">
+<meta property="og:description" content="Scanner, fusionner, compresser, signer, convertir et résumer vos PDF. 40 outils sur Android.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://pagio.site/">
 <meta name="theme-color" content="#4535C9">
@@ -62,7 +62,6 @@ header.scrolled { border-color: var(--line); }
 .nav nav a { text-decoration: none; color: var(--muted); font-weight: 500; font-size: .95rem; transition: color .2s; }
 .nav nav a:hover { color: var(--ink); }
 /* Outils en ligne et connexion (pagio.site/app) : se distinguent des ancres de la page. */
-.nav nav a.nav-online { color: var(--violet); font-weight: 650; }
 .nav nav a.nav-signin { color: var(--ink); font-weight: 650; border: 1px solid var(--line); border-radius: 999px; padding: 4px 14px; margin: -5px 0; background: var(--glass); }
 .lang { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--glass); }
 .lang button { border: 0; background: none; color: var(--muted); font: inherit; font-size: .8rem; font-weight: 700; padding: 5px 10px; border-radius: 999px; cursor: pointer; }
@@ -188,8 +187,11 @@ section { padding: 110px 0; }
 .fam h3 { font-size: 1.2rem; }
 .fam .count { margin-left: auto; font-weight: 800; font-size: .8rem; color: var(--muted); border: 1px solid var(--line); padding: 3px 10px; border-radius: 999px; }
 .fam ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.fam li { font-size: .86rem; font-weight: 600; padding: 6px 12px; border-radius: 10px; background: color-mix(in srgb, var(--ink) 5%, transparent); }
-.fam li.new::after { content: "★"; color: var(--coral); margin-left: 6px; }
+.fam li { display: flex; }
+.fam li a { font-size: .86rem; font-weight: 600; padding: 6px 12px; border-radius: 10px; background: color-mix(in srgb, var(--ink) 5%, transparent); color: inherit; text-decoration: none; transition: background .2s, color .2s; }
+.fam li a:hover, .fam li a:focus-visible { background: color-mix(in srgb, var(--violet) 16%, transparent); color: var(--violet); }
+.fam li a:focus-visible { outline: 3px solid var(--violet); outline-offset: 2px; }
+.fam li.new a::after { content: "★"; color: var(--coral); margin-left: 6px; }
 
 /* Confidentialité */
 .privacy { display: grid; grid-template-columns: .95fr 1.05fr; gap: 56px; align-items: center; }
@@ -259,7 +261,7 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
   .nav nav a.nav-signin { margin: 0; padding: 6px 12px; }
   /* Tous les boutons restent visibles (retour à la ligne), « Outils en ligne » et « Se connecter » en premier. */
   .nav nav { flex-wrap: wrap; overflow: visible; row-gap: 6px; }
-  .nav nav a.nav-online, .nav nav a.nav-signin { order: -1; }
+  .nav nav a.nav-signin { order: -1; }
   .lang { margin-left: auto; }
 }
 @media (max-width: 600px) {
@@ -290,7 +292,6 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
       <a href="#outils" data-i18n="nav_tools">Outils</a>
       <a href="#confidentialite" data-i18n="nav_privacy">Confidentialité</a>
       <a href="#ia" data-i18n="nav_ai">Assistant IA</a>
-      <a class="nav-online" href="/app/" data-i18n="nav_online">Outils en ligne</a>
       <a class="nav-signin" href="/app/#/connexion" data-i18n="nav_signin">Se connecter</a>
     </nav>
     <div class="lang" role="group" aria-label="Langue / Language">
@@ -304,7 +305,7 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
 <main>
   <div class="wrap hero">
     <div>
-      <span class="pill"><b data-i18n="pill_tag">Android</b><span data-i18n="pill">36 outils PDF, la plupart sans connexion</span></span>
+      <span class="pill"><b data-i18n="pill_tag">Android</b><span data-i18n="pill">40 outils PDF, la plupart sans connexion</span></span>
       <h1><span class="line"><span data-i18n="h1a">Tous vos PDF.</span></span><span class="line"><span class="grad-text" data-i18n="h1b">Dans votre poche.</span></span></h1>
       <p class="lead" data-i18n="lead">Scannez une feuille en une seconde, fusionnez, compressez, signez, convertissez et faites résumer vos documents par l'IA. Une seule application, pensée pour aller vite.</p>
       <div class="ctas">
@@ -317,7 +318,7 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
           <span class="two"><small data-i18n="cta_small">Bientôt disponible sur</small><span>Google Play</span></span>
         </span>
       </div>
-      <a class="apk-note" href="#outils" data-i18n="cta_tools" style="display:inline-block;color:var(--violet);font-weight:700;text-decoration:none">Voir les 36 outils →</a>
+      <a class="apk-note" href="#outils" data-i18n="cta_tools" style="display:inline-block;color:var(--violet);font-weight:700;text-decoration:none">Voir les 40 outils →</a>
       <div class="trust">
         <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="t1">Fonctionne hors ligne</span></span>
         <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="t2">Vos fichiers restent chez vous</span></span>
@@ -362,7 +363,7 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
 
   <section id="outils">
     <div class="wrap">
-      <div class="head reveal"><span class="kicker" data-i18n="k_tools">36 outils</span><h2 data-i18n="h_tools">Tout ce qu'on fait d'un PDF. Vraiment tout.</h2><p data-i18n="p_tools">Rangés en sept familles, pour trouver le bon outil en un coup d'œil.</p></div>
+      <div class="head reveal"><span class="kicker" data-i18n="k_tools">40 outils</span><h2 data-i18n="h_tools">Tout ce qu'on fait d'un PDF. Vraiment tout.</h2><p data-i18n="p_tools">Rangés en sept familles, pour trouver le bon outil en un coup d'œil.</p></div>
       <div class="tools" id="tools"></div>
     </div>
   </section>
@@ -386,7 +387,7 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
 
   <section>
     <div class="wrap stats">
-      <div class="stat reveal"><div class="v grad-text"><span data-count="36">0</span></div><div class="k" data-i18n="st1">outils PDF</div></div>
+      <div class="stat reveal"><div class="v grad-text"><span data-count="40">0</span></div><div class="k" data-i18n="st1">outils PDF</div></div>
       <div class="stat reveal" style="--d:.1s"><div class="v grad-text"><span data-count="7">0</span></div><div class="k" data-i18n="st2">familles d'outils</div></div>
       <div class="stat reveal" style="--d:.2s"><div class="v grad-text"><span data-count="2">0</span></div><div class="k" data-i18n="st3">langues</div></div>
       <div class="stat reveal" style="--d:.3s"><div class="v grad-text"><span data-count="8">0</span>+</div><div class="k" data-i18n="st4">Android 8 et plus récents</div></div>
@@ -437,16 +438,16 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
   const T = {
     fr: {
       nav_tools: 'Outils', nav_privacy: 'Confidentialité', nav_ai: 'Assistant IA', nav_online: 'Outils en ligne', nav_signin: 'Se connecter', nav_account: 'Mon compte', nav_cta: 'Télécharger', apk_small: 'Télécharger pour Android', apk: 'Fichier APK', apk_note: "Android 8 ou plus récent. Au premier lancement, autorisez l'installation depuis votre navigateur. Le bouton donne toujours la dernière version.",
-      pill_tag: 'Android', pill: '36 outils PDF, la plupart sans connexion', h1a: 'Tous vos PDF.', h1b: 'Dans votre poche.',
+      pill_tag: 'Android', pill: '40 outils PDF, la plupart sans connexion', h1a: 'Tous vos PDF.', h1b: 'Dans votre poche.',
       lead: "Scannez une feuille en une seconde, fusionnez, compressez, signez, convertissez et faites résumer vos documents par l'IA. Une seule application, pensée pour aller vite.",
-      cta_small: 'Bientôt disponible sur', cta_tools: 'Voir les 36 outils →', t1: 'Fonctionne hors ligne', t2: 'Vos fichiers restent chez vous', t3: 'Français et anglais',
+      cta_small: 'Bientôt disponible sur', cta_tools: 'Voir les 40 outils →', t1: 'Fonctionne hors ligne', t2: 'Vos fichiers restent chez vous', t3: 'Français et anglais',
       chip1: 'Bords détectés', chip1s: 'capture automatique', chip2: '−72 % de poids', chip2s: 'compression', chip3: 'Résumé prêt', chip3s: 'assistant IA',
       phone_title: 'Scanner', toast: 'Contrat_signé.pdf', toasts: '3 pages · enregistré',
       k_how: 'Comment ça marche', h_how: 'Du papier au PDF parfait, en trois gestes.',
       s1: 'Capturez', s1p: "Visez la feuille : Pagio détecte les bords, attend qu'elle soit nette et immobile, puis la capture tout seul.",
       s2: 'Transformez', s2p: 'Fusionnez, réorganisez, compressez, signez, masquez une information, rendez le texte recherchable.',
       s3: 'Partagez', s3p: "Envoyez le PDF par WhatsApp, e-mail ou n'importe quelle application, au bon poids et au bon format.",
-      k_tools: '36 outils', h_tools: "Tout ce qu'on fait d'un PDF. Vraiment tout.", p_tools: "Rangés en sept familles, pour trouver le bon outil en un coup d'œil.",
+      k_tools: '40 outils', h_tools: "Tout ce qu'on fait d'un PDF. Vraiment tout.", p_tools: "Rangés en sept familles, pour trouver le bon outil en un coup d'œil.",
       k_priv: 'Confidentialité', h_priv: 'Vos documents ne quittent pas votre téléphone.',
       p_priv: "Contrats, pièces d'identité, bulletins : la plupart des outils de Pagio travaillent directement sur l'appareil, même en mode avion.",
       c1: "Traitement sur l'appareil", c1p: "Fusion, compression, signature, OCR : rien n'est envoyé.",
@@ -460,28 +461,19 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
       h_final: 'Votre bureau tient dans votre poche.', p_final: 'Téléchargez Pagio dès maintenant, en attendant Google Play. Gratuit pour commencer, sans carte bancaire.',
       foot: 'Fait avec soin, pour les gens pressés.',
       f_priv: 'Confidentialité', f_terms: "Conditions d'utilisation", f_del: 'Suppression de compte', f_legal: 'Mentions légales',
-      fam: [
-        ['Organiser', ['Fusionner', 'Diviser', 'Réorganiser les pages', 'Extraire des pages', 'Supprimer des pages', 'Pivoter']],
-        ['Optimiser', ['Compresser', 'Réparer', ['OCR : texte recherchable'], 'Extraire le texte']],
-        ['Convertir en PDF', ['Scanner', 'Images → PDF', 'Word, Excel, PowerPoint → PDF', ['HTML → PDF'], ['Texte → PDF'], 'Créer un PDF']],
-        ['Convertir depuis PDF', ['PDF → Word', 'PDF → Excel', 'PDF → PowerPoint', 'PDF → images', 'Extraire les images']],
-        ['Éditer', ['Modifier', 'Signer', 'Remplir un formulaire', 'Numéroter les pages', 'Filigrane', ['En-tête et pied de page'], 'Remplacer du texte', ['Masquer une information']]],
-        ['Sécurité', ['Protéger par mot de passe', 'Déverrouiller', 'Propriétés', ['Effacer les métadonnées'], ['Signature numérique'], ['Vérifier une signature']]],
-        ['Intelligence artificielle', [['Assistant : résumer, interroger, extraire']]],
-      ],
     },
     en: {
       nav_tools: 'Tools', nav_privacy: 'Privacy', nav_ai: 'AI assistant', nav_online: 'Online tools', nav_signin: 'Sign in', nav_account: 'My account', nav_cta: 'Download', apk_small: 'Download for Android', apk: 'APK file', apk_note: 'Android 8 or newer. On first launch, allow installs from your browser. The button always gets the latest version.',
-      pill_tag: 'Android', pill: '36 PDF tools, most of them offline', h1a: 'All your PDFs.', h1b: 'In your pocket.',
+      pill_tag: 'Android', pill: '40 PDF tools, most of them offline', h1a: 'All your PDFs.', h1b: 'In your pocket.',
       lead: 'Scan a page in a second, then merge, compress, sign, convert and let AI summarise your documents. One app, built for speed.',
-      cta_small: 'Coming soon to', cta_tools: 'See all 36 tools →', t1: 'Works offline', t2: 'Your files stay with you', t3: 'English and French',
+      cta_small: 'Coming soon to', cta_tools: 'See all 40 tools →', t1: 'Works offline', t2: 'Your files stay with you', t3: 'English and French',
       chip1: 'Edges detected', chip1s: 'auto capture', chip2: '−72% file size', chip2s: 'compression', chip3: 'Summary ready', chip3s: 'AI assistant',
       phone_title: 'Scanner', toast: 'Signed_contract.pdf', toasts: '3 pages · saved',
       k_how: 'How it works', h_how: 'From paper to a perfect PDF, in three moves.',
       s1: 'Capture', s1p: 'Point at the page: Pagio finds the edges, waits until it is sharp and still, then captures it for you.',
       s2: 'Transform', s2p: 'Merge, reorder, compress, sign, redact sensitive details, make the text searchable.',
       s3: 'Share', s3p: 'Send the PDF by WhatsApp, email or any app, at the right size and in the right format.',
-      k_tools: '36 tools', h_tools: 'Everything you do with a PDF. Really everything.', p_tools: 'Grouped into seven families, so the right tool is one glance away.',
+      k_tools: '40 tools', h_tools: 'Everything you do with a PDF. Really everything.', p_tools: 'Grouped into seven families, so the right tool is one glance away.',
       k_priv: 'Privacy', h_priv: 'Your documents never leave your phone.',
       p_priv: 'Contracts, IDs, payslips: most Pagio tools work directly on the device, even in airplane mode.',
       c1: 'On-device processing', c1p: 'Merge, compress, sign, OCR: nothing is uploaded.',
@@ -495,17 +487,9 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
       h_final: 'Your office fits in your pocket.', p_final: 'Download Pagio now, ahead of Google Play. Free to start, no credit card.',
       foot: 'Made with care, for people in a hurry.',
       f_priv: 'Privacy', f_terms: 'Terms of use', f_del: 'Account deletion', f_legal: 'Legal notice',
-      fam: [
-        ['Organise', ['Merge', 'Split', 'Reorder pages', 'Extract pages', 'Delete pages', 'Rotate']],
-        ['Optimise', ['Compress', 'Repair', ['OCR: searchable text'], 'Extract text']],
-        ['Convert to PDF', ['Scan', 'Images → PDF', 'Word, Excel, PowerPoint → PDF', ['HTML → PDF'], ['Text → PDF'], 'Create a PDF']],
-        ['Convert from PDF', ['PDF → Word', 'PDF → Excel', 'PDF → PowerPoint', 'PDF → images', 'Extract images']],
-        ['Edit', ['Edit', 'Sign', 'Fill forms', 'Page numbers', 'Watermark', ['Header and footer'], 'Replace text', ['Redact']]],
-        ['Security', ['Password protect', 'Unlock', 'Properties', ['Strip metadata'], ['Digital signature'], ['Verify a signature']]],
-        ['Artificial intelligence', [['Assistant: summarise, ask, extract']]],
-      ],
     },
   };
+  /*CATALOGUE*/const CATALOGUE = {"nb":40,"fr":[["Organiser",[{"n":"Fusionner PDF","h":"/app/#/outil/merge","s":0},{"n":"Diviser PDF","h":"/diviser-pdf/","s":0},{"n":"Organiser les pages","h":"/organiser-pages-pdf/","s":0},{"n":"Extraire des pages","h":"/app/#/outil/extract_pages","s":0},{"n":"Supprimer des pages","h":"/app/#/outil/delete_pages","s":0},{"n":"Faire pivoter","h":"/app/#/outil/rotate","s":0}]],["Optimiser",[{"n":"Compresser PDF","h":"/compresser-pdf/","s":0},{"n":"Réparer PDF","h":"/reparer-pdf/","s":0},{"n":"OCR : PDF consultable","h":"/ocr-pdf/","s":1},{"n":"Extraire le texte","h":"/extraire-texte-pdf/","s":0}]],["Convertir en PDF",[{"n":"Scanner","h":"/scanner-document/","s":0},{"n":"Images en PDF","h":"/app/#/outil/images_to_pdf","s":0},{"n":"Word, Excel, PowerPoint en PDF","h":"/app/#/outil/office_to_pdf","s":0},{"n":"HTML en PDF","h":"/html-en-pdf/","s":1},{"n":"Texte en PDF","h":"/texte-en-pdf/","s":1},{"n":"Créer un PDF","h":"/creer-un-pdf/","s":0}]],["Convertir depuis PDF",[{"n":"PDF en Word","h":"/pdf-en-word/","s":0},{"n":"PDF en Excel","h":"/pdf-en-excel/","s":0},{"n":"PDF en PowerPoint","h":"/pdf-en-powerpoint/","s":0},{"n":"PDF en JPG / PNG","h":"/pdf-en-jpg/","s":0},{"n":"Extraire les images","h":"/extraire-images-pdf/","s":0}]],["Éditer",[{"n":"Modifier PDF","h":"/modifier-pdf/","s":0},{"n":"Signer PDF","h":"/signer-pdf/","s":0},{"n":"Remplir un formulaire","h":"/remplir-formulaire-pdf/","s":0},{"n":"Numéros de page","h":"/app/#/outil/page_numbers","s":0},{"n":"Filigrane","h":"/app/#/outil/watermark","s":0},{"n":"En-tête et pied de page","h":"/en-tete-pied-de-page-pdf/","s":1},{"n":"Remplacer du texte","h":"/remplacer-texte-pdf/","s":0},{"n":"Biffer (caviarder)","h":"/caviarder-pdf/","s":1}]],["Sécurité",[{"n":"Protéger PDF","h":"/proteger-pdf/","s":0},{"n":"Déverrouiller PDF","h":"/deverrouiller-pdf/","s":0},{"n":"Propriétés du PDF","h":"/proprietes-pdf/","s":0},{"n":"Nettoyer les métadonnées","h":"/nettoyer-metadonnees-pdf/","s":1},{"n":"Signature numérique","h":"/signature-numerique-pdf/","s":1},{"n":"Vérifier les signatures","h":"/verifier-signature-pdf/","s":1}]],["Intelligence artificielle",[{"n":"Assistant IA","h":"/app/#/outil/assistant","s":1},{"n":"Traduire un document","h":"/traduire-pdf/","s":1},{"n":"Lire une facture","h":"/lire-facture-pdf/","s":1},{"n":"Extraire les tableaux","h":"/extraire-tableaux-pdf/","s":1},{"n":"Reconnaître un document","h":"/reconnaitre-document/","s":1}]]],"en":[["Organise",[{"n":"Merge PDF","h":"/app/#/outil/merge","s":0},{"n":"Split PDF","h":"/en/split-pdf/","s":0},{"n":"Organize pages","h":"/en/organize-pdf-pages/","s":0},{"n":"Extract pages","h":"/app/#/outil/extract_pages","s":0},{"n":"Delete pages","h":"/app/#/outil/delete_pages","s":0},{"n":"Rotate","h":"/app/#/outil/rotate","s":0}]],["Optimise",[{"n":"Compress PDF","h":"/en/compress-pdf/","s":0},{"n":"Repair PDF","h":"/en/repair-pdf/","s":0},{"n":"OCR: searchable PDF","h":"/en/ocr-pdf/","s":1},{"n":"Extract text","h":"/en/extract-text-from-pdf/","s":0}]],["Convert to PDF",[{"n":"Scan","h":"/en/document-scanner/","s":0},{"n":"Images to PDF","h":"/app/#/outil/images_to_pdf","s":0},{"n":"Word, Excel, PowerPoint to PDF","h":"/app/#/outil/office_to_pdf","s":0},{"n":"HTML to PDF","h":"/en/html-to-pdf/","s":1},{"n":"Text to PDF","h":"/en/text-to-pdf/","s":1},{"n":"Create a PDF","h":"/en/create-pdf/","s":0}]],["Convert from PDF",[{"n":"PDF to Word","h":"/en/pdf-to-word/","s":0},{"n":"PDF to Excel","h":"/en/pdf-to-excel/","s":0},{"n":"PDF to PowerPoint","h":"/en/pdf-to-powerpoint/","s":0},{"n":"PDF to JPG / PNG","h":"/en/pdf-to-jpg/","s":0},{"n":"Extract images","h":"/en/extract-images-from-pdf/","s":0}]],["Edit",[{"n":"Edit PDF","h":"/en/edit-pdf/","s":0},{"n":"Sign PDF","h":"/en/sign-pdf/","s":0},{"n":"Fill a form","h":"/en/fill-pdf-form/","s":0},{"n":"Page numbers","h":"/app/#/outil/page_numbers","s":0},{"n":"Watermark","h":"/app/#/outil/watermark","s":0},{"n":"Header & footer","h":"/en/pdf-header-and-footer/","s":1},{"n":"Replace text","h":"/en/replace-text-in-pdf/","s":0},{"n":"Redact","h":"/en/redact-pdf/","s":1}]],["Security",[{"n":"Protect PDF","h":"/en/protect-pdf/","s":0},{"n":"Unlock PDF","h":"/en/unlock-pdf/","s":0},{"n":"PDF properties","h":"/en/pdf-properties/","s":0},{"n":"Remove metadata","h":"/en/remove-pdf-metadata/","s":1},{"n":"Digital signature","h":"/en/digital-signature-pdf/","s":1},{"n":"Verify signatures","h":"/en/verify-pdf-signature/","s":1}]],["Artificial intelligence",[{"n":"AI assistant","h":"/app/#/outil/assistant","s":1},{"n":"Translate a document","h":"/en/translate-pdf/","s":1},{"n":"Read an invoice","h":"/en/read-invoice-pdf/","s":1},{"n":"Extract tables","h":"/en/extract-tables-from-pdf/","s":1},{"n":"Recognize a document","h":"/en/recognize-document/","s":1}]]]};/*FIN CATALOGUE*/
   const FAM_STYLE = [
     ['#4535c9', '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'],
     ['#14a37f', '<path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/>'],
@@ -517,28 +501,26 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
   ];
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* indisponible */ } } };
-  let lang = store.get('pagio.lang') || ((navigator.language || 'fr').toLowerCase().startsWith('fr') ? 'fr' : 'en');
+  // ?lang=en dans l'adresse (liens des pages en anglais) l'emporte sur le choix enregistré.
+  const asked = new URLSearchParams(location.search).get('lang');
+  let lang = asked === 'en' || asked === 'fr' ? asked : store.get('pagio.lang') || ((navigator.language || 'fr').toLowerCase().startsWith('fr') ? 'fr' : 'en');
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   function renderTools() {
     const box = document.getElementById('tools');
-    box.innerHTML = T[lang].fam.map(([name, items], i) => {
+    // Catalogue généré par server/deploy/site-src/generer.mjs : chaque outil mène à l'outil en ligne ou à sa page.
+    const fams = CATALOGUE[lang];
+    box.innerHTML = fams.map(([name, items], i) => {
       const [color, icon] = FAM_STYLE[i];
-      const lis = items.map((it) => Array.isArray(it) ? `<li class="new">${esc(it[0])}</li>` : `<li>${esc(it)}</li>`).join('');
+      const lis = items.map((it) => `<li${it.s ? ' class="new"' : ''}><a href="${esc(it.h)}">${esc(it.n)}</a></li>`).join('');
       return `<article class="fam reveal" style="--d:${(i % 3) * 0.08}s"><header><span class="ic" style="background:${color}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></span><h3>${esc(name)}</h3><span class="count">${items.length}</span></header><ul>${lis}</ul></article>`;
     }).join('');
     const track = document.getElementById('track');
-    const names = T[lang].fam.flatMap(([, items]) => items.map((it) => Array.isArray(it) ? it[0] : it));
-    const row = names.map((n) => `<span>${esc(n)}</span>`).join('');
+    const row = fams.flatMap(([, items]) => items.map((it) => `<span>${esc(it.n)}</span>`)).join('');
     track.innerHTML = row + row;
     box.querySelectorAll('.fam').forEach(tilt);
     box.querySelectorAll('.reveal').forEach((el) => io.observe(el));
   }
-
-  // Déjà connecté aux outils en ligne (même site, même navigateur) : le bouton mène au compte au lieu de la connexion.
-  const signedIn = !!store.get('pagio.web.token');
-  const signinLink = document.querySelector('.nav-signin');
-  if (signedIn && signinLink) { signinLink.dataset.i18n = 'nav_account'; signinLink.href = '/app/#/compte'; }
 
   function apply() {
     document.documentElement.lang = lang;

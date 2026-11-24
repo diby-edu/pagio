@@ -46,7 +46,6 @@ export default function App() {
             <a href="/#outils">{t('nav_tools')}</a>
             <a href="/#confidentialite">{t('nav_privacy')}</a>
             <a href="/#ia">{t('nav_ai')}</a>
-            <a className={`nav-online${path === '/' || path.startsWith('/outil/') ? ' current' : ''}`} href="#/" aria-current={path === '/' ? 'page' : undefined}>{t('nav_online')}</a>
             {user
               ? <a className={`nav-signin${path === '/compte' ? ' current' : ''}`} href="#/compte">{t('account')}</a>
               : <a className={`nav-signin${['/connexion', '/inscription', '/oubli'].includes(path) ? ' current' : ''}`} href="#/connexion">{t('signin')}</a>}

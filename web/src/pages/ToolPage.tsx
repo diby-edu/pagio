@@ -24,7 +24,7 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
   const [credits, setCredits] = useState<number | null>(null);
 
   useEffect(() => () => { if (result?.kind === 'file') URL.revokeObjectURL(result.url); }, [result]);
-  if (!tool) return <p className="notice">Outil inconnu. <a href="#/">{t('back')}</a></p>;
+  if (!tool) return <p className="notice">Outil inconnu. <a href="/#outils">{t('back')}</a></p>;
   const flag = config?.tools[tool.id];
   const premium = user?.plan === 'premium';
 
@@ -94,7 +94,7 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
   const needsPages = tool.id === 'extract_pages' || tool.id === 'delete_pages';
   return (
     <section className="toolpage">
-      <a className="back" href="#/">{t('back')}</a>
+      <a className="back" href="/#outils">{t('back')}</a>
       <h1>{t(title(tool.id))}</h1>
       <p className="lead">{t(desc(tool.id))}</p>
       {blocked && <p className="notice warn">{blocked} {tool.where === 'server' && !user && <a href="#/connexion">{t('signin')} →</a>}</p>}

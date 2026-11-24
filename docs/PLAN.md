@@ -79,14 +79,14 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
 
 ### Étape 2 — Page d'accueil, référencement, statistiques
 - [ ] Section **Tarifs** sur pagio.site : 3 offres en cartes, avantages Gratuit / Premium, prix lus dans l'administration.
-- [ ] **Liste des outils mise à jour** : l'application en compte **40** aujourd'hui (le site en annonce 36), plus les nouveaux
+- [x] **Liste des outils mise à jour** : l'application en compte **40** aujourd'hui (le site en annonce 36), plus les nouveaux
       (carte d'identité, dossier de candidature, modèles) ; **nombre calculé automatiquement** à partir de la liste du serveur.
-- [ ] **Une page par outil** (FR/EN), ex. `pagio.site/pdf-en-word/` : présentation **explicite mais brève** (à quoi il sert,
+- [x] **Une page par outil** (FR/EN), ex. `pagio.site/pdf-en-word/` : présentation **explicite mais brève** (à quoi il sert,
       3 étapes, gratuit ou Premium, sur téléphone et/ou en ligne), bouton « Utiliser maintenant » ou « Avec l'application ».
-- [ ] **Référencement de chaque page** : mots-clés recherchés (ex. « convertir PDF en Word gratuit », « fusionner PDF en ligne »,
+- [x] **Référencement de chaque page** : mots-clés recherchés (ex. « convertir PDF en Word gratuit », « fusionner PDF en ligne »,
       « compresser PDF moins de 1 Mo »), titre et description uniques, adresse lisible, petite FAQ (questions réellement posées
       sur Google), données structurées, liens entre outils proches, version anglaise, images légères avec texte alternatif.
-- [ ] **Menu simplifié** : « Outils » et « Outils en ligne » fusionnés en un seul **« Outils »** ; sur la page d'accueil, **chaque
+- [x] **Menu simplifié** : « Outils » et « Outils en ligne » fusionnés en un seul **« Outils »** ; sur la page d'accueil, **chaque
       outil est cliquable** et ouvre directement l'outil dans le navigateur (ou sa page « avec l'application » s'il n'est pas
       encore en ligne, et le scanner).
 - [ ] SEO technique : `sitemap.xml`, `robots.txt`, données structurées (application), versions FR/EN déclarées, titres et descriptions.

@@ -301,3 +301,15 @@ Système (état de la machine, alertes, purge), Mon compte et sécurité (mot de
 `cd server && npm test` lance 25 tests (base en mémoire, aucun réseau) : parcours complet de l'API, sessions, double authentification,
 chiffrement de la clé d'IA, limites, sauvegardes et restauration, surveillance, fiche utilisateur et actions groupées, e-mails
 (réglages, mot de passe oublié, confirmation d'adresse, alertes).
+
+## Catalogue des outils et pages d'outils (depuis le 24/11/2026)
+
+Source unique : `server/deploy/site-src/outils.mjs` (40 outils : nom, description, mots-clés, FAQ, en français et en anglais).
+`node server/deploy/site-src/generer.mjs` produit une page par outil (`/<adresse>/` en français, `/en/<address>/` en anglais),
+les listes `/outils/` et `/en/tools/`, `sitemap.xml`, `robots.txt`, et met à jour le catalogue et le nombre d'outils de
+`index.html` (entre `/*CATALOGUE*/` et `/*FIN CATALOGUE*/`). Sur la page d'accueil, un outil disponible dans le navigateur
+mène à `/app/#/outil/<id>`, les autres à leur page. Mise en ligne du site :
+```
+node server/deploy/site-src/generer.mjs
+tar -cf - -C server/deploy/site . | ssh root@72.62.148.170 "cd /var/www/pagio/site && tar -xf - && chmod -R a+rX ."
+```
