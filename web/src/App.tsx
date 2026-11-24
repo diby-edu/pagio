@@ -13,12 +13,14 @@ export default function App() {
   const [path, setPath] = useState(route);
   const [config, setConfig] = useState<Config | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  // Session enregistrée mais compte pas encore relu : on n'affiche pas le formulaire de connexion entre-temps.
+  const [checking, setChecking] = useState(!!session.token);
   const [, setLangState] = useState<Lang>(initialLang);
 
   useEffect(() => { const f = () => { setPath(route()); window.scrollTo(0, 0); }; addEventListener('hashchange', f); return () => removeEventListener('hashchange', f); }, []);
   useEffect(() => { getConfig().then(setConfig).catch(() => setConfig(null)); }, []);
   const refreshUser = () => (session.token ? me().then(setUser).catch(() => setUser(null)) : Promise.resolve(setUser(null)));
-  useEffect(() => { refreshUser(); }, []);
+  useEffect(() => { refreshUser().finally(() => setChecking(false)); }, []);
 
   const go = (p: string) => { location.hash = p; };
   const signedIn = (token: string, u: User) => { session.token = token; setUser(u); go('/'); };
@@ -27,6 +29,9 @@ export default function App() {
 
   let page;
   if (path.startsWith('/outil/')) page = <ToolPage id={path.slice(7)} config={config} user={user} onUser={setUser} go={go} />;
+  // Déjà connecté : les pages de connexion mènent au compte (pas de formulaire qui ferait croire à une déconnexion).
+  else if (checking && (path === '/connexion' || path === '/inscription' || path === '/compte')) page = <div className="page-loading" aria-busy="true" />;
+  else if (user && (path === '/connexion' || path === '/inscription')) page = <Account user={user} onChanged={refreshUser} onSignOut={signOut} />;
   else if (path === '/connexion' || path === '/inscription' || path === '/oubli') page = <Auth mode={path.slice(1) as 'connexion' | 'inscription' | 'oubli'} config={config} onSignedIn={signedIn} go={go} />;
   else if (path === '/compte') page = user ? <Account user={user} onChanged={refreshUser} onSignOut={signOut} /> : <Auth mode="connexion" config={config} onSignedIn={signedIn} go={go} />;
   else page = <Home config={config} user={user} go={go} />;
