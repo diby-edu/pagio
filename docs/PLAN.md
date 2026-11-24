@@ -48,10 +48,41 @@ renouveler les certificats expirés de vos **autres sites** (`numerik360.com`, `
 - [ ] **Autres sites du VPS** : état de chacun (répond / ne répond pas), certificats et jours restants.
 - [ ] Prévision : « disque plein dans N jours » au rythme actuel ; seuils d'alerte réglables.
 
+### Étape 1 ter — Tableau de bord « complet » (demandé le 24/11/2026)
+Statistiques très détaillées (le plus de données possible, sans le contenu des documents) :
+- [ ] **Utilisateurs** : actifs par jour / semaine / mois, nouveaux, **rétention** (combien reviennent après 1, 7, 30 jours),
+      parcours *installation → compte → Premium* (taux de conversion), désinstallations estimées.
+- [ ] **Appareils** : pays et villes, langue, marque et modèle, version d'Android, version de Pagio, taille d'écran.
+- [ ] **Outils** : utilisations par outil, par jour et par heure, durée moyenne, taux d'erreur, limites gratuites atteintes,
+      tailles et nombres de pages traités, ce qui pousse à passer Premium.
+- [ ] **Site** : visites, pages vues, provenance (Google, Facebook, WhatsApp…), pays, mobile ou ordinateur, outils en ligne utilisés.
+- [ ] **Argent** : revenus par jour / offre / moyen de paiement, abonnements actifs, renouvellements, résiliations, coût de l'IA,
+      marge.
+- [ ] Filtres partout (période, pays, version, offre), **export CSV / Excel**, **rapport hebdomadaire par e-mail**.
+Gestion complète :
+- [ ] **Notifications push** aux utilisateurs (tous, un pays, gratuits, Premium, une version…), programmées, avec statistiques
+      d'ouverture (voir « Notifications de l'application » ci-dessous).
+- [ ] **Codes promo** (remise, Premium offert N jours, nombre d'utilisations), **parrainage**.
+- [ ] **Campagnes e-mail** aux utilisateurs (Brevo), avec désinscription.
+- [ ] **Support** : répondre aux messages depuis le tableau de bord (réponse envoyée par e-mail), statuts, modèles de réponse.
+- [ ] **Contenus** sans toucher au code : textes et FAQ du site, tarifs affichés, modèles de documents, écrans de présentation.
+- [ ] **Versions** : envoyer une nouvelle APK depuis le tableau de bord, notes de version, mise à jour obligatoire.
+- [ ] **Sécurité** : historique des connexions, activités suspectes, blocage d'adresses IP, demandes RGPD (export / suppression).
+- [ ] **Recherche globale** (utilisateur, paiement, message), **droits fins** par rôle.
+
+### Notifications de l'application (Firebase) — demandé le 24/11/2026
+- [ ] Vous : **console.firebase.google.com** → ajouter Firebase au projet Google Cloud existant `pagio-515720` (compte kodybusiness),
+      puis ajouter l'application Android `com.pagio.app` (empreinte SHA-1 dans `docs/GOOGLE.md`) → je récupère `google-services.json`.
+- [ ] Moi : réception des notifications dans l'application (avec autorisation demandée à l'utilisateur), clé de service côté
+      serveur (Firebase Cloud Messaging, gratuit), envoi depuis le tableau de bord, liens qui ouvrent un outil ou une offre.
+
 ### Étape 2 — Page d'accueil, référencement, statistiques
 - [ ] Section **Tarifs** sur pagio.site : 3 offres en cartes, avantages Gratuit / Premium, prix lus dans l'administration.
 - [ ] **Nombre d'outils calculé automatiquement** (on dépasse 36).
 - [ ] **Une page par outil** (FR/EN), ex. `pagio.site/pdf-en-word/` : explication + « Faire en ligne » ou « Avec l'application ».
+- [ ] **Menu simplifié** : « Outils » et « Outils en ligne » fusionnés en un seul **« Outils »** ; sur la page d'accueil, **chaque
+      outil est cliquable** et ouvre directement l'outil dans le navigateur (ou sa page « avec l'application » s'il n'est pas
+      encore en ligne, et le scanner).
 - [ ] SEO technique : `sitemap.xml`, `robots.txt`, données structurées (application), versions FR/EN déclarées, titres et descriptions.
 - [ ] **Google Search Console** (après A10) et **Google Analytics** (identifiant réglable, après A11), en mode « sans cookies tant
       que la personne n'a pas accepté », petit bandeau discret.
