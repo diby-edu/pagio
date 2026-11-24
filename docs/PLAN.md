@@ -10,7 +10,7 @@ Ce qui est déjà en place est résumé tout en bas (« Fait »). Tout le reste 
 |---|---|---|---|
 | A1 | ~~Essayer la 2.1.0~~ **fait le 24/11** (scan, case PDF, flash, liens légaux ; 2.1.0 publiée) ; outils IA passés en Premium | — | — |
 | A2 | ~~Pagio Admin + certificat du téléphone~~ **fait le 24/11** (téléphone inscrit aux notifications) | — | — |
-| A3 | **UptimeRobot** : surveillance de `https://pagio.site/api/health` toutes les 5 min, alerte par e-mail + application mobile | Être prévenu si le VPS entier tombe | 5 min |
+| A3 | ~~UptimeRobot~~ **fait le 24/11** : `pagio.site` et `pagio.site/api/health` toutes les 5 min, alerte par e-mail (application mobile UptimeRobot : à installer si vous voulez les alertes sur le téléphone) | — | — |
 | A4 | **OpenAI** : sur platform.openai.com › *Billing › Limits*, fixer un **plafond de dépense mensuel** (ex. 10 $) | Jamais de facture surprise | 5 min |
 | A5 | **Identifiant client Google** pour « Continuer avec Google » (`docs/GOOGLE.md`, partie A ; origines `https://pagio.site` et `https://www.pagio.site`) | Connexion avec Google sur le site | 10 min |
 | A6 | **Codes de secours** de la double authentification notés **hors de l'ordinateur** | Accès de secours à l'administration | 2 min |
