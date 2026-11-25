@@ -67,7 +67,12 @@ export default function Mail({ admin }: { admin: Admin }) {
         <Field label="Adresse qui reçoit les alertes" hint="Disque presque plein, sauvegarde en retard, erreurs du serveur, échecs de l'IA ou des conversions. Chaque alerte est envoyée une fois par jour tant qu'elle dure.">
           <input type="email" value={mail.alerts_to} onChange={(e) => set({ alerts_to: e.target.value })} placeholder={admin.email} />
         </Field>
-        <button className="btn primary" onClick={record}>Enregistrer</button>
+        <Toggle checked={mail.weekly_report !== false} onChange={(v) => set({ weekly_report: v })} label="M'envoyer le rapport de la semaine (chaque lundi matin)" />
+        <p className="muted">Visiteurs, installations, actifs, comptes, revenus, outils les plus utilisés, pays, coût de l'IA, disponibilité, comparés à la semaine précédente. Envoyé à l'adresse des alertes.</p>
+        <div className="row gap wrap">
+          <button className="btn primary" onClick={record}>Enregistrer</button>
+          <button className="btn" onClick={async () => { try { await api('POST', '/api/admin/report/send'); show('Rapport envoyé : regardez votre boîte de réception'); } catch (e) { show((e as Error).message, 'error'); } }}>Envoyer le rapport maintenant</button>
+        </div>
       </Card>
 
       <Card title="Essai">

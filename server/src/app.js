@@ -274,6 +274,92 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     res.status(204).end();
   });
 
+  // ------------------------------------------------------------- Statistiques détaillées de l'application
+  // Filtres : pays et version (d'après la dernière ouverture de chaque appareil sur la période), offre du compte.
+  // Un « appareil » = une installation de l'application (identifiant aléatoire) ; les outils en ligne ont leur onglet Site.
+  app.get('/api/admin/app-stats', adminAuth(), (req, res) => {
+    const days = int(req.query.days, 1, 395, 30);
+    const now = Date.now();
+    const since = now - days * DAY;
+    const all = (sql, ...a) => db.prepare(sql).all(...a);
+    const one = (sql, ...a) => db.prepare(sql).get(...a);
+    const country = /^[A-Z]{2}$/.test(String(req.query.country || '')) ? String(req.query.country) : null;
+    const version = String(req.query.version || '').slice(0, 20) || null;
+    const plan = ['free', 'premium'].includes(req.query.plan) ? req.query.plan : null;
+    // Appareils retenus par les filtres (sous-requête réutilisée partout).
+    const devFilter = [];
+    const devArgs = [];
+    if (country) { devFilter.push("device_id IN (SELECT device_id FROM events WHERE name = 'app_open' AND json_extract(props, '$.country') = ?)"); devArgs.push(country); }
+    if (version) { devFilter.push('app_version = ?'); devArgs.push(version); }
+    if (plan) { devFilter.push('user_id IN (SELECT id FROM users WHERE plan = ?)'); devArgs.push(plan); }
+    const W = (extra = '') => `app_version != 'web' AND device_id IS NOT NULL AND device_id != '' AND ts >= ? ${extra} ${devFilter.map((f) => `AND ${f}`).join(' ')}`;
+    const A = (...pre) => [...pre, ...devArgs];
+    const dayExpr = "date(ts / 1000, 'unixepoch')";
+
+    // Utilisateurs actifs (appareils ayant ouvert ou utilisé l'application)
+    const active = (d) => one(`SELECT COUNT(DISTINCT device_id) n FROM events WHERE ${W()}`, ...A(now - d * DAY)).n;
+    const byDay = all(`SELECT ${dayExpr} day, COUNT(DISTINCT device_id) active, SUM(CASE WHEN name = 'app_open' AND json_extract(props, '$.first_open') = 1 THEN 1 ELSE 0 END) installs,
+      SUM(CASE WHEN name = 'tool_run' THEN 1 ELSE 0 END) runs FROM events WHERE ${W()} GROUP BY day ORDER BY day`, ...A(since));
+    const installs = one(`SELECT COUNT(*) n FROM events WHERE ${W("AND name = 'app_open' AND json_extract(props, '$.first_open') = 1")}`, ...A(since)).n;
+    const accounts = one('SELECT COUNT(*) n FROM users WHERE created_at >= ?', since).n;
+    const buyers = one("SELECT COUNT(DISTINCT user_id) n FROM payments WHERE ts >= ? AND refunded = 0 AND method != 'gift'", since).n;
+    // Rétention : appareils installés sur la période, revenus 1, 7 et 30 jours après (au moins un événement ce jour-là ou après).
+    const cohort = all(`SELECT device_id, MIN(ts) first FROM events WHERE ${W("AND name = 'app_open' AND json_extract(props, '$.first_open') = 1")} GROUP BY device_id`, ...A(since));
+    const back = (d) => {
+      const eligible = cohort.filter((c) => c.first + d * DAY <= now);
+      if (eligible.length === 0) return null;
+      const st = db.prepare('SELECT 1 FROM events WHERE device_id = ? AND ts >= ? LIMIT 1');
+      return Math.round((eligible.filter((c) => st.get(c.device_id, c.first + d * DAY)).length / eligible.length) * 100);
+    };
+    const lost = one(`SELECT COUNT(*) n FROM (SELECT device_id, MAX(ts) last FROM events WHERE app_version != 'web' AND device_id IS NOT NULL AND device_id != '' GROUP BY device_id) WHERE last < ?`, now - 30 * DAY).n;
+
+    // Appareils : dernière ouverture de chaque appareil sur la période
+    const latest = `SELECT e.device_id, e.app_version, e.props FROM events e JOIN (SELECT device_id, MAX(id) mid FROM events WHERE ${W("AND name = 'app_open'")} GROUP BY device_id) l ON e.id = l.mid`;
+    const dist = (expr, limit = 15) => all(`SELECT ${expr} k, COUNT(*) n FROM (${latest}) GROUP BY k ORDER BY n DESC LIMIT ${limit}`, ...A(since));
+    const devicesCount = one(`SELECT COUNT(*) n FROM (${latest})`, ...A(since)).n;
+
+    // Outils
+    const tools = all(`SELECT tool, COUNT(*) runs, SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) errors, COUNT(DISTINCT device_id) devices,
+      ROUND(AVG(json_extract(props, '$.ms'))) ms, ROUND(AVG(json_extract(props, '$.bytes_in'))) bytes_in, ROUND(AVG(json_extract(props, '$.files')), 1) files
+      FROM events WHERE ${W("AND name = 'tool_run' AND tool IS NOT NULL")} GROUP BY tool ORDER BY runs DESC`, ...A(since));
+    const limits = Object.fromEntries(all(`SELECT tool, COUNT(*) n FROM events WHERE ${W("AND name = 'limit_reached'")} GROUP BY tool`, ...A(since)).map((r) => [r.tool, r.n]));
+    const byHour = all(`SELECT CAST(strftime('%H', ts / 1000, 'unixepoch') AS INTEGER) hour, COUNT(*) runs FROM events WHERE ${W("AND name = 'tool_run'")} GROUP BY hour`, ...A(since));
+    const byWeekday = all(`SELECT CAST(strftime('%w', ts / 1000, 'unixepoch') AS INTEGER) wd, COUNT(*) runs FROM events WHERE ${W("AND name = 'tool_run'")} GROUP BY wd`, ...A(since));
+    const errors = all(`SELECT tool, json_extract(props, '$.error') error, COUNT(*) n FROM events WHERE ${W("AND name = 'tool_run' AND ok = 0")} GROUP BY tool, error ORDER BY n DESC LIMIT 15`, ...A(since));
+    const ai = all(`SELECT json_extract(props, '$.task') task, COUNT(*) n FROM events WHERE ${W("AND name = 'ai_task'")} GROUP BY task ORDER BY n DESC`, ...A(since));
+    const scans = one(`SELECT COUNT(*) n, ROUND(AVG(json_extract(props, '$.pages')), 1) pages FROM events WHERE ${W("AND name = 'scan'")}`, ...A(since));
+    const crashes = all(`SELECT json_extract(props, '$.error') error, json_extract(props, '$.where') ou, app_version, COUNT(*) n FROM events WHERE ${W("AND name = 'app_crash'")} GROUP BY error, ou, app_version ORDER BY n DESC LIMIT 10`, ...A(since));
+
+    ok(res, {
+      days, filters: { country, version, plan },
+      options: {
+        countries: all("SELECT DISTINCT json_extract(props, '$.country') c FROM events WHERE name = 'app_open' AND json_extract(props, '$.country') IS NOT NULL ORDER BY c").map((r) => r.c),
+        versions: all("SELECT DISTINCT app_version v FROM events WHERE app_version IS NOT NULL AND app_version != '' AND app_version != 'web' ORDER BY v DESC").map((r) => r.v),
+      },
+      users: {
+        dau: active(1), wau: active(7), mau: active(30), installs, accounts, buyers, lost_30d: lost,
+        retention: { d1: back(1), d7: back(7), d30: back(30), cohort: cohort.length },
+        by_day: byDay,
+      },
+      devices: {
+        count: devicesCount,
+        countries: dist("json_extract(props, '$.country')", 20), languages: dist("json_extract(props, '$.lang')"),
+        brands: dist("json_extract(props, '$.brand')"), models: dist("json_extract(props, '$.brand') || ' ' || json_extract(props, '$.model')", 20),
+        android: dist("json_extract(props, '$.android')"), versions: dist('app_version'), installers: dist("json_extract(props, '$.installer')"),
+        screens: dist("CASE WHEN json_extract(props, '$.tablet') THEN 'tablette' WHEN CAST(json_extract(props, '$.screen_dp') AS INTEGER) < 360 THEN 'petit téléphone (< 360 dp)' ELSE 'téléphone' END"),
+        dark: dist("CASE WHEN json_extract(props, '$.dark') THEN 'sombre' ELSE 'clair' END"),
+        timezones: dist("json_extract(props, '$.tz')"),
+      },
+      tools: {
+        list: tools.map((t) => ({ ...t, limit_hits: limits[t.tool] || 0, error_pct: t.runs ? Math.round((t.errors / t.runs) * 100) : 0 })),
+        by_hour: Array.from({ length: 24 }, (_, h) => byHour.find((r) => r.hour === h)?.runs ?? 0),
+        by_weekday: Array.from({ length: 7 }, (_, d) => byWeekday.find((r) => r.wd === d)?.runs ?? 0),
+        errors, ai, scans, crashes,
+        limit_hits: Object.values(limits).reduce((a, b) => a + b, 0),
+      },
+    });
+  });
+
   // Tableau de bord : fréquentation du site sur la période.
   app.get('/api/admin/site-stats', adminAuth(), (req, res) => {
     const days = int(req.query.days, 1, 395, 30);
@@ -1020,7 +1106,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
         v = {
           enabled: !!m.enabled, from_email: text(m.from_email, 200).toLowerCase(), from_name: text(m.from_name, 80) || 'Pagio',
           public_url: text(m.public_url, 200).replace(/\/+$/, ''), verify_signup: !!m.verify_signup,
-          alerts_enabled: !!m.alerts_enabled, alerts_to: text(m.alerts_to, 200).toLowerCase(),
+          alerts_enabled: !!m.alerts_enabled, alerts_to: text(m.alerts_to, 200).toLowerCase(), weekly_report: m.weekly_report !== false,
           api_key: typeof b.mail.api_key !== 'string' || b.mail.api_key.startsWith('••••') ? current.mail.api_key : b.mail.api_key.trim(), // clé inchangée
         };
         if (v.from_email && !emailOk(v.from_email)) return fail(res, 400, "Adresse d'expéditeur invalide");
@@ -1455,6 +1541,57 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (JSON.stringify(next) !== JSON.stringify(state)) setSetting(db, 'mail_alert_state', next);
     return due.length;
   };
+
+  // ------------------------------------------------------------- Rapport hebdomadaire (lundi matin)
+  const TOOL_NAMES = { merge: 'Fusionner', split: 'Diviser', compress: 'Compresser', scan: 'Scanner', pdf_to_word: 'PDF en Word', images_to_pdf: 'Images en PDF',
+    sign: 'Signer', edit: 'Modifier', office_to_pdf: 'Office en PDF', assistant: 'Assistant IA', ocr: 'OCR', rotate: 'Pivoter', protect: 'Protéger' };
+  function weeklyNumbers(end = Date.now()) {
+    const s = getSettings(db).sales;
+    const one = (sql, ...a) => db.prepare(sql).get(...a);
+    const all = (sql, ...a) => db.prepare(sql).all(...a);
+    const span = (from, to) => {
+      const ai = one('SELECT COALESCE(SUM(chars_in), 0) cin, COALESCE(SUM(chars_out), 0) cout FROM ai_usage WHERE ok = 1 AND ts >= ? AND ts < ?', from, to);
+      return {
+        visitors: one("SELECT COUNT(DISTINCT date(ts / 1000, 'unixepoch') || visitor) n FROM site_hits WHERE ts >= ? AND ts < ?", from, to).n,
+        installs: one("SELECT COUNT(*) n FROM events WHERE name = 'app_open' AND json_extract(props, '$.first_open') = 1 AND ts >= ? AND ts < ?", from, to).n,
+        active: one("SELECT COUNT(DISTINCT device_id) n FROM events WHERE app_version != 'web' AND device_id != '' AND ts >= ? AND ts < ?", from, to).n,
+        accounts: one('SELECT COUNT(*) n FROM users WHERE created_at >= ? AND created_at < ?', from, to).n,
+        revenue: one("SELECT COALESCE(SUM(amount), 0) n FROM payments WHERE refunded = 0 AND method != 'gift' AND ts >= ? AND ts < ?", from, to).n,
+        runs: one("SELECT COUNT(*) n FROM events WHERE name = 'tool_run' AND ts >= ? AND ts < ?", from, to).n,
+        errors: one('SELECT COUNT(*) n FROM server_errors WHERE ts >= ? AND ts < ?', from, to).n,
+        ai_cost: Math.round(((ai.cin / 4 / 1e6) * s.ai_usd_per_m_in + (ai.cout / 4 / 1e6) * s.ai_usd_per_m_out) * s.usd_xof),
+      };
+    };
+    const from = end - 7 * DAY;
+    const fmt = (t) => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+    return {
+      period: `du ${fmt(from)} au ${fmt(end - 1)}`, ...span(from, end), prev: span(from - 7 * DAY, from),
+      premium_active: one("SELECT COUNT(*) n FROM users WHERE plan = 'premium' AND (premium_until IS NULL OR premium_until >= ?)", today()).n,
+      uptime: uptime(7, end),
+      top_tools: all("SELECT tool k, COUNT(*) n FROM events WHERE name = 'tool_run' AND tool IS NOT NULL AND ts >= ? GROUP BY tool ORDER BY n DESC LIMIT 5", from).map((r) => ({ ...r, k: TOOL_NAMES[r.k] ?? r.k })),
+      top_countries: all("SELECT json_extract(props, '$.country') k, COUNT(DISTINCT device_id) n FROM events WHERE name = 'app_open' AND ts >= ? AND json_extract(props, '$.country') IS NOT NULL GROUP BY k ORDER BY n DESC LIMIT 5", from),
+      top_sources: all("SELECT source k, COUNT(DISTINCT date(ts / 1000, 'unixepoch') || visitor) n FROM site_hits WHERE ts >= ? GROUP BY source ORDER BY n DESC LIMIT 5", from),
+    };
+  }
+  // Envoyé le lundi à partir de 7 h (heure d'Abidjan), une seule fois par semaine, à l'adresse des alertes (page E-mails).
+  app.locals.sendWeeklyReport = async ({ force = false, now = new Date() } = {}) => {
+    const s = getSettings(db);
+    const to = s.mail.alerts_to;
+    if (!mailReady(s) || !emailOk(to) || (!force && s.mail.weekly_report === false)) return false;
+    const week = `${now.getUTCFullYear()}-${Math.floor((now - new Date(Date.UTC(now.getUTCFullYear(), 0, 1))) / (7 * DAY))}`;
+    if (!force && (now.getUTCDay() !== 1 || now.getUTCHours() < 7 || s.weekly_report_sent === week)) return false;
+    const base = publicUrl(s);
+    const sent = await deliver(s, to, messages.weekly(weeklyNumbers(now.getTime()), base ? `${base.replace('://', '://admin.')}/#stats` : ''));
+    if (sent && !force) setSetting(db, 'weekly_report_sent', week);
+    return sent;
+  };
+  app.post('/api/admin/report/send', adminAuth('admin'), async (req, res) => {
+    const sent = await app.locals.sendWeeklyReport({ force: true });
+    if (!sent) return fail(res, 400, "Rapport non envoyé : vérifiez les e-mails (clé Brevo, expéditeur) et l'adresse de réception des alertes (page E-mails).");
+    audit(req.admin, 'report.send', getSettings(db).mail.alerts_to);
+    ok(res, { sent: true });
+  });
+  app.get('/api/admin/report/preview', adminAuth('admin'), (req, res) => ok(res, { report: weeklyNumbers() }));
 
   // ------------------------------------------------------------- Mesures du VPS (relevées chaque minute par le gardien)
   // Fichier data/gardien/mesures.jsonl : une ligne par minute (30 jours). Relu seulement s'il a changé.

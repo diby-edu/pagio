@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { TOOL_LABELS, api, fmtNum } from '../api';
 import { Alert, BarChart, Card, Empty, Kpi } from '../ui';
+import { AppTabs, Filters } from './StatsApp';
+
+/** Export d'un tableau en CSV lisible par Excel (séparateur « ; », accents conservés). */
+export function exportCsv(name: string, head: string[], rows: (string | number | null | undefined)[][]) {
+  const cell = (v: unknown) => { const t = v == null ? '' : String(v); return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+  const csv = '﻿' + [head, ...rows].map((r) => r.map(cell).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `pagio-${name}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
 
 const PERIODS = [7, 30, 90, 365];
 const short = (day: string) => day.slice(5).split('-').reverse().join('/');
@@ -21,6 +33,8 @@ function Top({ rows, label, total, name = (k) => k ?? '—' }: { rows: Row[]; la
   if (rows.length === 0) return <Empty>Aucune donnée sur la période.</Empty>;
   const max = Math.max(1, ...rows.map((r) => r.visitors));
   return (
+    <>
+    <button className="btn small ghost" style={{ float: 'right', marginTop: -6 }} onClick={() => exportCsv(`site-${label.toLowerCase()}`, [label, 'Visiteurs', 'Pages vues'], rows.map((r) => [name(r.k), r.visitors, r.views]))}>⇩ Excel</button>
     <table className="table small"><thead><tr><th>{label}</th><th>Visiteurs</th><th>Pages vues</th><th>Part</th></tr></thead><tbody>
       {rows.map((r) => (
         <tr key={r.k ?? '—'}>
@@ -29,6 +43,7 @@ function Top({ rows, label, total, name = (k) => k ?? '—' }: { rows: Row[]; la
           <td>{fmtNum(r.visitors)}</td><td>{fmtNum(r.views)}</td><td>{total ? Math.round((r.visitors / total) * 100) : 0} %</td>
         </tr>))}
     </tbody></table>
+    </>
   );
 }
 
@@ -75,18 +90,19 @@ function SiteTab({ days }: { days: number }) {
   );
 }
 
-/** Statistiques détaillées. Onglets : Site (d'autres arrivent : utilisateurs, appareils, outils). */
+/** Statistiques détaillées : utilisateurs, appareils et outils de l'application, fréquentation du site. */
 export default function Stats() {
   const [days, setDays] = useState(30);
-  const [tab, setTab] = useState('site');
+  const [tab, setTab] = useState('users');
+  const [f, setF] = useState<Filters>({ country: '', version: '', plan: '' });
   return (
     <div className="stack">
       <div className="row gap wrap" style={{ alignItems: 'center' }}>
-        {[['site', 'Site pagio.site']].map(([k, l]) => <button key={k} className={`btn${tab === k ? ' primary' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
+        {[['users', 'Utilisateurs'], ['devices', 'Appareils'], ['tools', 'Outils'], ['site', 'Site pagio.site']].map(([k, l]) => <button key={k} className={`btn${tab === k ? ' primary' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
         <span style={{ flex: 1 }} />
         {PERIODS.map((d) => <button key={d} className={`btn small${d === days ? ' primary' : ''}`} onClick={() => setDays(d)}>{d === 365 ? '1 an' : `${d} jours`}</button>)}
       </div>
-      {tab === 'site' && <SiteTab days={days} />}
+      {tab === 'site' ? <SiteTab days={days} /> : <AppTabs tab={tab} days={days} f={f} setF={setF} />}
     </div>
   );
 }

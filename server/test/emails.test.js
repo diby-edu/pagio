@@ -266,3 +266,30 @@ test('e-mails : alertes envoyées une fois par jour', async () => {
     assert.equal(inbox.length, 3);
   } finally { server.close(); }
 });
+
+test('rapport hebdomadaire : contenu, lundi seulement, une fois par semaine, désactivable', async () => {
+  const sent = [];
+  const { server, call, db, app } = await boot({ sendMail: async (cfg, m) => { sent.push(m); } });
+  try {
+    const owner = (await loginOwner(call)).json.token;
+    await call('PUT', '/api/admin/settings', { mail: { enabled: true, api_key: 'xkeysib-test', from_email: 'noreply@pagio.site', public_url: 'https://pagio.site', alerts_to: 'patron@exemple.ci' } }, owner);
+    db.prepare("INSERT INTO site_hits (ts, visitor, path, source) VALUES (?, 'v1', '/', 'Google')").run(Date.now() - 3600_000);
+    // Envoi à la demande depuis le tableau de bord
+    assert.equal((await call('POST', '/api/admin/report/send', {}, owner)).status, 200);
+    const m = sent.at(-1);
+    assert.match(m.subject, /votre semaine/);
+    assert.match(m.text, /Visiteurs du site : 1/);
+    assert.match(m.text, /admin\.pagio\.site\/#stats/);
+    // Envoi automatique : pas un mardi ; le lundi à 8 h oui, une seule fois ; désactivable
+    const n = sent.length;
+    assert.equal(await app.locals.sendWeeklyReport({ now: new Date('2026-12-01T08:00:00Z') }), false);
+    assert.equal(await app.locals.sendWeeklyReport({ now: new Date('2026-11-30T06:00:00Z') }), false);
+    assert.equal(await app.locals.sendWeeklyReport({ now: new Date('2026-11-30T08:00:00Z') }), true);
+    assert.equal(await app.locals.sendWeeklyReport({ now: new Date('2026-11-30T09:00:00Z') }), false);
+    assert.equal(sent.length, n + 1);
+    await call('PUT', '/api/admin/settings', { mail: { weekly_report: false } }, owner);
+    assert.equal(await app.locals.sendWeeklyReport({ now: new Date('2026-12-07T08:00:00Z') }), false);
+  } finally {
+    server.close();
+  }
+});

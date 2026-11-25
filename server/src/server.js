@@ -107,6 +107,9 @@ setInterval(mailKeyTick, 6 * 3_600_000).unref();
 
 setTimeout(backupTick, 20_000).unref();
 setInterval(backupTick, 10 * 60_000).unref();
+// Rapport hebdomadaire : vérifié chaque heure, envoyé le lundi à partir de 7 h (une fois par semaine).
+const reportTick = () => app.locals.sendWeeklyReport().catch((e) => logServerError(db, 'email', e));
+setInterval(reportTick, 3_600_000).unref();
 
 app.listen(PORT, () => {
   console.log(`Serveur Pagio prêt sur http://localhost:${PORT}`);

@@ -80,6 +80,31 @@ export const messages = {
     text: "Ceci est un e-mail d'essai envoyé depuis le tableau de bord Pagio. S'il vous parvient, l'envoi d'e-mails fonctionne.",
     html: layout("E-mail d'essai", "<p>Ceci est un e-mail d'essai envoyé depuis le tableau de bord Pagio. S'il vous parvient, l'envoi d'e-mails fonctionne.</p>"),
   }),
+  // Rapport du lundi : la semaine écoulée comparée à la précédente.
+  weekly: (r, url) => {
+    const evo = (a, b) => (b ? ` (${a >= b ? '+' : ''}${Math.round(((a - b) / b) * 100)} %)` : '');
+    const n = (x) => Number(x || 0).toLocaleString('fr-FR');
+    const lines = [
+      ['Visiteurs du site', `${n(r.visitors)}${evo(r.visitors, r.prev.visitors)}`],
+      ["Installations de l'application", `${n(r.installs)}${evo(r.installs, r.prev.installs)}`],
+      ['Appareils actifs', `${n(r.active)}${evo(r.active, r.prev.active)}`],
+      ['Comptes créés', `${n(r.accounts)}${evo(r.accounts, r.prev.accounts)}`],
+      ['Revenus', `${n(r.revenue)} F${evo(r.revenue, r.prev.revenue)}`],
+      ['Premium actifs', n(r.premium_active)],
+      ["Utilisations d'outils", `${n(r.runs)}${evo(r.runs, r.prev.runs)}`],
+      ["Coût estimé de l'IA", `${n(r.ai_cost)} F`],
+      ['Disponibilité de Pagio', r.uptime == null ? '—' : `${String(r.uptime).replace('.', ',')} %`],
+      ['Erreurs du serveur', n(r.errors)],
+    ];
+    const top = (title, list) => (list.length ? `${title} : ${list.map((x) => `${x.k} (${n(x.n)})`).join(', ')}` : '');
+    const tops = [top('Outils les plus utilisés', r.top_tools), top('Pays', r.top_countries), top('Provenance des visiteurs', r.top_sources)].filter(Boolean);
+    return {
+      subject: `Pagio : votre semaine (${r.period})`,
+      text: `Rapport de la semaine ${r.period} (comparé à la semaine précédente)\n\n${lines.map(([k, v]) => `- ${k} : ${v}`).join('\n')}\n\n${tops.join('\n')}\n\n${url ? `Tableau de bord : ${url}` : ''}`,
+      html: layout(`Votre semaine : ${r.period}`, `<table style="width:100%;border-collapse:collapse">${lines.map(([k, v]) => `<tr><td style="padding:6px 0;color:#55536b">${esc(k)}</td><td style="padding:6px 0;text-align:right;font-weight:bold">${esc(v)}</td></tr>`).join('')}</table>
+${tops.map((t) => `<p style="font-size:14px">${esc(t)}</p>`).join('')}${url ? button(url, 'Ouvrir les statistiques') : ''}<p style="font-size:12px;color:#77758a">Comparaison avec la semaine précédente entre parenthèses. Rapport envoyé chaque lundi ; désactivable dans le tableau de bord (page E-mails).</p>`),
+    };
+  },
   alerts: (list, url) => ({
     subject: `Pagio : ${list.length} alerte(s) sur le serveur`,
     text: `Le serveur Pagio signale :\n\n${list.map((a) => `- [${a.level === 'critical' ? 'URGENT' : 'À surveiller'}] ${a.message}`).join('\n')}\n\n${url ? `Tableau de bord : ${url}\n\n` : ''}Chaque alerte n'est renvoyée qu'une fois par jour tant qu'elle dure.`,
