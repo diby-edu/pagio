@@ -71,10 +71,26 @@ export const messages = {
     text: `Bonjour,\n\nVous avez demandé à changer le mot de passe de votre compte Pagio.\nOuvrez ce lien pour en choisir un nouveau (valable 1 heure) :\n${url}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez ce message : votre mot de passe reste inchangé.`,
     html: layout('Choisissez un nouveau mot de passe', `<p>Vous avez demandé à changer le mot de passe de votre compte Pagio. Ce lien est valable 1 heure.</p>${button(url, 'Choisir un nouveau mot de passe')}<p>Si vous n'êtes pas à l'origine de cette demande, ignorez ce message : votre mot de passe reste inchangé.</p>`),
   }),
+  // À l'inscription : e-mail d'information (le compte est créé et utilisable tout de suite). La confirmation de
+  // l'adresse y est seulement recommandée (elle sert à retrouver le mot de passe) ; `url` absent = adresse déjà
+  // confirmée (inscription avec Google).
+  welcome: (url, credits, site) => {
+    const tools = `${site}/outils/`;
+    const confirmText = url ? `\n\nRecommandé : confirmez votre adresse e-mail. Elle vous permettra de retrouver votre mot de passe si vous l'oubliez :\n${url}\n(Rien ne change si vous ne le faites pas tout de suite : le lien peut être renvoyé à tout moment depuis Réglages › Compte.)` : '';
+    return {
+      subject: 'Bienvenue sur Pagio : votre compte est créé',
+      text: `Bienvenue sur Pagio !\n\nVotre compte est créé et prêt à l'emploi : vous pouvez déjà utiliser tous les outils PDF, dans l'application Android et sur ${site}.\nVous disposez de ${credits} crédits pour l'assistant IA.${confirmText}\n\nTous les outils : ${tools}\n\nSi vous n'avez pas créé de compte Pagio, ignorez ce message ou répondez-y pour nous prévenir.`,
+      html: layout('Bienvenue sur Pagio', `<p>Votre compte est <b>créé et prêt à l'emploi</b> : vous pouvez déjà utiliser tous les outils PDF, dans l'application Android et sur <a href="${esc(site)}">${esc(site.replace(/^https?:\/\//, ''))}</a>.</p>`
+        + `<p>Vous disposez de <b>${esc(credits)} crédits</b> pour l'assistant IA.</p>`
+        + (url ? `<p style="margin-top:22px"><b>Recommandé :</b> confirmez votre adresse e-mail. Elle vous permettra de retrouver votre mot de passe si vous l'oubliez.</p>${button(url, 'Confirmer mon adresse')}<p style="color:#6b6a80;font-size:13px">Rien ne change si vous ne le faites pas tout de suite : le lien peut être renvoyé à tout moment depuis Réglages › Compte.</p>` : '')
+        + `<p><a href="${esc(tools)}">Voir tous les outils</a></p><p style="color:#6b6a80;font-size:13px">Si vous n'avez pas créé de compte Pagio, ignorez ce message ou répondez-y pour nous prévenir.</p>`),
+    };
+  },
+  // Renvoyé à la demande depuis le compte : seulement le lien de confirmation.
   verify: (url) => ({
     subject: 'Pagio : confirmez votre adresse e-mail',
-    text: `Bienvenue sur Pagio !\n\nConfirmez votre adresse e-mail en ouvrant ce lien (valable 7 jours) :\n${url}\n\nSi vous n'avez pas créé de compte Pagio, ignorez ce message.`,
-    html: layout('Bienvenue sur Pagio', `<p>Confirmez votre adresse e-mail pour sécuriser votre compte. Ce lien est valable 7 jours.</p>${button(url, 'Confirmer mon adresse')}<p>Si vous n'avez pas créé de compte Pagio, ignorez ce message.</p>`),
+    text: `Bonjour,\n\nVoici le lien pour confirmer votre adresse e-mail sur Pagio. Elle vous permettra de retrouver votre mot de passe si vous l'oubliez :\n${url}\n\nSi vous n'avez rien demandé, ignorez ce message.`,
+    html: layout('Confirmez votre adresse', `<p>Voici le lien pour confirmer votre adresse e-mail sur Pagio. Elle vous permettra de retrouver votre mot de passe si vous l'oubliez.</p>${button(url, 'Confirmer mon adresse')}<p style="color:#6b6a80;font-size:13px">Si vous n'avez rien demandé, ignorez ce message.</p>`),
   }),
   test: () => ({
     subject: "Pagio : e-mail d'essai",

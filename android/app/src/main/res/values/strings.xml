@@ -525,8 +525,8 @@
     <string name="ref_share">Partager mon lien</string>
     <string name="ref_share_text">Tous vos PDF dans votre poche, gratuitement : %1$s</string>
     <string name="ref_stats">%1$d inscrit(s) avec votre lien, dont %2$d ont pris Premium.</string>
-    <string name="verify_title">Confirmez votre adresse e-mail</string>
-    <string name="verify_text">Un e-mail vous a été envoyé à %1$s. Ouvrez-le et touchez le lien (regardez aussi dans les Spams ou Promotions). Cela protège votre compte et permet de retrouver votre mot de passe.</string>
+    <string name="verify_title">Conseillé : confirmez votre adresse</string>
+    <string name="verify_text">Votre compte fonctionne déjà. Confirmer %1$s vous permettra de retrouver votre mot de passe si vous l\'oubliez : touchez le lien de l\'e-mail de bienvenue (regardez aussi dans les Spams ou Promotions).</string>
     <string name="verify_resend">Renvoyer l\'e-mail</string>
     <string name="verify_done">C\'est fait</string>
 </resources>

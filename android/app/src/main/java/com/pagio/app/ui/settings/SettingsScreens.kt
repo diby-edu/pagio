@@ -273,7 +273,7 @@ fun AccountScreen(onBack: () -> Unit) {
     SubScreen(stringResource(R.string.account), onBack) {
         val acc = account
         if (acc != null) {
-            Card { Column(Modifier.padding(16.dp)) {
+            Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) {
                 Text(acc.name.ifBlank { acc.email }, style = MaterialTheme.typography.titleLarge)
                 Text(acc.email, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(8.dp))
@@ -285,7 +285,7 @@ fun AccountScreen(onBack: () -> Unit) {
             // Adresse pas encore confirmée : explication et bouton pour renvoyer l'e-mail.
             if (!acc.emailVerified) {
                 var verifyMsg by remember { mutableStateOf<String?>(null) }
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
                     Column(Modifier.padding(16.dp)) {
                         Text(stringResource(R.string.verify_title), style = MaterialTheme.typography.titleSmall)
                         Text(stringResource(R.string.verify_text, acc.email), style = MaterialTheme.typography.bodySmall)

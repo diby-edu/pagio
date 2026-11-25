@@ -75,7 +75,7 @@ data class Account(val id: String, val email: String, val name: String, val plan
     companion object {
         fun parse(o: JSONObject) = Account(
             o.getString("id"), o.getString("email"), o.optString("name"), o.optString("plan", "free"),
-            o.optInt("ai_credits"), o.optInt("tasks_today"), o.optString("premium_until").ifBlank { null },
+            o.optInt("ai_credits"), o.optInt("tasks_today"), o.optString("premium_until").takeUnless { o.isNull("premium_until") || it.isBlank() },
             o.optBoolean("email_verified", true),
         )
     }

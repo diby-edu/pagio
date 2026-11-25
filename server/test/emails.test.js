@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { logServerError } from '../src/db.js';
 import { boot, loginOwner } from './helpers.js';
 
-const linkIn = (mail) => new URL(mail.text.match(/https?:\/\/\S+/)[0]);
+// Le lien à suivre dans un e-mail : celui qui porte un jeton (l'e-mail de bienvenue contient aussi l'adresse du site).
+const linkIn = (mail) => new URL((mail.text.match(/https?:\/\/\S+token=\S+/) || mail.text.match(/https?:\/\/\S+/))[0]);
 const form = (base, path, fields) => fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(fields) });
 const settle = () => new Promise((r) => setTimeout(r, 30)); // les envois liés à une requête partent juste après la réponse
 
@@ -131,6 +132,10 @@ test('e-mails : confirmation de l\'adresse à l\'inscription', async () => {
     await settle();
     assert.equal(inbox.length, 1);
     assert.equal(inbox[0].to, 'awa@test.fr');
+    // E-mail de bienvenue (information) : le compte est créé ; la confirmation y est seulement conseillée.
+    assert.match(inbox[0].subject, /Bienvenue/);
+    assert.match(inbox[0].text, /compte est créé/);
+    assert.doesNotMatch(inbox[0].text, /7 jours/);
     const link = linkIn(inbox[0]);
     assert.equal(link.origin, 'https://pagio.exemple.test');
     assert.equal(link.pathname, '/verifier');
@@ -163,7 +168,10 @@ test('e-mails : inscription sans confirmation si l\'option est coupée', async (
   try {
     await call('POST', '/api/auth/register', { email: 'cle@test.fr', password: 'secret123' });
     await settle();
-    assert.equal(inbox.length, 0);
+    // Bienvenue quand même, mais sans lien de confirmation.
+    assert.equal(inbox.length, 1);
+    assert.match(inbox[0].subject, /Bienvenue/);
+    assert.doesNotMatch(inbox[0].text, /token=/);
   } finally { server.close(); }
 });
 
@@ -177,8 +185,8 @@ test('e-mails : mot de passe oublié de bout en bout', async () => {
     await settle();
     assert.deepEqual(unknown.json, known.json);
     assert.match(known.json.message, /e-mail vient de lui être envoyé/);
-    assert.equal(inbox.length, 1);
-    const link = linkIn(inbox[0]);
+    assert.equal(inbox.length, 2); // bienvenue, puis le lien de réinitialisation
+    const link = linkIn(inbox[1]);
     assert.equal(link.pathname, '/reinitialiser');
     const token = link.searchParams.get('token');
     assert.notEqual(db.prepare("SELECT reset_token t FROM users WHERE email = 'lea@test.fr'").get().t, token);

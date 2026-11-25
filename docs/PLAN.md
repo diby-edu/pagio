@@ -136,6 +136,7 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
 - [ ] Fiche : titre, description, captures d'écran (je prépare textes et captures), sécurité des données.
 - [ ] **Paiement Google Play** dans l'application (après A12 et la première publication), prix majorés, vérification des achats par le serveur.
 - [ ] Connexion « avec Google » dans l'application Android.
+- [ ] **Google Analytics dans l'APK** (Firebase Analytics, avec accord), pour comparer avec les statistiques internes (décidé le 25/11).
 - [ ] Test d'accessibilité avec TalkBack.
 
 ### En continu / plus tard

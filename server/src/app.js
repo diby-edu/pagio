@@ -241,10 +241,18 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     .then(() => true)
     .catch((e) => { logServerError(db, 'email', e, { path: `envoi à ${String(to).replace(/^(.).*(@.*)$/, '$1***$2')}` }); return false; });
 
-  const sendVerification = (s, u, req) => {
+  // Lien de confirmation de l'adresse : valable 30 jours (et renvoyable à tout moment depuis le compte).
+  const verifyLink = (s, u) => {
     const token = newToken();
-    db.prepare('UPDATE users SET verify_token = ?, verify_expires = ? WHERE id = ?').run(hashToken(token), Date.now() + 7 * DAY, u.id);
-    return deliver(s, u.email, messages.verify(`${publicUrl(s)}/verifier?token=${token}`));
+    db.prepare('UPDATE users SET verify_token = ?, verify_expires = ? WHERE id = ?').run(hashToken(token), Date.now() + 30 * DAY, u.id);
+    return `${publicUrl(s)}/verifier?token=${token}`;
+  };
+  const sendVerification = (s, u) => deliver(s, u.email, messages.verify(verifyLink(s, u)));
+  /** E-mail de bienvenue (information) à l'inscription, avec le lien de confirmation si l'adresse n'est pas encore confirmée. */
+  const sendWelcome = (s, u) => {
+    if (!linksReady(s)) return Promise.resolve(false);
+    const url = !u.email_verified && s.mail.verify_signup ? verifyLink(s, u) : null;
+    return deliver(s, u.email, messages.welcome(url, u.ai_credits, publicUrl(s)));
   };
 
   /** Applique un nouveau mot de passe à partir d'un jeton reçu par e-mail. Renvoie un message d'erreur, ou null si c'est fait. */
@@ -632,7 +640,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       .run(id, email, String(req.body?.name || '').slice(0, 80), passwordHash, s.plans.free.ai_credits || 0, Date.now(), referrerId(req.body?.ref));
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     notifyEvent('signup', 'info', 'Nouvelle inscription', `${email}${u.referred_by ? ' (parrainage)' : ''}`);
-    if (linksReady(s) && s.mail.verify_signup) sendVerification(s, u, req);
+    sendWelcome(s, u);
     ok(res, { token: signToken({ kind: 'user', sub: id }, secret, 90 * 86400), user: selfUser(u) });
   });
 
@@ -668,6 +676,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
         .run(id, g.email, g.name, await hashPasswordAsync(crypto.randomBytes(24).toString('base64url')), s.plans.free.ai_credits || 0, Date.now(), referrerId(req.body?.ref));
       u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       notifyEvent('signup', 'info', 'Nouvelle inscription', `${g.email} (Google)`);
+      sendWelcome(s, u);
     } else if (!u.email_verified) {
       db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(u.id); // Google vient de confirmer l'adresse
     }
@@ -709,7 +718,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (req.user.email_verified) return ok(res, { message: 'Votre adresse est déjà confirmée.' });
     if (!linksReady(s)) return fail(res, 503, "L'envoi d'e-mails n'est pas activé sur ce serveur.");
     if (!resendLimit(`v:${req.user.id}`)) return fail(res, 429, 'Trop de demandes. Réessayez dans une heure.');
-    if (!(await sendVerification(s, req.user, req))) return fail(res, 502, "L'e-mail n'a pas pu être envoyé. Réessayez plus tard.");
+    if (!(await sendVerification(s, req.user))) return fail(res, 502, "L'e-mail n'a pas pu être envoyé. Réessayez plus tard.");
     ok(res, { message: 'Un e-mail de confirmation vient de vous être envoyé.' });
   });
 
