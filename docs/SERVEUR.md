@@ -111,7 +111,7 @@ Mettre à jour le serveur après une modification du code (à lancer depuis l'or
 
 ```
 git archive HEAD package.json package-lock.json index.html vite.config.ts tsconfig.json src public server | ssh root@72.62.148.170 "tar -x -C /var/www/pagio/app"
-ssh root@72.62.148.170 "cd /var/www/pagio/app && docker build -f server/Dockerfile -t pagio-server:latest . && docker rm -f pagio && docker run -d --name pagio --restart unless-stopped --memory 1200m -p 127.0.0.1:8787:8787 -v /var/www/pagio/data:/data -e TRUST_PROXY=1 -e PUBLIC_URL=https://pagio.site pagio-server:latest"
+ssh root@72.62.148.170 "cd /var/www/pagio/app && docker build -f server/Dockerfile -t pagio-server:latest . && docker rm -f pagio && docker run -d --name pagio --restart unless-stopped --memory 1200m -p 127.0.0.1:8787:8787 -v /var/www/pagio/data:/data -v /var/www/pagio/site/telecharger:/telecharger -e RELEASES_DIR=/telecharger -e TRUST_PROXY=1 -e PUBLIC_URL=https://pagio.site pagio-server:latest"
 ```
 
 Créez d'abord une sauvegarde manuelle dans le tableau de bord. Les données ne sont pas dans le conteneur : elles survivent à son remplacement.
@@ -252,6 +252,15 @@ durée, redémarrage) est notée dans `/var/www/pagio/data/gardien/incidents.jso
 dans `certificats.json` (chaque heure). Le tableau de bord (*Système › Disponibilité*) affiche la disponibilité sur 30 jours, les pannes
 et les certificats ; alertes : certificat à moins de 14 jours (urgent à 5), panne dans les 24 h, gardien silencieux depuis 10 minutes.
 Mise à jour : `scp server/deploy/pagio-gardien.sh root@72.62.148.170:/root/` puis `sed -i 's/\r$//' /root/pagio-gardien.sh`.
+
+### Versions de l'application (depuis le 25/11/2026)
+
+Tableau de bord › *Versions de l'appli* (propriétaire) : choisir l'APK signée, saisir son numéro (vérifié dans le fichier, ainsi
+que le paquet `com.pagio.app`), des notes de version, et si besoin « mise à jour obligatoire » (règle `min_version_code`).
+Le serveur l'enregistre dans `/var/www/pagio/site/telecharger` (monté dans le conteneur : `-v …/telecharger:/telecharger
+-e RELEASES_DIR=/telecharger`), fait pointer `pagio.apk` dessus, réécrit `version.json` et annonce le numéro et les notes
+aux applications (bandeau « Nouvelle version », notes affichées au toucher). « Version d'essai » = fichier `-essai` en lien
+direct, non annoncé. « Proposer à tous » sur une ancienne version = retour en arrière. `android/publier-apk.sh` reste utilisable.
 
 ### APK admin et notifications
 

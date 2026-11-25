@@ -64,7 +64,7 @@ Gestion complète :
 - [x] **Campagnes e-mail** aux utilisateurs (Brevo), avec désinscription.
 - [x] **Support** : répondre aux messages depuis le tableau de bord (réponse envoyée par e-mail), statuts, modèles de réponse.
 - [ ] **Contenus** sans toucher au code : textes et FAQ du site, tarifs affichés, modèles de documents, écrans de présentation.
-- [ ] **Versions** : envoyer une nouvelle APK depuis le tableau de bord, notes de version, mise à jour obligatoire.
+- [x] **Versions** (25/11) : envoyer une nouvelle APK depuis le tableau de bord, notes de version, mise à jour obligatoire, essai, retour en arrière.
 - [x] **Sécurité** : historique des connexions, activités suspectes, blocage d'adresses IP, demandes RGPD (export / suppression).
 - [x] **Recherche globale** (utilisateur, paiement, message). — [ ] Reste : **droits fins** par rôle.
 
