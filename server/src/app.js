@@ -11,7 +11,7 @@ import {
   hashPasswordAsync, verifyPasswordAsync, verifyAgainstNothing,
   newTotpSecret, verifyTotp, totpUri, newRecoveryCodes, hashRecoveryCode,
 } from './security.js';
-import { aiComplete, convertWithLibreOffice, libreOfficeAvailable } from './services.js';
+import { aiComplete, convertWithLibreOffice, libreOfficeAvailable, pdfTool, PDF_OPS } from './services.js';
 import { listBackups, createBackup, backupPath, restoreBackup, importBackup, verifyBackup } from './backup.js';
 import { verifyGoogleToken } from './google.js';
 import { visitorId, isBot, parseUA, classifySource, countryOf } from './sitestats.js';
@@ -69,6 +69,28 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   const eventsLimit = rateLimiter(120, 60_000);
   const convertLimit = rateLimiter(30, HOUR);
   let runningConversions = 0;
+  // File d'attente des traitements lourds (conversions, outils PDF du serveur) : au plus MAX_PARALLEL_CONVERSIONS à la
+  // fois ; les comptes Premium passent devant les comptes gratuits. Au-delà de MAX_WAITING, on refuse poliment.
+  const MAX_WAITING = 30;
+  const waiting = [];
+  const queueStats = { served: 0, waited_ms: 0, refused: 0 };
+  const takeSlot = (premium) => new Promise((resolve, reject) => {
+    if (runningConversions < MAX_PARALLEL_CONVERSIONS && waiting.length === 0) { runningConversions++; return resolve(0); }
+    if (waiting.length >= MAX_WAITING) { queueStats.refused++; return reject(Object.assign(new Error('Le serveur est très demandé. Réessayez dans une minute.'), { status: 503 })); }
+    const job = { premium, at: Date.now(), resolve, reject };
+    // Premium : placé après les autres Premium déjà en attente, mais avant tous les gratuits.
+    const i = premium ? waiting.findIndex((w) => !w.premium) : -1;
+    if (i < 0) waiting.push(job); else waiting.splice(i, 0, job);
+    job.timer = setTimeout(() => {
+      const k = waiting.indexOf(job);
+      if (k >= 0) { waiting.splice(k, 1); queueStats.refused++; reject(Object.assign(new Error("Trop d'attente : réessayez dans un instant."), { status: 503 })); }
+    }, 120_000);
+  });
+  const releaseSlot = () => {
+    const next = waiting.shift();
+    if (next) { clearTimeout(next.timer); queueStats.waited_ms += Date.now() - next.at; next.resolve(Date.now() - next.at); }
+    else runningConversions--;
+  };
   const ok = (res, data = {}) => res.json(data);
   const fail = (res, status, error, extra = {}) => res.status(status).json({ error, ...extra });
   const audit = (admin, action, target, details) =>
@@ -750,9 +772,9 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const name = String(req.query.name || 'document');
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) return fail(res, 400, 'Fichier vide');
     if (req.body.length > req.convertMaxBytes) return fail(res, 413, 'Fichier trop volumineux pour la conversion en ligne');
-    // LibreOffice est gourmand : au-delà de quelques conversions simultanées, on refuse plutôt que de saturer le serveur.
-    if (runningConversions >= MAX_PARALLEL_CONVERSIONS) return fail(res, 503, 'Le serveur de conversion est occupé. Réessayez dans un instant.');
-    runningConversions++;
+    // LibreOffice est gourmand : file d'attente (Premium d'abord) plutôt que de saturer le serveur.
+    try { await takeSlot(req.user?.plan === 'premium'); } catch (e) { return fail(res, e.status || 503, e.message); }
+    queueStats.served++;
     const t0 = Date.now();
     try {
       const out = await convertWithLibreOffice(req.body, name, target);
@@ -766,7 +788,43 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       if (!e.status || e.status >= 500) logServerError(db, 'conversion', e, { method: req.method, path: req.path, status: e.status || 500 });
       fail(res, e.status || 500, e.message);
     } finally {
-      runningConversions--;
+      releaseSlot();
+    }
+  });
+
+  // ------------------------------------------------------------- Outils PDF du serveur (étape 4, vague 2)
+  // POST /api/pdf/compress?level=low|medium|high, /repair, /protect, /unlock, /html_to_pdf ; corps = le fichier.
+  // Le mot de passe (protéger, déverrouiller) passe dans l'en-tête X-Pdf-Password : jamais dans l'adresse (journaux).
+  app.post('/api/pdf/:op', userAuth(false), (req, res, next) => {
+    if (!PDF_OPS.includes(req.params.op)) return fail(res, 404, 'Outil inconnu');
+    if (!req.user) return fail(res, 401, 'Connectez-vous à votre compte Pagio pour utiliser cet outil en ligne');
+    const t = db.prepare('SELECT * FROM tools WHERE id = ?').get(req.params.op);
+    if (t && !t.enabled) return fail(res, 403, 'Cet outil est momentanément désactivé');
+    if (t?.premium && req.user?.plan !== 'premium') return fail(res, 402, 'Outil réservé à Premium');
+    if (t?.max_mb && Number(req.headers['content-length']) > t.max_mb * 1048576) return fail(res, 413, `Fichier trop volumineux (${t.max_mb} Mo maximum)`);
+    next();
+  }, convertGuard, express.raw({ type: '*/*', limit: '100mb' }), async (req, res) => {
+    const op = req.params.op;
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) return fail(res, 400, 'Fichier vide');
+    if (req.body.length > req.convertMaxBytes) return fail(res, 413, 'Fichier trop volumineux');
+    try { await takeSlot(req.user?.plan === 'premium'); } catch (e) { return fail(res, e.status || 503, e.message); }
+    queueStats.served++;
+    const t0 = Date.now();
+    const name = String(req.query.name || 'document').slice(0, 150);
+    try {
+      const out = await pdfTool(op, req.body, { level: String(req.query.level || 'medium'), password: String(req.headers['x-pdf-password'] || ''), name });
+      db.prepare('INSERT INTO conversions (ts, user_id, source_ext, target, bytes, ms, ok) VALUES (?, ?, ?, ?, ?, ?, 1)')
+        .run(Date.now(), req.user?.id ?? null, path.extname(name).slice(1, 10), op, req.body.length, Date.now() - t0);
+      res.setHeader('Content-Type', 'application/pdf');
+      if (out.note) res.setHeader('X-Pagio-Note', out.note);
+      res.send(out.bytes);
+    } catch (e) {
+      db.prepare('INSERT INTO conversions (ts, user_id, source_ext, target, bytes, ms, ok, error) VALUES (?, ?, ?, ?, ?, ?, 0, ?)')
+        .run(Date.now(), req.user?.id ?? null, path.extname(name).slice(1, 10), op, req.body.length, Date.now() - t0, String(e.message).slice(0, 500));
+      if (!e.status || e.status >= 500) logServerError(db, 'outil_pdf', e, { method: req.method, path: req.path, status: e.status || 500 });
+      fail(res, e.status || 500, e.status ? e.message : "Le traitement a échoué. Le fichier est peut-être trop abîmé.");
+    } finally {
+      releaseSlot();
     }
   });
 
@@ -1627,7 +1685,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   app.get('/api/admin/conversions', adminAuth(), (req, res) => {
     const { days, since } = period(req);
     ok(res, {
-      days, libreoffice: libreOfficeAvailable(), running: runningConversions,
+      days, libreoffice: libreOfficeAvailable(), running: runningConversions, waiting: waiting.length, queue: queueStats,
       totals: db.prepare('SELECT COUNT(*) total, COALESCE(SUM(ok), 0) ok, COALESCE(SUM(bytes), 0) bytes, COALESCE(ROUND(AVG(CASE WHEN ok = 1 THEN ms END)), 0) avg_ms, COALESCE(MAX(CASE WHEN ok = 1 THEN ms END), 0) max_ms FROM conversions WHERE ts >= ?').get(since),
       by_type: db.prepare("SELECT source_ext, target, COUNT(*) total, SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) failed, ROUND(AVG(CASE WHEN ok = 1 THEN ms END)) avg_ms FROM conversions WHERE ts >= ? GROUP BY source_ext, target ORDER BY total DESC").all(since),
       daily: db.prepare(`SELECT ${dayOf} day, COUNT(*) total, SUM(CASE WHEN ok = 0 THEN 1 ELSE 0 END) failed FROM conversions WHERE ts >= ? GROUP BY day ORDER BY day`).all(since),

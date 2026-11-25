@@ -38,6 +38,11 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [flatten, setFlatten] = useState(false);
   const [meta, setMeta] = useState<p2.Meta | null>(null);
+  // Vague 2 (serveur)
+  const [level, setLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [note, setNote] = useState('');
 
   useEffect(() => () => { if (result?.kind === 'file') URL.revokeObjectURL(result.url); }, [result]);
   if (!tool) return <p className="notice">Outil inconnu. <a href="/#outils">{t('back')}</a></p>;
@@ -70,7 +75,7 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
       if (why === t('limit_reached', flag?.daily_free ?? 0)) siteEvent('limit_reached', { tool: tool!.id });
       return;
     }
-    setBusy(true); setError(null); setResult(null);
+    setBusy(true); setError(null); setResult(null); setNote('');
     const started = Date.now();
     const stats = { tool: tool!.id, files: files.length, bytes_in: files.reduce((n, x) => n + x.size, 0) };
     try {
@@ -95,6 +100,24 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
         case 'fill_forms': r = file(await p2.fillForm(f, formValues, flatten)); break;
         case 'metadata': if (!meta) throw new Error(t('working')); r = file(await p2.writeMeta(f, meta)); break;
         case 'strip_metadata': r = file(await p2.stripMeta(f)); break;
+        case 'compress': case 'repair': case 'protect': case 'unlock': case 'html_to_pdf': {
+          const op = tool!.id;
+          if (op === 'protect' && password.length < 4) throw new Error(t('pw_short'));
+          if (op === 'protect' && password !== password2) throw new Error(t('pw_mismatch'));
+          if (op === 'unlock' && !password) throw new Error(t('pw_needed'));
+          const headers: Record<string, string> = { authorization: `Bearer ${session.token}`, 'content-type': 'application/octet-stream' };
+          if (op === 'protect' || op === 'unlock') headers['x-pdf-password'] = password;
+          const q = `name=${encodeURIComponent(f.name)}${op === 'compress' ? `&level=${level}` : ''}`;
+          const resp = await fetch(`/api/pdf/${op}?${q}`, { method: 'POST', headers, body: f });
+          if (!resp.ok) throw new ApiError(resp.status, (await resp.json().catch(() => ({}))).error || `Erreur ${resp.status}`);
+          const bytes = new Uint8Array(await resp.arrayBuffer());
+          const suffix = ({ compress: '_compresse', repair: '_repare', protect: '_protege', unlock: '_deverrouille', html_to_pdf: '' } as Record<string, string>)[op];
+          r = file({ name: f.name.replace(/\.[^.]+$/, '') + suffix + '.pdf', bytes, type: 'application/pdf' });
+          const n = resp.headers.get('x-pagio-note');
+          if (op === 'compress') setNote(n === 'already_small' ? t('already_small') : t('gain', Math.round((1 - bytes.length / f.size) * 100)));
+          else if (n === 'rebuilt') setNote(t('rebuilt'));
+          break;
+        }
         case 'office_to_pdf': {
           const resp = await fetch(`/api/convert?to=pdf&name=${encodeURIComponent(f.name)}`, { method: 'POST', headers: { authorization: `Bearer ${session.token}`, 'content-type': 'application/octet-stream' }, body: f });
           if (!resp.ok) throw new ApiError(resp.status, (await resp.json().catch(() => ({}))).error || `Erreur ${resp.status}`);
@@ -192,6 +215,11 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
           {tool.id === 'metadata' && files[0] && <MetaEditor file={files[0]} meta={meta} setMeta={setMeta} />}
           {(needsPages || tool.id === 'rotate') && <label>{t('pages_label')}{tool.id === 'rotate' && ' — vide = toutes'}<input value={pages} onChange={(e) => setPages(e.target.value)} placeholder="1-3, 5" /></label>}
           {tool.id === 'rotate' && <label>{t('angle')}<select value={angle} onChange={(e) => setAngle(Number(e.target.value))}><option value={90}>90°</option><option value={180}>180°</option><option value={270}>270°</option></select></label>}
+          {tool.id === 'compress' && <label>{t('level')}<select value={level} onChange={(e) => setLevel(e.target.value as typeof level)}>
+            <option value="low">{t('lv_low')}</option><option value="medium">{t('lv_medium')}</option><option value="high">{t('lv_high')}</option></select></label>}
+          {(tool.id === 'protect' || tool.id === 'unlock') && <label>{t('password')}<input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>}
+          {tool.id === 'protect' && <label>{t('password2')}<input type="password" autoComplete="new-password" value={password2} onChange={(e) => setPassword2(e.target.value)} /></label>}
+          {tool.id === 'protect' && <p className="muted small wide">{t('pw_help')}</p>}
           {tool.id === 'watermark' && <label>{t('text')}<input value={text} onChange={(e) => setText(e.target.value)} maxLength={40} /></label>}
           {tool.id === 'page_numbers' && <>
             <label>{t('position')}<select value={position} onChange={(e) => setPosition(e.target.value as 'bottom' | 'top')}><option value="bottom">{t('bottom')}</option><option value="top">{t('top')}</option></select></label>
@@ -210,6 +238,7 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
           <a className="btn primary big" href={result.url} download={result.out.name}>⬇ {t('download')}</a>
           <span className="muted">{result.out.name} · {(result.out.bytes.length / 1048576).toFixed(2)} Mo</span>
           {result.preview && <pre className="text-preview">{result.preview}</pre>}
+          {note && <p className="notice">{note}</p>}
           <button className="btn" onClick={() => { setFiles([]); setResult(null); }}>{t('again')}</button>
         </div>
       )}

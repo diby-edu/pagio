@@ -1,5 +1,6 @@
 // Services externes : IA générative (proxy, clés gardées côté serveur) et conversion LibreOffice.
 import { execFile } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -109,4 +110,85 @@ export async function convertWithLibreOffice(buffer, originalName, target) {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+}
+
+// ---------------------------------------------------------------------------- Outils PDF du serveur (étape 4, vague 2)
+// qpdf (réparer, protéger, déverrouiller) et Ghostscript (compresser), lancés comme LibreOffice : dossier temporaire
+// privé, compte sans droits dans Docker, tout est effacé après lecture.
+
+const run = (cmd, args, opts) => new Promise((res, rej) => execFile(cmd, args, { timeout: 180_000, maxBuffer: 4 << 20, ...opts }, (err, out, stderr) => {
+  // qpdf : code 3 = réussi avec des avertissements (PDF abîmé mais réparé).
+  if (err && !(cmd === 'qpdf' && err.code === 3)) return rej(Object.assign(new Error(String(stderr || err.message).slice(0, 400)), { code: err.code }));
+  res(String(out));
+}));
+
+const GS_LEVELS = { low: '/printer', medium: '/ebook', high: '/screen' };
+export const PDF_OPS = ['compress', 'repair', 'protect', 'unlock', 'html_to_pdf'];
+
+/** Lance un outil PDF du serveur. opts : { level, password, name }. Renvoie { bytes, note }. */
+export async function pdfTool(op, buffer, opts = {}) {
+  if (op === 'html_to_pdf') {
+    const name = /\.html?$/i.test(opts.name || '') ? opts.name : 'page.html';
+    return { bytes: await convertWithLibreOffice(Buffer.from(cleanHtml(buffer.toString('utf8'))), name, 'pdf') };
+  }
+  if (!PDF_OPS.includes(op)) throw Object.assign(new Error('Outil inconnu'), { status: 400 });
+  if (buffer.subarray(0, 1024).indexOf('%PDF') < 0) throw Object.assign(new Error("Ce fichier n'est pas un PDF"), { status: 400 });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pagio-pdf-'));
+  const uid = Number(process.env.SOFFICE_UID) || 0;
+  const asUser = uid > 0 && process.getuid?.() === 0 ? { uid, gid: uid, env: { PATH: process.env.PATH, HOME: dir } } : {};
+  const input = path.join(dir, 'in.pdf');
+  const output = path.join(dir, 'out.pdf');
+  try {
+    fs.writeFileSync(input, buffer);
+    if (asUser.uid) { fs.chownSync(dir, uid, uid); fs.chownSync(input, uid, uid); }
+    let note = '';
+    if (op === 'compress') {
+      const level = GS_LEVELS[opts.level] || GS_LEVELS.medium;
+      await run('gs', ['-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.5', `-dPDFSETTINGS=${level}`, '-dNOPAUSE', '-dBATCH', '-dQUIET', '-dSAFER',
+        '-dDetectDuplicateImages=true', '-dCompressFonts=true', `-sOutputFile=${output}`, input], asUser);
+      if (fs.statSync(output).size >= buffer.length) { note = 'already_small'; fs.copyFileSync(input, output); }
+    } else if (op === 'repair') {
+      try { await run('qpdf', [input, output], asUser); } catch {
+        // qpdf n'a rien pu lire : Ghostscript réécrit le document à partir de ce qu'il arrive à interpréter.
+        await run('gs', ['-sDEVICE=pdfwrite', '-dNOPAUSE', '-dBATCH', '-dQUIET', '-dSAFER', `-sOutputFile=${output}`, input], asUser);
+        note = 'rebuilt';
+      }
+    } else if (op === 'protect') {
+      const pw = String(opts.password || '');
+      if (pw.length < 4) throw Object.assign(new Error('Mot de passe trop court (4 caractères minimum)'), { status: 400 });
+      const owner = crypto.randomUUID();
+      await run('qpdf', ['--encrypt', pw, owner, '256', '--', input, output], asUser);
+    } else if (op === 'unlock') {
+      const pwFile = path.join(dir, 'pw.txt');
+      fs.writeFileSync(pwFile, String(opts.password || ''));
+      if (asUser.uid) fs.chownSync(pwFile, uid, uid);
+      try { await run('qpdf', [`--password-file=${pwFile}`, '--decrypt', input, output], asUser); } catch (e) {
+        if (/password/i.test(e.message)) throw Object.assign(new Error('Mot de passe incorrect'), { status: 400 });
+        throw e;
+      }
+    }
+    if (!fs.existsSync(output)) throw new Error('Aucun fichier produit');
+    return { bytes: fs.readFileSync(output), note };
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+export const pdfToolsAvailable = () => new Promise((res) => execFile('qpdf', ['--version'], { timeout: 10_000 }, (err) => res(!err)));
+
+/**
+ * Page HTML envoyée par un utilisateur : on retire scripts, cadres et toute ressource externe (http, file, ftp…)
+ * pour que LibreOffice ne puisse ni aller chercher une adresse interne du serveur ni lire un fichier local.
+ * Les images intégrées (data:) restent.
+ */
+export function cleanHtml(html) {
+  return String(html)
+    .replace(/<(script|iframe|object|applet|frameset|style)\b[\s\S]*?<\/\1\s*>/gi, (m, tag) => (tag.toLowerCase() === 'style' ? m : ''))
+    .replace(/<\/?(script|iframe|object|embed|frame|frameset|applet|meta|link|base)\b[^>]*>/gi, '')
+    .replace(/\s(src|href|background|poster|data|action|srcset|xlink:href)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, (m, attr, v) => {
+      const val = v.replace(/^["']|["']$/g, '').trim();
+      return /^(data:image\/|#)/i.test(val) ? m : '';
+    })
+    .replace(/url\(\s*(['"]?)(?!data:image\/)[^)]*\)/gi, 'none')
+    .replace(/@import[^;]*;/gi, '');
 }

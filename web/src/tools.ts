@@ -23,6 +23,11 @@ export const TOOLS: WebTool[] = [
   { id: 'fill_forms', where: 'local', accept: 'application/pdf,.pdf', multiple: false, icon: '☑', color: '#9333ea' },
   { id: 'metadata', where: 'local', accept: 'application/pdf,.pdf', multiple: false, icon: 'ⓘ', color: '#5d5b74' },
   { id: 'strip_metadata', where: 'local', accept: 'application/pdf,.pdf', multiple: false, icon: '⌫', color: '#ff7a66' },
+  { id: 'compress', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: '⇲', color: '#14a37f' },
+  { id: 'repair', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: '✚', color: '#e08a1e' },
+  { id: 'protect', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: '🔒', color: '#4535c9' },
+  { id: 'unlock', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: '🔓', color: '#7a5cf0' },
+  { id: 'html_to_pdf', where: 'server', accept: 'text/html,.html,.htm', multiple: false, icon: '</>', color: '#0ea5e9' },
   { id: 'office_to_pdf', where: 'server', accept: '.doc,.docx,.odt,.rtf,.xls,.xlsx,.ods,.csv,.ppt,.pptx,.odp,.txt', multiple: false, icon: 'W', color: '#2563eb' },
   { id: 'assistant', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: '✦', color: '#9333ea' },
 ];

@@ -7,6 +7,17 @@ export function setLang(l: Lang) { lang = l; store.set('pagio.lang', l); documen
 document.documentElement.lang = lang;
 
 const FR = {
+  t_compress: 'Compresser', d_compress: 'Réduire le poids d\'un PDF pour l\'envoyer par e-mail ou WhatsApp.',
+  t_repair: 'Réparer', d_repair: 'Récupérer un PDF abîmé qui ne s\'ouvre plus.',
+  t_protect: 'Protéger par mot de passe', d_protect: 'Chiffrer un PDF : il faudra le mot de passe pour l\'ouvrir.',
+  t_unlock: 'Déverrouiller', d_unlock: 'Retirer le mot de passe d\'un PDF dont vous connaissez le code.',
+  t_html_to_pdf: 'HTML en PDF', d_html_to_pdf: 'Transformer une page .html en PDF.',
+  level: 'Compression', lv_low: 'Légère (meilleure qualité)', lv_medium: 'Recommandée', lv_high: 'Forte (fichier le plus petit)',
+  password2: 'Confirmer le mot de passe', pw_short: 'Mot de passe trop court (4 caractères minimum).',
+  pw_mismatch: 'Les deux mots de passe ne sont pas identiques.', pw_needed: 'Saisissez le mot de passe du PDF.',
+  pw_help: 'Notez bien ce mot de passe : sans lui, personne ne pourra ouvrir le fichier, pas même Pagio.',
+  already_small: 'Ce PDF était déjà bien optimisé : il est rendu tel quel.', gain: 'Fichier allégé de %s %.',
+  rebuilt: 'Le PDF était très abîmé : il a été reconstruit à partir de ce qui restait lisible.',
   t_split: 'Diviser', d_split: 'Découper un PDF par groupes de pages ou toutes les N pages.',
   t_organize: 'Organiser les pages', d_organize: 'Réordonner, pivoter ou retirer des pages, avec les miniatures.',
   t_extract_text: 'Extraire le texte', d_extract_text: "Récupérer tout le texte d'un PDF dans un fichier .txt.",
@@ -60,6 +71,17 @@ const FR = {
 };
 type Key = keyof typeof FR;
 const EN: Record<Key, string> = {
+  t_compress: 'Compress', d_compress: 'Make a PDF lighter to send it by email or WhatsApp.',
+  t_repair: 'Repair', d_repair: 'Recover a damaged PDF that no longer opens.',
+  t_protect: 'Password protect', d_protect: 'Encrypt a PDF: the password will be needed to open it.',
+  t_unlock: 'Unlock', d_unlock: 'Remove the password from a PDF whose code you know.',
+  t_html_to_pdf: 'HTML to PDF', d_html_to_pdf: 'Turn an .html page into a PDF.',
+  level: 'Compression', lv_low: 'Light (best quality)', lv_medium: 'Recommended', lv_high: 'Strong (smallest file)',
+  password2: 'Confirm password', pw_short: 'Password too short (4 characters minimum).',
+  pw_mismatch: 'The two passwords do not match.', pw_needed: 'Enter the PDF password.',
+  pw_help: 'Keep this password safe: without it nobody can open the file, not even Pagio.',
+  already_small: 'This PDF was already well optimised: it is returned as is.', gain: 'File reduced by %s%.',
+  rebuilt: 'The PDF was badly damaged: it was rebuilt from what could still be read.',
   t_split: 'Split', d_split: 'Cut a PDF by page groups or every N pages.',
   t_organize: 'Organize pages', d_organize: 'Reorder, rotate or remove pages using thumbnails.',
   t_extract_text: 'Extract text', d_extract_text: 'Get all the text of a PDF into a .txt file.',
