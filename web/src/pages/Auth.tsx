@@ -2,6 +2,9 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Config, User, api } from '../api';
 import { t } from '../i18n';
 
+/** Code de parrainage gardé depuis un lien pagio.site/?ref=CODE (voir site-stats.js), transmis à l'inscription. */
+const referral = () => { try { return localStorage.getItem('pagio.ref') || undefined; } catch { return undefined; } };
+
 type Mode = 'connexion' | 'inscription' | 'oubli';
 interface GoogleId { accounts: { id: { initialize(o: object): void; renderButton(el: HTMLElement, o: object): void } } }
 declare global { interface Window { google?: GoogleId } }
@@ -36,14 +39,14 @@ export default function Auth({ mode, config, onSignedIn, go }: { mode: Mode; con
     try {
       if (mode === 'oubli') { const r = await api<{ message: string }>('POST', '/api/auth/forgot', { email }); setInfo(r.message || t('link_sent')); }
       else {
-        const r = await api<{ token: string; user: User }>('POST', mode === 'inscription' ? '/api/auth/register' : '/api/auth/login', { email, password, name });
+        const r = await api<{ token: string; user: User }>('POST', mode === 'inscription' ? '/api/auth/register' : '/api/auth/login', { email, password, name, ref: referral() });
         onSignedIn(r.token, r.user);
       }
     } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
   }
   async function google(credential: string) {
     setBusy(true); setError(null);
-    try { const r = await api<{ token: string; user: User }>('POST', '/api/auth/google', { credential }); onSignedIn(r.token, r.user); }
+    try { const r = await api<{ token: string; user: User }>('POST', '/api/auth/google', { credential, ref: referral() }); onSignedIn(r.token, r.user); }
     catch (err) { setError((err as Error).message); } finally { setBusy(false); }
   }
 

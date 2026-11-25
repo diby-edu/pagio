@@ -56,6 +56,15 @@ export const DEFAULT_SETTINGS = {
   // Tarifs (décidés le 23/11/2026), en francs CFA. Les crédits IA inclus chaque mois sont ceux de l'offre Premium (plans.premium.ai_credits).
   // play_markup_pct : majoration des prix saisis dans Google Play (Google prélève 15 %). Coût de l'IA : prix du fournisseur en
   // dollars par million de jetons (environ 4 caractères par jeton) et taux du dollar en francs CFA.
+  // Parrainage : jours de Premium offerts au parrain au premier paiement de son filleul.
+  referral: { enabled: true, referrer_days: 7 },
+  // Réponses toutes prêtes du support (titre, texte), modifiables dans le tableau de bord.
+  support_templates: [
+    { title: 'Merci', body: "Merci pour votre message ! Nous l'avons bien reçu et nous en tenons compte pour les prochaines versions de Pagio." },
+    { title: 'Problème corrigé', body: 'Le problème que vous avez signalé est corrigé dans la dernière version de Pagio. Mettez à jour l\'application (bouton « Nouvelle version » sur l\'accueil ou pagio.site) et dites-nous si tout fonctionne.' },
+    { title: 'Besoin de précisions', body: 'Merci pour votre message. Pour vous aider, pouvez-vous nous préciser le modèle de votre téléphone, l\'outil utilisé et, si possible, une capture d\'écran du problème ?' },
+    { title: 'Paiement reçu', body: 'Nous avons bien reçu votre paiement : votre offre Premium est activée. Si elle n\'apparaît pas tout de suite, déconnectez-vous puis reconnectez-vous dans l\'application.' },
+  ],
   // Seuils d'alerte du module Système (réglables). other_sites_alerts : alertes aussi pour les autres sites du VPS (sinon
   // seulement Pagio) ; sites_ignored : sites à ne plus signaler quand ces alertes sont activées.
   monitor: { disk_warn_pct: 20, disk_crit_pct: 10, mem_warn_pct: 90, cpu_warn_pct: 85, rt_warn_ms: 1500, cert_warn_days: 14, disk_forecast_days: 30, sites_ignored: [], other_sites_alerts: false },
@@ -73,7 +82,7 @@ export const OFFER_DAYS = { week: 7, month: 30, year: 365 };
 export const PAYMENT_METHODS = ['orange_money', 'wave', 'mtn', 'moov', 'cash', 'transfer', 'card', 'google_play', 'other', 'gift'];
 
 /** Tables recopiées lors d'une restauration (les sessions d'administration en cours sont conservées). */
-export const DATA_TABLES = ['admins', 'users', 'settings', 'tools', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'plan_history', 'server_errors', 'payments', 'site_hits'];
+export const DATA_TABLES = ['admins', 'users', 'settings', 'tools', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'plan_history', 'server_errors', 'payments', 'site_hits', 'feedback_replies', 'promo_codes', 'promo_redemptions'];
 
 /** Inscrit une erreur du serveur au journal consultable dans le tableau de bord. Ne lève jamais d'erreur. */
 export function logServerError(db, source, error, context = {}) {
@@ -117,6 +126,14 @@ export function openDb(file) {
     CREATE TABLE IF NOT EXISTS feedback (
       id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, kind TEXT, message TEXT, email TEXT,
       user_id TEXT, status TEXT NOT NULL DEFAULT 'nouveau');
+    -- Réponses du support envoyées depuis le tableau de bord (par e-mail).
+    CREATE TABLE IF NOT EXISTS feedback_replies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, feedback_id INTEGER NOT NULL, ts INTEGER NOT NULL, admin_email TEXT, message TEXT NOT NULL, sent INTEGER NOT NULL DEFAULT 0);
+    -- Codes promo (Premium offert N jours, crédits IA, remise en %) et leurs utilisations.
+    CREATE TABLE IF NOT EXISTS promo_codes (
+      code TEXT PRIMARY KEY, kind TEXT NOT NULL, value INTEGER NOT NULL, max_uses INTEGER NOT NULL DEFAULT 0, uses INTEGER NOT NULL DEFAULT 0,
+      expires TEXT, note TEXT, active INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS promo_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL, user_id TEXT, ts INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS audit (
       id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, admin_email TEXT, action TEXT NOT NULL,
       target TEXT, details TEXT);
@@ -167,6 +184,11 @@ export function openDb(file) {
   addColumn('users', 'verify_expires', 'INTEGER');
   // Mois (AAAA-MM) de la dernière remise à niveau des crédits IA inclus dans le Premium.
   addColumn('users', 'credits_month', 'TEXT');
+  // Parrainage : code personnel, parrain, récompense déjà versée ; remise d'un code promo en attente du prochain paiement.
+  addColumn('users', 'ref_code', 'TEXT');
+  addColumn('users', 'referred_by', 'TEXT');
+  addColumn('users', 'referral_rewarded', 'INTEGER NOT NULL DEFAULT 0');
+  addColumn('users', 'pending_discount', 'TEXT');
   // Offre gratuite : opérations par jour pour chaque outil (0 = illimité) et pages maximum par scan (0 = illimité).
   const hadDailyFree = db.prepare('PRAGMA table_info(tools)').all().some((c) => c.name === 'daily_free');
   addColumn('tools', 'daily_free', 'INTEGER NOT NULL DEFAULT 0');
@@ -209,6 +231,7 @@ export function getSettings(db) {
   s.backup = { ...DEFAULT_SETTINGS.backup, ...s.backup };
   s.sales = { ...DEFAULT_SETTINGS.sales, ...s.sales };
   s.monitor = { ...DEFAULT_SETTINGS.monitor, ...s.monitor };
+  s.referral = { ...DEFAULT_SETTINGS.referral, ...s.referral };
   // La clé d'IA est chiffrée en base ; elle n'est en clair qu'en mémoire, le temps de la requête.
   try { s.ai.api_key = reveal(db, s.ai.api_key); } catch { s.ai.api_key = ''; s.ai.key_error = true; }
   s.mail = { ...DEFAULT_SETTINGS.mail, ...s.mail };

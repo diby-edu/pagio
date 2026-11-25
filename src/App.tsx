@@ -20,6 +20,7 @@ import AiUsage from './pages/AiUsage';
 import Mail from './pages/Mail';
 import Sales from './pages/Sales';
 import Stats from './pages/Stats';
+import Promo from './pages/Promo';
 
 type Go = (page: string) => void;
 type Page = { id: string; label: string; icon: string; group: string; min: Admin['role']; el: (a: Admin, go: Go) => JSX.Element };
@@ -42,6 +43,7 @@ const PAGES: Page[] = [
   { id: 'overview', label: "Vue d'ensemble", icon: '◧', group: '', min: 'support', el: (_a, go) => <Overview go={go} /> },
   { id: 'users', label: 'Utilisateurs', icon: '◉', group: 'clients', min: 'support', el: (a) => <Users admin={a} /> },
   { id: 'sales', label: 'Ventes et revenus', icon: '₣', group: 'clients', min: 'support', el: (a) => <Sales canEdit={a.role !== 'support'} /> },
+  { id: 'promo', label: 'Codes promo et parrainage', icon: '%', group: 'clients', min: 'support', el: (a) => <Promo canEdit={a.role !== 'support'} /> },
   { id: 'plans', label: 'Offres et tarifs', icon: '★', group: 'clients', min: 'admin', el: () => <Plans /> },
   { id: 'feedback', label: 'Avis et support', icon: '✉', group: 'clients', min: 'support', el: () => <Feedback /> },
   { id: 'tools', label: 'Outils et limites', icon: '▦', group: 'appli', min: 'support', el: (a) => <Tools admin={a} /> },

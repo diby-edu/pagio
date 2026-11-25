@@ -396,6 +396,13 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
 
   // ================================================================== Comptes utilisateurs
 
+  /** Parrain d'après le code saisi à l'inscription (null si absent, inconnu ou parrainage désactivé). */
+  const referrerId = (code) => {
+    const c = String(code || '').trim().toUpperCase();
+    if (!c || !getSettings(db).referral.enabled) return null;
+    return db.prepare('SELECT id FROM users WHERE ref_code = ?').get(c)?.id ?? null;
+  };
+
   app.post('/api/auth/register', async (req, res) => {
     const s = getSettings(db);
     if (!s.registration_open) return fail(res, 403, 'Les inscriptions sont temporairement fermées.');
@@ -411,8 +418,8 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const passwordHash = await hashPasswordAsync(password);
     // Une autre inscription avec la même adresse a pu aboutir pendant le calcul.
     if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) return fail(res, 409, 'Un compte existe déjà avec cette adresse');
-    db.prepare('INSERT INTO users (id, email, name, password_hash, ai_credits, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, email, String(req.body?.name || '').slice(0, 80), passwordHash, s.plans.free.ai_credits || 0, Date.now());
+    db.prepare('INSERT INTO users (id, email, name, password_hash, ai_credits, created_at, referred_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(id, email, String(req.body?.name || '').slice(0, 80), passwordHash, s.plans.free.ai_credits || 0, Date.now(), referrerId(req.body?.ref));
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (linksReady(s) && s.mail.verify_signup) sendVerification(s, u, req);
     ok(res, { token: signToken({ kind: 'user', sub: id }, secret, 90 * 86400), user: selfUser(u) });
@@ -445,8 +452,8 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       if (perHour > 0 && !registerLimit(`r:${req.ip}`, perHour)) return fail(res, 429, 'Trop d\'inscriptions depuis cette connexion. Réessayez dans une heure.');
       const id = crypto.randomUUID();
       // Mot de passe aléatoire jamais communiqué : « Mot de passe oublié » permet d'en choisir un plus tard.
-      db.prepare('INSERT INTO users (id, email, name, password_hash, ai_credits, created_at, email_verified) VALUES (?, ?, ?, ?, ?, ?, 1)')
-        .run(id, g.email, g.name, await hashPasswordAsync(crypto.randomBytes(24).toString('base64url')), s.plans.free.ai_credits || 0, Date.now());
+      db.prepare('INSERT INTO users (id, email, name, password_hash, ai_credits, created_at, email_verified, referred_by) VALUES (?, ?, ?, ?, ?, ?, 1, ?)')
+        .run(id, g.email, g.name, await hashPasswordAsync(crypto.randomBytes(24).toString('base64url')), s.plans.free.ai_credits || 0, Date.now(), referrerId(req.body?.ref));
       u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     } else if (!u.email_verified) {
       db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(u.id); // Google vient de confirmer l'adresse
@@ -527,10 +534,13 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const u = db.prepare('SELECT email FROM users WHERE id = ?').get(id);
     db.prepare('DELETE FROM users WHERE id = ?').run(id);
     db.prepare('DELETE FROM plan_history WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM feedback_replies WHERE feedback_id IN (SELECT id FROM feedback WHERE user_id = ? OR (? IS NOT NULL AND lower(email) = ?))').run(id, u?.email ?? null, u?.email ?? null);
     db.prepare('DELETE FROM feedback WHERE user_id = ? OR (? IS NOT NULL AND lower(email) = ?)').run(id, u?.email ?? null, u?.email ?? null);
     for (const t of ['events', 'ai_usage', 'conversions']) db.prepare(`UPDATE ${t} SET user_id = NULL WHERE user_id = ?`).run(id);
     // Les ventes restent dans les comptes (montants), sans l'identité de l'acheteur.
     db.prepare('UPDATE payments SET user_id = NULL, user_email = NULL, reference = NULL, note = NULL WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM promo_redemptions WHERE user_id = ?').run(id);
+    db.prepare('UPDATE users SET referred_by = NULL WHERE referred_by = ?').run(id);
   }
 
   app.delete('/api/me', userAuth(true), (req, res) => {
@@ -959,6 +969,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       const r = db.prepare(`INSERT INTO payments (ts, user_id, user_email, kind, offer, amount, method, reference, days, credits, premium_until, actor, note)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(Date.now(), u.id, u.email, kind, offer, amount, method, reference, days, credits, kind === 'premium' ? until : null, req.admin.email, note || null);
       db.exec('COMMIT');
+      if (!gift && amount > 0) rewardReferrer(db.prepare('SELECT * FROM users WHERE id = ?').get(u.id));
       audit(req.admin, gift ? 'payment.gift' : 'payment.record', u.email, { kind, offer, amount, method, days, credits, premium_until: kind === 'premium' ? until : undefined });
       ok(res, { payment: paymentRow(db.prepare('SELECT * FROM payments WHERE id = ?').get(r.lastInsertRowid)), user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(u.id)) });
     } catch (e) {
@@ -1025,6 +1036,110 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     });
   });
 
+  // ------------------------------------------------------------- Codes promo et parrainage
+  // Code promo : Premium offert N jours, crédits IA, ou remise (%) gardée pour le prochain paiement.
+  // Parrainage : chaque compte a un code ; quand un filleul fait son PREMIER paiement, le parrain reçoit N jours de Premium
+  // (rien à l'inscription : impossible de tricher avec de faux comptes).
+  const normCode = (c) => String(c || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 30);
+  const refCodeOf = (u) => {
+    if (u.ref_code) return u.ref_code;
+    let code;
+    do code = crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 7); while (db.prepare('SELECT 1 FROM users WHERE ref_code = ?').get(code));
+    db.prepare('UPDATE users SET ref_code = ? WHERE id = ?').run(code, u.id);
+    return code;
+  };
+  /** Premium prolongé de N jours (à partir de l'échéance en cours), consigné comme un Premium offert. */
+  const grantPremiumDays = (u, days, reason, actor) => {
+    const from = u.plan === 'premium' && u.premium_until && u.premium_until >= today() ? u.premium_until : today();
+    const until = addDays(from, days);
+    const included = Number(getSettings(db).plans.premium.ai_credits) || 0;
+    db.prepare("UPDATE users SET plan = 'premium', premium_until = ?, ai_credits = MAX(ai_credits, ?), credits_month = ? WHERE id = ?").run(until, included, today().slice(0, 7), u.id);
+    planChange(u.id, actor, u.plan, 'premium', until, reason);
+    db.prepare(`INSERT INTO payments (ts, user_id, user_email, kind, offer, amount, method, days, premium_until, actor, note) VALUES (?, ?, ?, 'premium', 'custom', 0, 'gift', ?, ?, ?, ?)`)
+      .run(Date.now(), u.id, u.email, days, until, actor, reason);
+    return until;
+  };
+  app.locals.grantPremiumDays = grantPremiumDays;
+
+  /** Récompense du parrain au premier paiement de son filleul (appelée après chaque paiement enregistré). */
+  function rewardReferrer(u) {
+    const r = getSettings(db).referral;
+    if (!r.enabled || !u.referred_by || u.referral_rewarded) return;
+    const paid = db.prepare("SELECT COUNT(*) n FROM payments WHERE user_id = ? AND method != 'gift' AND refunded = 0 AND amount > 0").get(u.id).n;
+    if (paid !== 1) return;
+    const parrain = db.prepare('SELECT * FROM users WHERE id = ?').get(u.referred_by);
+    db.prepare('UPDATE users SET referral_rewarded = 1 WHERE id = ?').run(u.id);
+    if (parrain && r.referrer_days > 0) grantPremiumDays(parrain, r.referrer_days, `Parrainage : premier paiement de ${u.email}`, 'parrainage');
+  }
+  app.locals.rewardReferrer = rewardReferrer;
+
+  // Utilisateur : saisir un code promo
+  app.post('/api/me/redeem', userAuth(true), (req, res) => {
+    const code = normCode(req.body?.code);
+    const p = code && db.prepare('SELECT * FROM promo_codes WHERE code = ?').get(code);
+    if (!p || !p.active) return fail(res, 404, 'Code inconnu ou désactivé');
+    if (p.expires && p.expires < today()) return fail(res, 400, 'Ce code a expiré');
+    if (p.max_uses > 0 && p.uses >= p.max_uses) return fail(res, 400, "Ce code a déjà été utilisé le nombre de fois prévu");
+    if (db.prepare('SELECT 1 FROM promo_redemptions WHERE code = ? AND user_id = ?').get(code, req.user.id)) return fail(res, 400, 'Vous avez déjà utilisé ce code');
+    const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    let message;
+    if (p.kind === 'premium_days') message = `Premium activé jusqu'au ${new Date(grantPremiumDays(u, p.value, `Code promo ${code}`, 'code promo')).toLocaleDateString('fr-FR')}`;
+    else if (p.kind === 'ai_credits') { db.prepare('UPDATE users SET ai_credits = ai_credits + ? WHERE id = ?').run(p.value, u.id); message = `${p.value} crédits IA ajoutés`; }
+    else { db.prepare('UPDATE users SET pending_discount = ? WHERE id = ?').run(`${code}:${p.value}`, u.id); message = `Remise de ${p.value} % enregistrée pour votre prochain paiement`; }
+    db.prepare('UPDATE promo_codes SET uses = uses + 1 WHERE code = ?').run(code);
+    db.prepare('INSERT INTO promo_redemptions (code, user_id, ts) VALUES (?, ?, ?)').run(code, u.id, Date.now());
+    ok(res, { message, user: selfUser(db.prepare('SELECT * FROM users WHERE id = ?').get(u.id)) });
+  });
+
+  // Utilisateur : son lien de parrainage
+  app.get('/api/me/referral', userAuth(true), (req, res) => {
+    const r = getSettings(db).referral;
+    const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    const code = refCodeOf(u);
+    const base = publicUrl(getSettings(db)) || 'https://pagio.site';
+    ok(res, {
+      enabled: r.enabled, code, link: `${base}/?ref=${code}`, referrer_days: r.referrer_days,
+      invited: db.prepare('SELECT COUNT(*) n FROM users WHERE referred_by = ?').get(u.id).n,
+      rewarded: db.prepare('SELECT COUNT(*) n FROM users WHERE referred_by = ? AND referral_rewarded = 1').get(u.id).n,
+    });
+  });
+
+  // Tableau de bord : codes promo
+  app.get('/api/admin/promo', adminAuth(), (req, res) => {
+    const codes = db.prepare('SELECT * FROM promo_codes ORDER BY created_at DESC').all();
+    const s = getSettings(db).referral;
+    ok(res, {
+      codes, referral: s,
+      referral_stats: {
+        invited: db.prepare('SELECT COUNT(*) n FROM users WHERE referred_by IS NOT NULL').get().n,
+        rewarded: db.prepare('SELECT COUNT(*) n FROM users WHERE referral_rewarded = 1').get().n,
+        top: db.prepare(`SELECT p.email, COUNT(*) invited, SUM(f.referral_rewarded) paid FROM users f JOIN users p ON p.id = f.referred_by GROUP BY p.id ORDER BY invited DESC LIMIT 10`).all(),
+      },
+      redemptions: db.prepare('SELECT r.code, r.ts, u.email FROM promo_redemptions r LEFT JOIN users u ON u.id = r.user_id ORDER BY r.ts DESC LIMIT 100').all(),
+    });
+  });
+  app.post('/api/admin/promo', adminAuth('admin'), (req, res) => {
+    const b = req.body || {};
+    const code = normCode(b.code);
+    if (code.length < 3) return fail(res, 400, 'Code : 3 caractères au moins (lettres, chiffres, - et _)');
+    if (!['premium_days', 'ai_credits', 'discount_pct'].includes(b.kind)) return fail(res, 400, 'Type de code inconnu');
+    const value = int(b.value, 1, b.kind === 'discount_pct' ? 100 : 100000, 0);
+    if (!value) return fail(res, 400, 'Valeur invalide');
+    if (db.prepare('SELECT 1 FROM promo_codes WHERE code = ?').get(code)) return fail(res, 409, 'Ce code existe déjà');
+    const expires = /^\d{4}-\d{2}-\d{2}$/.test(String(b.expires || '')) ? b.expires : null;
+    db.prepare('INSERT INTO promo_codes (code, kind, value, max_uses, uses, expires, note, active, created_at) VALUES (?, ?, ?, ?, 0, ?, ?, 1, ?)')
+      .run(code, b.kind, value, int(b.max_uses, 0, 1_000_000, 0), expires, String(b.note || '').slice(0, 200), Date.now());
+    audit(req.admin, 'promo.create', code, { kind: b.kind, value, max_uses: b.max_uses, expires });
+    ok(res, { code: db.prepare('SELECT * FROM promo_codes WHERE code = ?').get(code) });
+  });
+  app.patch('/api/admin/promo/:code', adminAuth('admin'), (req, res) => {
+    const code = normCode(req.params.code);
+    if (!db.prepare('SELECT 1 FROM promo_codes WHERE code = ?').get(code)) return fail(res, 404, 'Code introuvable');
+    db.prepare('UPDATE promo_codes SET active = ? WHERE code = ?').run(req.body?.active ? 1 : 0, code);
+    audit(req.admin, req.body?.active ? 'promo.enable' : 'promo.disable', code);
+    ok(res, { ok: true });
+  });
+
   // ------------------------------------------------------------- Outils
   app.get('/api/admin/tools', adminAuth(), (req, res) => {
     const since = Date.now() - 30 * DAY;
@@ -1075,7 +1190,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const b = req.body || {};
     const current = getSettings(db);
     const allowed = ['maintenance', 'maintenance_message', 'announcement', 'announcement_level', 'min_version_code', 'latest_version_name',
-      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup', 'mail', 'google_client_id', 'sales', 'monitor'];
+      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup', 'mail', 'google_client_id', 'sales', 'monitor', 'referral'];
     const changed = [];
     for (const k of allowed) {
       if (!(k in b)) continue;
@@ -1116,6 +1231,10 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
         if (/^https?:\/\/admin\./i.test(v.public_url)) return fail(res, 400, "L'adresse publique doit être celle du site ouvert aux utilisateurs (ex. https://pagio.site), pas celle de l'administration");
         if (v.api_key !== current.mail.api_key) setSetting(db, 'mail_key_check', null); // nouvelle clé : nouvelle vérification
         if (v.enabled && (!v.from_email || !(v.api_key || process.env.MAIL_API_KEY))) return fail(res, 400, "Pour activer les e-mails, renseignez la clé Brevo et l'adresse d'expéditeur");
+      }
+      if (k === 'referral') {
+        const c = { ...current.referral, ...(v || {}) };
+        v = { enabled: !!c.enabled, referrer_days: int(c.referrer_days, 0, 365, current.referral.referrer_days) };
       }
       if (k === 'monitor') {
         const c = { ...current.monitor, ...(v || {}) };
@@ -1189,7 +1308,42 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     });
   });
 
-  app.get('/api/admin/feedback', adminAuth(), (req, res) => ok(res, { feedback: db.prepare('SELECT * FROM feedback ORDER BY ts DESC LIMIT 300').all() }));
+  app.get('/api/admin/feedback', adminAuth(), (req, res) => {
+    const replies = db.prepare('SELECT * FROM feedback_replies ORDER BY ts').all();
+    const feedback = db.prepare(`SELECT f.*, u.email user_email FROM feedback f LEFT JOIN users u ON u.id = f.user_id ORDER BY f.ts DESC LIMIT 300`).all()
+      .map((f) => ({ ...f, replies: replies.filter((r) => r.feedback_id === f.id) }));
+    ok(res, { feedback, templates: getSettings(db).support_templates });
+  });
+  // Répondre à un message : e-mail envoyé à l'adresse du message (ou du compte), réponse possible vers contact@pagio.site.
+  app.post('/api/admin/feedback/:id/reply', adminAuth('support'), async (req, res) => {
+    const f = db.prepare('SELECT f.*, u.email user_email FROM feedback f LEFT JOIN users u ON u.id = f.user_id WHERE f.id = ?').get(Number(req.params.id));
+    if (!f) return fail(res, 404, 'Message introuvable');
+    const message = String(req.body?.message || '').trim().slice(0, 5000);
+    if (message.length < 2) return fail(res, 400, 'Écrivez la réponse');
+    const to = emailOk(f.email) ? f.email : f.user_email;
+    if (!emailOk(to)) return fail(res, 400, "Cette personne n'a pas laissé d'adresse e-mail : impossible de lui répondre.");
+    const s = getSettings(db);
+    if (!mailReady(s)) return fail(res, 400, "Les e-mails ne sont pas activés (page E-mails).");
+    try {
+      await sendMail(mailConfig(s), { to, replyTo: s.support_email || 'contact@pagio.site', ...messages.supportReply(f.message, message) });
+    } catch (e) {
+      logServerError(db, 'email', e, { method: req.method, path: req.path, status: 502 });
+      return fail(res, 502, `Réponse non envoyée : ${e.message}`);
+    }
+    db.prepare('INSERT INTO feedback_replies (feedback_id, ts, admin_email, message, sent) VALUES (?, ?, ?, ?, 1)').run(f.id, Date.now(), req.admin.email, message);
+    const status = ['nouveau', 'en cours', 'traité'].includes(req.body?.status) ? req.body.status : 'traité';
+    db.prepare('UPDATE feedback SET status = ? WHERE id = ?').run(status, f.id);
+    audit(req.admin, 'feedback.reply', to, { id: f.id, status });
+    ok(res, { sent: true, to });
+  });
+  app.put('/api/admin/support/templates', adminAuth('admin'), (req, res) => {
+    const list = Array.isArray(req.body?.templates) ? req.body.templates : null;
+    if (!list) return fail(res, 400, 'Format invalide');
+    const clean = list.slice(0, 30).map((t) => ({ title: String(t?.title || '').trim().slice(0, 60), body: String(t?.body || '').trim().slice(0, 3000) })).filter((t) => t.title && t.body);
+    setSetting(db, 'support_templates', clean);
+    audit(req.admin, 'support.templates', null, { count: clean.length });
+    ok(res, { templates: clean });
+  });
   app.patch('/api/admin/feedback/:id', adminAuth(), (req, res) => {
     const status = ['nouveau', 'en cours', 'traité'].includes(req.body?.status) ? req.body.status : null;
     if (!status) return fail(res, 400, 'Statut invalide');

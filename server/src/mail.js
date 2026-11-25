@@ -12,7 +12,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
  * Envoie un message par Brevo. `mail` : réglages (api_key, from_email, from_name).
  * Lève une erreur lisible si Brevo refuse (clé invalide, expéditeur non validé…).
  */
-export async function sendWithBrevo(mail, { to, subject, text, html }) {
+export async function sendWithBrevo(mail, { to, subject, text, html, replyTo }) {
   if (!mail.api_key) throw new Error("Clé d'API Brevo manquante");
   if (!mail.from_email) throw new Error("Adresse d'expéditeur manquante");
   const r = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -21,6 +21,7 @@ export async function sendWithBrevo(mail, { to, subject, text, html }) {
     body: JSON.stringify({
       sender: { email: mail.from_email, name: mail.from_name || 'Pagio' },
       to: [{ email: to }], subject, textContent: text, htmlContent: html,
+      ...(replyTo ? { replyTo: { email: replyTo } } : {}),
     }),
   });
   const j = await r.json().catch(() => ({}));
@@ -105,6 +106,14 @@ export const messages = {
 ${tops.map((t) => `<p style="font-size:14px">${esc(t)}</p>`).join('')}${url ? button(url, 'Ouvrir les statistiques') : ''}<p style="font-size:12px;color:#77758a">Comparaison avec la semaine précédente entre parenthèses. Rapport envoyé chaque lundi ; désactivable dans le tableau de bord (page E-mails).</p>`),
     };
   },
+  // Réponse du support : la personne peut répondre directement (réponse adressée à contact@pagio.site).
+  supportReply: (original, reply) => ({
+    subject: 'Pagio : réponse à votre message',
+    text: `Bonjour,\n\n${reply}\n\nL'équipe Pagio\n\n---\nVotre message :\n${original}`,
+    html: layout('Réponse à votre message', `<div style="white-space:pre-wrap">${esc(reply)}</div><p>L'équipe Pagio</p>
+<blockquote style="margin:18px 0 0;padding:10px 14px;border-left:3px solid #d9d7ea;color:#77758a;white-space:pre-wrap;font-size:13px">${esc(original)}</blockquote>`)
+      .replace('Message automatique : merci de ne pas y répondre.', 'Vous pouvez répondre directement à cet e-mail.'),
+  }),
   alerts: (list, url) => ({
     subject: `Pagio : ${list.length} alerte(s) sur le serveur`,
     text: `Le serveur Pagio signale :\n\n${list.map((a) => `- [${a.level === 'critical' ? 'URGENT' : 'À surveiller'}] ${a.message}`).join('\n')}\n\n${url ? `Tableau de bord : ${url}\n\n` : ''}Chaque alerte n'est renvoyée qu'une fois par jour tant qu'elle dure.`,
