@@ -63,3 +63,12 @@ activée sans votre accord, parce qu'elle s'imprime sur les documents de vos uti
    la journée.
 5. **Hostinger (A8)** : paiement à faire avant le 20/12.
 6. Le premier **rapport hebdomadaire** par e-mail partira tout seul lundi matin.
+
+## Mise à jour du matin (configuration Google, compte kodybusinessci)
+- **Google Analytics** : propriété « Pagio » (Côte d'Ivoire, franc CFA), flux Web pagio.site, ID **G-87ZZEEXYD5**,
+  enregistré dans les réglages de Pagio : le bandeau de consentement s'affiche sur le site.
+  Un compte Analytics « KODY BUSINESS » inutile a aussi été créé sur le compte koffi : il peut être supprimé.
+- **Firebase** : ajouté au projet Google Cloud « Pagio » (`pagio-515720`, formule gratuite Spark) ; application Android
+  `com.pagio.admin` (« Pagio Admin ») enregistrée. Le fichier google-services.json sera récupéré au moment de coder
+  les notifications.
+- **Search Console** : le plan du site est lu correctement (« Opération effectuée », 87 pages) ; renvoyé ce matin.
