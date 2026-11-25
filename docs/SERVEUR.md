@@ -253,6 +253,16 @@ dans `certificats.json` (chaque heure). Le tableau de bord (*Système › Dispon
 et les certificats ; alertes : certificat à moins de 14 jours (urgent à 5), panne dans les 24 h, gardien silencieux depuis 10 minutes.
 Mise à jour : `scp server/deploy/pagio-gardien.sh root@72.62.148.170:/root/` puis `sed -i 's/\r$//' /root/pagio-gardien.sh`.
 
+### Outils en ligne dans les pages du site (depuis le 25/11/2026)
+
+Chaque outil en ligne s'utilise **directement dans sa page** (`pagio.site/fusionner-pdf/`…) : présentation et FAQ en HTML
+(référencement), outil chargé dans `<div id="pagio-tool" data-tool="merge">` par `web/src/embed.tsx` (espace de travail :
+`web/src/pages/Workspace.tsx`, styles `web/src/workspace.css` rangés sous `.pgw`). `/app/` ne sert plus qu'à la connexion
+et au compte ; `/app/#/outil/<id>` redirige vers la page (`/outils-liens.json`). **Ordre obligatoire** pour publier :
+1. `npm --prefix web run build` (produit `web/dist/.vite/manifest.json`) ;
+2. `node server/deploy/site-src/generer.mjs` (lit le manifeste et écrit les balises des fichiers de l'outil) ;
+3. envoyer `web/dist` dans `/var/www/pagio/site/app`, **puis** `server/deploy/site`.
+
 ### Versions de l'application (depuis le 25/11/2026)
 
 Tableau de bord › *Versions de l'appli* (propriétaire) : choisir l'APK signée, saisir son numéro (vérifié dans le fichier, ainsi
