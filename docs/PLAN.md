@@ -127,6 +127,7 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
 - [ ] **Extraction vers Excel** : factures, reçus, relevés bancaires, CV → tableau Excel (plusieurs documents d'un coup).
 - [ ] **Traduction** en gardant la mise en page : Word et PowerPoint d'abord, PDF ensuite (mise en page proche).
 - [ ] Mention **« Créé avec Pagio »** en gratuit, avec « Retirez cette mention avec Premium ».
+      → **Reportée** (décision du 25/11) : pas de mention sur les documents gratuits pour l'instant.
 
 ### Étape 7 — Paiement sur le site (version APK)
 - [ ] Mobile money (Orange Money, MTN, Wave, Moov) et carte, via l'agrégateur choisi (après A13) ; Premium reconnu partout par le compte.
