@@ -2,9 +2,12 @@
 const store = { get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* indisponible */ } } };
 
 export type Lang = 'fr' | 'en';
-export let lang: Lang = (store.get('pagio.lang') as Lang) || ((navigator.language || 'fr').toLowerCase().startsWith('fr') ? 'fr' : 'en');
+// Page d'outil du site (attribut data-pagio-fixe sur <html>) : la langue est celle de la page, jamais changée ici.
+const fixed = document.documentElement.hasAttribute('data-pagio-fixe');
+export let lang: Lang = fixed ? (document.documentElement.lang === 'en' ? 'en' : 'fr')
+  : (store.get('pagio.lang') as Lang) || ((navigator.language || 'fr').toLowerCase().startsWith('fr') ? 'fr' : 'en');
 export function setLang(l: Lang) { lang = l; store.set('pagio.lang', l); document.documentElement.lang = l; }
-document.documentElement.lang = lang;
+if (!fixed) document.documentElement.lang = lang;
 
 const FR = {
   t_id_card: 'Carte d’identité recto verso', d_id_card: 'Les deux faces d’une carte sur une seule page A4, à la taille réelle, prête à imprimer.',

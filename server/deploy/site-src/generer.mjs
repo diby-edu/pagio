@@ -25,7 +25,24 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const json = (o) => JSON.stringify(o).replace(/</g, '\\u003c');
 const url = (o, l) => (l === 'fr' ? `/${o.fr.slug}/` : `/en/${o.en.slug}/`);
 const listeUrl = (l) => (l === 'fr' ? '/outils/' : '/en/tools/');
-const lienOutil = (o) => (EN_LIGNE.has(o.id) ? `/app/#/outil/${o.id}` : null);
+const lienOutil = (o) => (EN_LIGNE.has(o.id) ? url(o, 'fr') : null);
+
+// Outil intégré dans sa page (pagio.site/fusionner-pdf/) : fichiers produits par la construction de web/ (npm --prefix
+// web run build), lus dans son manifeste. Sans construction, les pages sont générées sans l'outil (avertissement).
+const MANIFESTE = path.join(RACINE, 'web', 'dist', '.vite', 'manifest.json');
+const EMBED = (() => {
+  if (!fs.existsSync(MANIFESTE)) { console.warn("Attention : web/dist absent (lancez d'abord npm --prefix web run build) ; pages sans l'outil intégré."); return null; }
+  const m = JSON.parse(fs.readFileSync(MANIFESTE, 'utf8'));
+  const e = m['src/embed.tsx'];
+  if (!e) return null;
+  const css = new Set(e.css || []); const pre = [];
+  for (const k of e.imports || []) { pre.push(m[k].file); (m[k].css || []).forEach((c) => css.add(c)); }
+  return { js: e.file, css: [...css], pre };
+})();
+const embedHead = () => (EMBED ? [
+  ...EMBED.css.map((c) => `<link rel="stylesheet" href="/app/${c}">`),
+  ...EMBED.pre.map((p) => `<link rel="modulepreload" href="/app/${p}">`),
+  `<script type="module" src="/app/${EMBED.js}"></script>`].join('\n') : '');
 
 const T = {
   fr: {
@@ -110,9 +127,9 @@ function pied(l) {
 <script src="/site-stats.js" defer></script>`;
 }
 
-function page({ l, titre, description, chemin, autreChemin, corps, jsonld }) {
+function page({ l, titre, description, chemin, autreChemin, corps, jsonld, outil = false }) {
   return `<!doctype html>
-<html lang="${l}">
+<html lang="${l}"${outil ? ' data-pagio-fixe' : ''}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -133,6 +150,7 @@ function page({ l, titre, description, chemin, autreChemin, corps, jsonld }) {
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/legal.css">
 <link rel="stylesheet" href="/outil.css">
+${outil ? embedHead() : ''}
 ${jsonld.map((j) => `<script type="application/ld+json">${json(j)}</script>`).join('\n')}
 </head>
 <body>
@@ -166,16 +184,17 @@ function pageOutil(o, l) {
   const description = brut.length <= 158 ? brut : `${brut.slice(0, 155).replace(/\s+\S*$/, '')}…`;
   const badges = [`<span class="badge ${o.ia ? 'prem' : 'free'}">${o.ia ? t.premium : t.gratuit}</span>`, ...(o.webSeulement ? [] : [`<span class="badge">${t.android}</span>`])];
   if (enLigne) badges.push(`<span class="badge">${t.enLigne}</span>`);
+  // En ligne : l'outil lui-même s'affiche ici (dépôt des fichiers, miniatures, résultat). Sinon : bouton de l'application.
   const actions = enLigne
-    ? `<a class="cta" href="${enLigne}">${t.utiliser}</a>${o.webSeulement ? '' : `<a class="cta alt" href="/telecharger/pagio.apk">${t.appli}</a>`}`
-    : `<a class="cta" href="/telecharger/pagio.apk">${t.appli}</a>`;
+    ? `<div id="pagio-tool" data-tool="${o.id}"><noscript><p class="note">${l === 'fr' ? 'Activez JavaScript pour utiliser cet outil en ligne.' : 'Turn on JavaScript to use this online tool.'}</p></noscript></div>${o.webSeulement ? '' : `<p class="also"><a href="/telecharger/pagio.apk">${t.appli}</a></p>`}`
+    : `<p class="actions"><a class="cta" href="/telecharger/pagio.apk">${t.appli}</a></p>`;
   const note = enLigne ? '' : `<p class="note">${o.telephoneSeulement ? t.telSeul : t.bientot}</p>`;
   const corps = `<nav class="crumbs" aria-label="${t.fil}"><a href="${l === 'fr' ? '/' : '/?lang=en'}">Pagio</a> › <a href="${listeUrl(l)}">${t.outils}</a> › <span>${esc(fam[l])}</span></nav>
 <article>
   <h1>${esc(d.nom)}</h1>
   <p class="lead">${esc(d.intro)}</p>
   <p class="badges">${badges.join('')}</p>
-  <p class="actions">${actions}</p>
+  ${actions}
   ${note}
   <h2>${t.comment}</h2>
   <ol class="steps">${etapes.map((e) => `<li>${esc(e)}</li>`).join('')}</ol>
@@ -195,7 +214,7 @@ function pageOutil(o, l) {
       { '@type': 'ListItem', position: 2, name: t.outils, item: `${BASE}${listeUrl(l)}` },
       { '@type': 'ListItem', position: 3, name: d.nom, item: `${BASE}${chemin}` }] },
   ];
-  return page({ l, titre, description, chemin, autreChemin, corps, jsonld });
+  return page({ l, titre, description, chemin, autreChemin, corps, jsonld, outil: !!enLigne && !!EMBED });
 }
 
 function pageListe(l) {
@@ -235,6 +254,8 @@ const generees = [];
 for (const o of OUTILS) for (const l of ['fr', 'en']) { ecrire(url(o, l), pageOutil(o, l)); generees.push(url(o, l).replace(/^\/|\/$/g, '')); }
 for (const l of ['fr', 'en']) { ecrire(listeUrl(l), pageListe(l)); generees.push(listeUrl(l).replace(/^\/|\/$/g, '')); }
 fs.writeFileSync(LISTE, JSON.stringify(generees, null, 1) + '\n');
+// Correspondance outil → page (anciens liens /app/#/outil/…, « Continuer avec… » d'un outil à l'autre).
+fs.writeFileSync(path.join(SITE, 'outils-liens.json'), JSON.stringify(Object.fromEntries(OUTILS.filter((o) => EN_LIGNE.has(o.id)).map((o) => [o.id, { fr: url(o, 'fr'), en: url(o, 'en') }]))) + '\n');
 
 // Plan du site : accueil, pages légales, listes et pages d'outils, avec leur équivalent dans l'autre langue.
 const paire = (fr, en) => [fr, en].map((u) => `  <url><loc>${BASE}${u}</loc><lastmod>${AUJOURDHUI}</lastmod>
@@ -258,7 +279,7 @@ Sitemap: ${BASE}/sitemap.xml
 const accueil = path.join(SITE, 'index.html');
 let html = fs.readFileSync(accueil, 'utf8');
 const catalogue = (l) => FAMILLES.map((f) => [f[l], OUTILS.filter((o) => o.famille === f.id)
-  .map((o) => ({ n: o[l].nom, h: lienOutil(o) || url(o, l), s: NOUVEAUX.has(o.id) ? 1 : 0 }))]);
+  .map((o) => ({ n: o[l].nom, h: url(o, l), s: NOUVEAUX.has(o.id) ? 1 : 0 }))]);
 const bloc = `/*CATALOGUE*/const CATALOGUE = ${json({ nb: NB, fr: catalogue('fr'), en: catalogue('en') })};/*FIN CATALOGUE*/`;
 if (!/\/\*CATALOGUE\*\/[\s\S]*?\/\*FIN CATALOGUE\*\//.test(html)) throw new Error("Repère /*CATALOGUE*/ absent d'index.html");
 html = html.replace(/\/\*CATALOGUE\*\/[\s\S]*?\/\*FIN CATALOGUE\*\//, bloc);

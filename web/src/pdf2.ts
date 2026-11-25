@@ -67,7 +67,7 @@ export async function organize(f: File, plan: PagePlan[]): Promise<Out> {
 }
 
 // ---------------------------------------------------------------- Lecture (pdf.js) : texte, miniatures, images de pages
-async function pdfjsDoc(f: File) {
+export async function pdfjsDoc(f: Blob) {
   const pdfjs = await import('pdfjs-dist');
   const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;

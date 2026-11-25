@@ -33,3 +33,8 @@ details p { margin: 8px 0 2px; color: var(--muted); }
 .related li { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--bg2); display: flex; flex-direction: column; gap: 2px; }
 .related a { font-weight: 700; text-decoration: none; }
 .related span { color: var(--muted); font-size: .88rem; line-height: 1.45; }
+
+/* Pages d'outils en ligne : lien discret vers l'application sous l'outil intégré */
+.also { margin: 4px 0 18px; font-size: 14px; }
+.also a { color: inherit; opacity: .8; }
+#pagio-tool { min-height: 230px; }

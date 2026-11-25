@@ -3,8 +3,6 @@ import { Config, User, getConfig, me, session, siteHit } from './api';
 import { Lang, lang as initialLang, setLang, t } from './i18n';
 import Account from './pages/Account';
 import Auth from './pages/Auth';
-import Home from './pages/Home';
-import ToolPage from './pages/ToolPage';
 
 /** Navigation par l'adresse (#/, #/outil/merge, #/connexion, #/compte) : liens partageables, retour arrière du navigateur. */
 const route = () => location.hash.replace(/^#/, '') || '/';
@@ -25,18 +23,26 @@ export default function App() {
   useEffect(() => { refreshUser().finally(() => setChecking(false)); }, []);
 
   const go = (p: string) => { location.hash = p; };
-  const signedIn = (token: string, u: User) => { session.token = token; setUser(u); go('/'); };
-  const signOut = () => { session.token = null; setUser(null); go('/'); };
+  // Après la connexion : retour à l'outil d'où l'on venait (pagio.site/compresser-pdf/…), sinon l'accueil de /app.
+  const signedIn = (token: string, u: User) => {
+    session.token = token; setUser(u);
+    let back: string | null = null;
+    try { back = sessionStorage.getItem('pagio.retour'); sessionStorage.removeItem('pagio.retour'); } catch { /* indisponible */ }
+    if (back && /^\/[a-z0-9/-]*\/$/.test(back)) location.href = back; else go('/compte');
+  };
+  const signOut = () => { session.token = null; setUser(null); location.href = '/'; };
   const switchLang = (l: Lang) => { setLang(l); setLangState(l); };
 
   let page;
-  if (path.startsWith('/outil/')) page = <ToolPage key={path} id={path.slice(7)} config={config} user={user} onUser={setUser} go={go} />;
+  // Anciens liens /app/#/outil/merge : l'outil est maintenant directement dans sa page du site (pagio.site/fusionner-pdf/).
+  if (path.startsWith('/outil/')) page = <ToolRedirect id={path.slice(7)} />;
   // Déjà connecté : les pages de connexion mènent au compte (pas de formulaire qui ferait croire à une déconnexion).
   else if (checking && (path === '/connexion' || path === '/inscription' || path === '/compte')) page = <div className="page-loading" aria-busy="true" />;
   else if (user && (path === '/connexion' || path === '/inscription')) page = <Account user={user} onChanged={refreshUser} onSignOut={signOut} />;
   else if (path === '/connexion' || path === '/inscription' || path === '/oubli') page = <Auth mode={path.slice(1) as 'connexion' | 'inscription' | 'oubli'} config={config} onSignedIn={signedIn} go={go} />;
   else if (path === '/compte') page = user ? <Account user={user} onChanged={refreshUser} onSignOut={signOut} /> : <Auth mode="connexion" config={config} onSignedIn={signedIn} go={go} />;
-  else page = <Home config={config} user={user} go={go} />;
+  // L'ancienne liste « outils en ligne » de /app : les outils sont maintenant sur pagio.site (liste des outils).
+  else page = <ToolRedirect id="" />;
 
   return (
     <>
@@ -75,3 +81,13 @@ export default function App() {
 }
 
 function initialLangIs(l: Lang) { return document.documentElement.lang === l; }
+
+function ToolRedirect({ id }: { id: string }) {
+  useEffect(() => {
+    fetch('/outils-liens.json').then((r) => r.json()).then((m: Record<string, { fr: string; en: string }>) => {
+      const to = m[id]?.[document.documentElement.lang === 'en' ? 'en' : 'fr'];
+      location.replace(to || '/#outils');
+    }).catch(() => location.replace('/#outils'));
+  }, [id]);
+  return <div className="page-loading" aria-busy="true" />;
+}
