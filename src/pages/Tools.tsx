@@ -5,7 +5,7 @@ import { Alert, Card, Toggle, useFlash } from '../ui';
 const GROUPS: [string, string[]][] = [
   ['Organiser', ['merge', 'split', 'organize', 'extract_pages', 'delete_pages', 'rotate']],
   ['Optimiser', ['compress', 'repair', 'ocr', 'extract_text']],
-  ['Créer et convertir en PDF', ['scan', 'images_to_pdf', 'office_to_pdf', 'html_to_pdf', 'txt_to_pdf', 'create_pdf']],
+  ['Créer et convertir en PDF', ['scan', 'id_card', 'images_to_pdf', 'office_to_pdf', 'html_to_pdf', 'txt_to_pdf', 'create_pdf']],
   ['Convertir depuis PDF', ['pdf_to_word', 'pdf_to_excel', 'pdf_to_ppt', 'pdf_to_images', 'extract_images']],
   ['Modifier', ['edit', 'sign', 'fill_forms', 'page_numbers', 'watermark', 'header_footer', 'replace_text', 'redact']],
   ['Sécurité', ['protect', 'unlock', 'metadata', 'strip_metadata', 'digital_sign', 'verify_sign']],

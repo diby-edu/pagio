@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { TOOL_IDS } from '../src/db.js';
 import { runScheduledBackup, listBackups, pruneBackups } from '../src/backup.js';
 import { boot, loginOwner } from './helpers.js';
 
@@ -46,7 +47,7 @@ test('sauvegardes : création, vérification, restauration, import', async () =>
     assert.equal(users.users[0].email, 'avant@test.fr');
     assert.equal((await call('GET', '/api/app/config')).json.announcement, 'Version sauvegardée');
     assert.equal((await call('POST', '/api/auth/login', { email: 'avant@test.fr', password: 'secret123' })).status, 200);
-    assert.equal(Object.keys((await call('GET', '/api/app/config')).json.tools).length, 40);
+    assert.equal(Object.keys((await call('GET', '/api/app/config')).json.tools).length, TOOL_IDS.length);
     // L'état d'avant la restauration a été mis de côté et peut lui aussi être restauré
     const safety = await call('POST', `/api/admin/backups/${restored.json.safety}/restore`, { password: 'motdepasse-admin' }, owner);
     assert.equal(safety.status, 200);

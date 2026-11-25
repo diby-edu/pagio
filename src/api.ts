@@ -147,7 +147,7 @@ export const TOOL_LABELS: Record<string, string> = {
   merge: 'Fusionner', split: 'Diviser', organize: 'Organiser les pages', extract_pages: 'Extraire des pages', delete_pages: 'Supprimer des pages',
   rotate: 'Faire pivoter', compress: 'Compresser', repair: 'Réparer', ocr: 'OCR (PDF consultable)', extract_text: 'Extraire le texte',
   scan: 'Scanner', images_to_pdf: 'Images en PDF', office_to_pdf: 'Office en PDF', html_to_pdf: 'HTML en PDF', txt_to_pdf: 'Texte en PDF',
-  create_pdf: 'Créer un PDF', pdf_to_word: 'PDF en Word', pdf_to_excel: 'PDF en Excel', pdf_to_ppt: 'PDF en PowerPoint',
+  create_pdf: 'Créer un PDF', id_card: 'Carte recto verso', pdf_to_word: 'PDF en Word', pdf_to_excel: 'PDF en Excel', pdf_to_ppt: 'PDF en PowerPoint',
   pdf_to_images: 'PDF en images', extract_images: 'Extraire les images', edit: 'Modifier PDF', sign: 'Signer', fill_forms: 'Remplir un formulaire',
   page_numbers: 'Numéros de page', watermark: 'Filigrane', header_footer: 'En-tête / pied', replace_text: 'Remplacer du texte', redact: 'Biffer',
   protect: 'Protéger', unlock: 'Déverrouiller', metadata: 'Propriétés', strip_metadata: 'Nettoyer métadonnées', digital_sign: 'Signature numérique',

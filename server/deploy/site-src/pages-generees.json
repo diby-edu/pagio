@@ -21,6 +21,8 @@
  "en/extract-text-from-pdf",
  "scanner-document",
  "en/document-scanner",
+ "carte-identite-recto-verso",
+ "en/id-card-front-and-back",
  "images-en-pdf",
  "en/images-to-pdf",
  "word-excel-powerpoint-en-pdf",

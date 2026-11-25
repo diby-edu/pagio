@@ -23,6 +23,7 @@ export const TOOLS: WebTool[] = [
   { id: 'fill_forms', where: 'local', accept: 'application/pdf,.pdf', multiple: false, icon: '☑', color: '#9333ea' },
   { id: 'metadata', where: 'local', accept: 'application/pdf,.pdf', multiple: false, icon: 'ⓘ', color: '#5d5b74' },
   { id: 'strip_metadata', where: 'local', accept: 'application/pdf,.pdf', multiple: false, icon: '⌫', color: '#ff7a66' },
+  { id: 'id_card', where: 'local', accept: 'image/*,.jpg,.jpeg,.png,.webp,.heic', multiple: true, icon: '🪪', color: '#0ea5e9' },
   { id: 'compress', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: '⇲', color: '#14a37f' },
   { id: 'repair', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: '✚', color: '#e08a1e' },
   { id: 'protect', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: '🔒', color: '#4535c9' },

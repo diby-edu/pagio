@@ -43,6 +43,7 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [note, setNote] = useState('');
+  const [card, setCard] = useState({ size: 'real' as 'real' | 'large', copies: 1 as 1 | 2, gray: false });
 
   useEffect(() => () => { if (result?.kind === 'file') URL.revokeObjectURL(result.url); }, [result]);
   if (!tool) return <p className="notice">Outil inconnu. <a href="/#outils">{t('back')}</a></p>;
@@ -100,6 +101,7 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
         case 'fill_forms': r = file(await p2.fillForm(f, formValues, flatten)); break;
         case 'metadata': if (!meta) throw new Error(t('working')); r = file(await p2.writeMeta(f, meta)); break;
         case 'strip_metadata': r = file(await p2.stripMeta(f)); break;
+        case 'id_card': if (files.length !== 2) throw new Error(t('card_two')); r = file(await p2.idCard(files[0], files[1], card)); break;
         case 'compress': case 'repair': case 'protect': case 'unlock': case 'html_to_pdf': case 'ocr': {
           const op = tool!.id;
           if (op === 'protect' && password.length < 4) throw new Error(t('pw_short'));
@@ -224,6 +226,12 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
           {tool.id === 'metadata' && files[0] && <MetaEditor file={files[0]} meta={meta} setMeta={setMeta} />}
           {(needsPages || tool.id === 'rotate') && <label>{t('pages_label')}{tool.id === 'rotate' && ' — vide = toutes'}<input value={pages} onChange={(e) => setPages(e.target.value)} placeholder="1-3, 5" /></label>}
           {tool.id === 'rotate' && <label>{t('angle')}<select value={angle} onChange={(e) => setAngle(Number(e.target.value))}><option value={90}>90°</option><option value={180}>180°</option><option value={270}>270°</option></select></label>}
+          {tool.id === 'id_card' && <>
+            <p className="muted small wide">{t('card_help')}</p>
+            <label>{t('card_size')}<select value={card.size} onChange={(e) => setCard({ ...card, size: e.target.value as 'real' | 'large' })}><option value="real">{t('card_real')}</option><option value="large">{t('card_large')}</option></select></label>
+            {card.size === 'real' && <label>{t('card_copies')}<select value={card.copies} onChange={(e) => setCard({ ...card, copies: Number(e.target.value) as 1 | 2 })}><option value={1}>1</option><option value={2}>2</option></select></label>}
+            <label className="check"><input type="checkbox" checked={card.gray} onChange={(e) => setCard({ ...card, gray: e.target.checked })} />{t('card_gray')}</label>
+          </>}
           {tool.id === 'compress' && <label>{t('level')}<select value={level} onChange={(e) => setLevel(e.target.value as typeof level)}>
             <option value="low">{t('lv_low')}</option><option value="medium">{t('lv_medium')}</option><option value="high">{t('lv_high')}</option></select></label>}
           {(tool.id === 'protect' || tool.id === 'unlock') && <label>{t('password')}<input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>}

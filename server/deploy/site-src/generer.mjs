@@ -70,6 +70,7 @@ const ETAPES = {
     html: ['Choisissez un fichier HTML ou collez l\'adresse d\'une page.', 'Lancez la conversion.', 'Récupérez le PDF.'],
     text: ['Choisissez un ou plusieurs fichiers texte.', 'Choisissez la taille du texte et la police.', 'Enregistrez le PDF.'],
     doc: ['Choisissez un PDF ou une photo de document.', 'Lancez l\'analyse.', 'Copiez, enregistrez ou partagez le résultat.'],
+    carte: ['Prenez en photo le recto puis le verso de la carte.', 'Choisissez la taille réelle ou agrandie, en couleur ou en noir et blanc.', 'Téléchargez la page A4 et imprimez-la.'],
     none: ['Ouvrez l\'outil dans l\'application.', 'Suivez les indications à l\'écran.', 'Enregistrez ou partagez le document.'],
   },
   en: {
@@ -80,6 +81,7 @@ const ETAPES = {
     html: ['Choose an HTML file or paste a page address.', 'Start the conversion.', 'Get the PDF.'],
     text: ['Choose one or more text files.', 'Choose text size and font.', 'Save the PDF.'],
     doc: ['Choose a PDF or a photo of a document.', 'Start the analysis.', 'Copy, save or share the result.'],
+    carte: ['Take a photo of the front, then the back of the card.', 'Choose real or enlarged size, colour or black and white.', 'Download the A4 page and print it.'],
     none: ['Open the tool in the app.', 'Follow the on-screen instructions.', 'Save or share the document.'],
   },
 };
@@ -154,18 +156,18 @@ function pageOutil(o, l) {
   const proches = OUTILS.filter((x) => x.famille === o.famille && x.id !== o.id);
   // Titre court (Google en affiche environ 60 caractères), l'expression recherchée en premier.
   const ou = l === 'fr'
-    ? (o.ia ? "avec l'IA" : enLigne ? 'gratuit en ligne et sur Android' : 'gratuit sur Android')
-    : (o.ia ? 'with AI' : enLigne ? 'free online and on Android' : 'free on Android');
+    ? (o.ia ? "avec l'IA" : o.webSeulement ? 'gratuit en ligne' : enLigne ? 'gratuit en ligne et sur Android' : 'gratuit sur Android')
+    : (o.ia ? 'with AI' : o.webSeulement ? 'free online' : enLigne ? 'free online and on Android' : 'free on Android');
   // Outils IA : la recherche la plus courante (« Résumer PDF avec l'IA ») plutôt que le nom (« Assistant IA avec l'IA »).
   const expression = o.ia ? (d.mots[0][0].toUpperCase() + d.mots[0].slice(1)).replace(/\bpdf\b/g, 'PDF') : d.nom;
   const titre = `${expression} ${ou} | Pagio`;
   // Description : environ 155 caractères au plus, sans couper un mot.
   const brut = `${d.intro} ${o.ia ? t.premiumDetail : t.gratuitDetail}`;
   const description = brut.length <= 158 ? brut : `${brut.slice(0, 155).replace(/\s+\S*$/, '')}…`;
-  const badges = [`<span class="badge ${o.ia ? 'prem' : 'free'}">${o.ia ? t.premium : t.gratuit}</span>`, `<span class="badge">${t.android}</span>`];
+  const badges = [`<span class="badge ${o.ia ? 'prem' : 'free'}">${o.ia ? t.premium : t.gratuit}</span>`, ...(o.webSeulement ? [] : [`<span class="badge">${t.android}</span>`])];
   if (enLigne) badges.push(`<span class="badge">${t.enLigne}</span>`);
   const actions = enLigne
-    ? `<a class="cta" href="${enLigne}">${t.utiliser}</a><a class="cta alt" href="/telecharger/pagio.apk">${t.appli}</a>`
+    ? `<a class="cta" href="${enLigne}">${t.utiliser}</a>${o.webSeulement ? '' : `<a class="cta alt" href="/telecharger/pagio.apk">${t.appli}</a>`}`
     : `<a class="cta" href="/telecharger/pagio.apk">${t.appli}</a>`;
   const note = enLigne ? '' : `<p class="note">${o.telephoneSeulement ? t.telSeul : t.bientot}</p>`;
   const corps = `<nav class="crumbs" aria-label="${t.fil}"><a href="${l === 'fr' ? '/' : '/?lang=en'}">Pagio</a> › <a href="${listeUrl(l)}">${t.outils}</a> › <span>${esc(fam[l])}</span></nav>
@@ -184,7 +186,7 @@ function pageOutil(o, l) {
 </article>`;
   const jsonld = [
     { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: `Pagio — ${d.nom}`, description: d.intro, applicationCategory: 'BusinessApplication',
-      operatingSystem: enLigne ? 'Android, Web' : 'Android', url: `${BASE}${chemin}`, inLanguage: l, keywords: d.mots.join(', '),
+      operatingSystem: o.webSeulement ? 'Web' : enLigne ? 'Android, Web' : 'Android', url: `${BASE}${chemin}`, inLanguage: l, keywords: d.mots.join(', '),
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'XOF' }, publisher: { '@type': 'Organization', name: 'KODY BUSINESS' } },
     { '@context': 'https://schema.org', '@type': 'HowTo', name: `${t.comment} : ${d.nom}`, step: etapes.map((e, i) => ({ '@type': 'HowToStep', position: i + 1, text: e })) },
     { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map(([qq, r]) => ({ '@type': 'Question', name: qq, acceptedAnswer: { '@type': 'Answer', text: r } })) },

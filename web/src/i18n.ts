@@ -7,6 +7,9 @@ export function setLang(l: Lang) { lang = l; store.set('pagio.lang', l); documen
 document.documentElement.lang = lang;
 
 const FR = {
+  t_id_card: 'Carte d’identité recto verso', d_id_card: 'Les deux faces d’une carte sur une seule page A4, à la taille réelle, prête à imprimer.',
+  card_two: 'Choisissez exactement 2 photos : le recto puis le verso.', card_help: 'Choisissez 2 photos : le recto d’abord, puis le verso (flèches pour changer l’ordre).',
+  card_size: 'Taille', card_real: 'Taille réelle (comme une photocopie)', card_large: 'Agrandie (plus lisible)', card_copies: 'Exemplaires sur la page', card_gray: 'Noir et blanc',
   t_ocr: 'OCR : rendre le texte lisible', d_ocr: 'Reconnaître le texte d’un PDF scanné pour pouvoir le rechercher et le copier.',
   t_pdf_to_word: 'PDF en Word', d_pdf_to_word: 'Transformer un PDF en document Word modifiable.',
   t_pdf_to_ppt: 'PDF en PowerPoint', d_pdf_to_ppt: 'Transformer un PDF en présentation PowerPoint.',
@@ -75,6 +78,9 @@ const FR = {
 };
 type Key = keyof typeof FR;
 const EN: Record<Key, string> = {
+  t_id_card: 'ID card front and back', d_id_card: 'Both sides of a card on a single A4 page, real size, ready to print.',
+  card_two: 'Choose exactly 2 photos: the front, then the back.', card_help: 'Choose 2 photos: the front first, then the back (use the arrows to change the order).',
+  card_size: 'Size', card_real: 'Real size (like a photocopy)', card_large: 'Enlarged (easier to read)', card_copies: 'Copies on the page', card_gray: 'Black and white',
   t_ocr: 'OCR: make text readable', d_ocr: 'Recognise the text of a scanned PDF so you can search and copy it.',
   t_pdf_to_word: 'PDF to Word', d_pdf_to_word: 'Turn a PDF into an editable Word document.',
   t_pdf_to_ppt: 'PDF to PowerPoint', d_pdf_to_ppt: 'Turn a PDF into a PowerPoint presentation.',

@@ -16,7 +16,7 @@ export const reveal = (db, value) => decryptSecret(value, secretKeys.get(db));
 export const TOOL_IDS = [
   'merge', 'split', 'organize', 'extract_pages', 'delete_pages', 'rotate',
   'compress', 'repair', 'ocr', 'extract_text',
-  'scan', 'images_to_pdf', 'office_to_pdf', 'html_to_pdf', 'txt_to_pdf', 'create_pdf',
+  'scan', 'id_card', 'images_to_pdf', 'office_to_pdf', 'html_to_pdf', 'txt_to_pdf', 'create_pdf',
   'pdf_to_word', 'pdf_to_excel', 'pdf_to_ppt', 'pdf_to_images', 'extract_images',
   'edit', 'sign', 'fill_forms', 'page_numbers', 'watermark', 'header_footer', 'replace_text', 'redact',
   'protect', 'unlock', 'metadata', 'strip_metadata', 'digital_sign', 'verify_sign',

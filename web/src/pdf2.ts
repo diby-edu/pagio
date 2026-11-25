@@ -256,3 +256,43 @@ export async function fillForm(f: File, values: Record<string, string>, flatten:
   if (flatten) form.flatten();
   return { name: `${base(f.name)}_rempli.pdf`, bytes: await d.save(), type: PDF };
 }
+
+// ---------------------------------------------------------------- Étape 5 : carte d'identité recto verso sur une page
+// Les deux faces sont posées à la taille réelle d'une carte (85,6 × 54 mm) sur une page A4, comme une photocopie.
+const MM = 72 / 25.4;
+async function cardImage(f: File, gray: boolean): Promise<Uint8Array> {
+  const bmp = await createImageBitmap(f, { imageOrientation: 'from-image' }).catch(() => { throw new Error(`Image illisible : ${f.name}`); });
+  // Photo prise en hauteur : on la couche pour qu'elle ait le sens d'une carte.
+  const turn = bmp.height > bmp.width;
+  const w = turn ? bmp.height : bmp.width; const h = turn ? bmp.width : bmp.height;
+  const scale = Math.min(1, 2000 / w);
+  const c = document.createElement('canvas'); c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  if (gray) ctx.filter = 'grayscale(1)';
+  if (turn) { ctx.translate(c.width, 0); ctx.rotate(Math.PI / 2); }
+  ctx.drawImage(bmp, 0, 0, turn ? c.height : c.width, turn ? c.width : c.height);
+  bmp.close();
+  return canvasToBytes(c, 'image/jpeg', 0.9);
+}
+export async function idCard(recto: File, verso: File, o: { size: 'real' | 'large'; copies: 1 | 2; gray: boolean }): Promise<Out> {
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([595.28, 841.89]);
+  const faces = [await doc.embedJpg(await cardImage(recto, o.gray)), await doc.embedJpg(await cardImage(verso, o.gray))];
+  const boxW = (o.size === 'real' ? 85.6 : 128) * MM; const boxH = (o.size === 'real' ? 54 : 81) * MM;
+  const cols = o.size === 'real' ? o.copies : 1;
+  const gapX = 15 * MM; const gapY = 20 * MM;
+  const totalW = cols * boxW + (cols - 1) * gapX; const totalH = 2 * boxH + gapY;
+  const x0 = (595.28 - totalW) / 2; const yTop = (841.89 + totalH) / 2;
+  for (let col = 0; col < cols; col++) {
+    faces.forEach((img, i) => {
+      // L'image garde ses proportions dans le cadre de la carte, centrée.
+      const s = Math.min(boxW / img.width, boxH / img.height);
+      const w = img.width * s; const h = img.height * s;
+      const bx = x0 + col * (boxW + gapX); const by = yTop - (i + 1) * boxH - i * gapY;
+      page.drawImage(img, { x: bx + (boxW - w) / 2, y: by + (boxH - h) / 2, width: w, height: h });
+    });
+  }
+  doc.setTitle('Carte recto verso'); doc.setProducer('Pagio'); doc.setCreator('Pagio');
+  return { name: 'carte-recto-verso.pdf', bytes: await doc.save(), type: PDF };
+}
