@@ -15,6 +15,7 @@ import { aiComplete, convertWithLibreOffice, libreOfficeAvailable, pdfTool, PDF_
 import { listBackups, createBackup, backupPath, restoreBackup, importBackup, verifyBackup } from './backup.js';
 import { verifyGoogleToken } from './google.js';
 import { visitorId, isBot, parseUA, classifySource, countryOf } from './sitestats.js';
+import { listReleases, checkApk, saveApk, makeCurrent, removeRelease, versionCode } from './releases.js';
 import { NOTIFY_KINDS, parsePrefs, cleanPrefs, wants, isQuietHour, parseFirebaseJson, fcmTokenSource, fcmSend } from './notify.js';
 import { sendWithBrevo, pingBrevo, messages, newToken, hashToken, resetForm, messagePage, page } from './mail.js';
 
@@ -30,7 +31,7 @@ const emailOk = (e) => typeof e === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.tes
  * trustProxy : nombre de proxys de confiance devant le serveur (1 derrière Caddy/Nginx), pour connaître la vraie adresse IP.
  * sendMail : fonction d'envoi des e-mails (Brevo par défaut ; remplacée dans les tests).
  */
-export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now(), sendMail = sendWithBrevo, checkMailKey = pingBrevo, verifyGoogle = verifyGoogleToken, campaignDelayMs = 300, pushFetch = fetch }) {
+export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now(), sendMail = sendWithBrevo, checkMailKey = pingBrevo, verifyGoogle = verifyGoogleToken, campaignDelayMs = 300, pushFetch = fetch, releasesDir = null }) {
   const app = express();
   app.disable('x-powered-by');
   if (trustProxy) app.set('trust proxy', trustProxy);
@@ -303,6 +304,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       maintenance: s.maintenance, maintenance_message: s.maintenance_message,
       announcement: s.announcement, announcement_level: s.announcement_level,
       min_version_code: s.min_version_code, latest_version_name: s.latest_version_name, update_url: s.update_url,
+      release_notes: s.release_notes && s.release_notes.version === s.latest_version_name ? s.release_notes.notes : '',
       tools, plans: s.plans, support_email: s.support_email,
       ai_enabled: !!(s.ai.enabled && (aiConfig(s).api_key || s.ai.base_url)),
       server_conversion: !!(s.conversion_enabled && libreOfficeAvailable()),
@@ -1882,6 +1884,63 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   }
 
   app.get('/api/admin/alerts', adminAuth(), (req, res) => ok(res, { alerts: alerts() }));
+
+  // ------------------------------------------------------------- Versions de l'application (APK)
+  // Envoi d'une APK depuis le tableau de bord : vérifiée (paquet com.pagio.app, numéro saisi), enregistrée dans le
+  // dossier de téléchargement, puis proposée à tous (bouton du site, bandeau « Nouvelle version ») ou gardée comme
+  // version d'essai (lien direct, non annoncée). Retour en arrière possible.
+  const releaseState = () => {
+    const s = getSettings(db);
+    return { ...listReleases(releasesDir), latest_version_name: s.latest_version_name, min_version_code: s.min_version_code,
+      notes: s.release_notes?.version === s.latest_version_name ? s.release_notes.notes : '', public_url: publicUrl(s) };
+  };
+  const announce = (req, info, notes, mandatory) => {
+    const s = getSettings(db);
+    setSetting(db, 'latest_version_name', info.version);
+    setSetting(db, 'release_notes', { version: info.version, notes: String(notes || '').slice(0, 2000), date: info.date });
+    if (!s.update_url) setSetting(db, 'update_url', `${publicUrl(s) || 'https://pagio.site'}/telecharger/pagio.apk`);
+    if (mandatory) setSetting(db, 'min_version_code', info.code);
+  };
+  app.get('/api/admin/releases', adminAuth('admin'), (req, res) => ok(res, releaseState()));
+  app.post('/api/admin/releases', adminAuth('owner'), express.raw({ type: '*/*', limit: '300mb' }), (req, res) => {
+    if (!releasesDir || !fs.existsSync(releasesDir)) return fail(res, 503, "Le dossier des téléchargements n'est pas relié au serveur");
+    const version = String(req.query.version || '').trim();
+    const essai = req.query.essai === '1';
+    const mandatory = req.query.mandatory === '1';
+    const notes = String(req.query.notes || '');
+    try {
+      if (!Buffer.isBuffer(req.body)) return fail(res, 400, 'Fichier vide');
+      checkApk(req.body, version);
+      const cur = listReleases(releasesDir).info;
+      if (!essai && cur?.code && versionCode(version) < cur.code) return fail(res, 400, `La version ${version} est plus ancienne que celle proposée (${cur.version}). Pour revenir en arrière, utilisez « Proposer à tous » sur l'ancienne version.`);
+      const saved = saveApk(releasesDir, req.body, version, essai);
+      let info = null;
+      if (!essai) { info = makeCurrent(releasesDir, saved.file); announce(req, info, notes, mandatory); }
+      audit(req.admin, essai ? 'release.trial' : 'release.publish', saved.file, { version, mandatory, bytes: saved.bytes, sha256: saved.sha256 });
+      ok(res, { ...releaseState(), saved: saved.file, url: `${publicUrl(getSettings(db))}/telecharger/${saved.file}` });
+    } catch (e) {
+      if (!e.status) logServerError(db, 'versions', e, { method: req.method, path: req.path, status: 500 });
+      fail(res, e.status || 500, e.message);
+    }
+  });
+  app.post('/api/admin/releases/current', adminAuth('owner'), (req, res) => {
+    try {
+      const info = makeCurrent(releasesDir, String(req.body?.file || ''));
+      announce(req, info, req.body?.notes ?? '', req.body?.mandatory === true);
+      audit(req.admin, 'release.current', req.body.file, { version: info.version });
+      ok(res, releaseState());
+    } catch (e) { fail(res, e.status || 500, e.message); }
+  });
+  app.put('/api/admin/releases/notes', adminAuth('owner'), (req, res) => {
+    const s = getSettings(db);
+    setSetting(db, 'release_notes', { version: s.latest_version_name, notes: String(req.body?.notes || '').slice(0, 2000), date: new Date().toISOString().slice(0, 10) });
+    audit(req.admin, 'release.notes', s.latest_version_name);
+    ok(res, releaseState());
+  });
+  app.delete('/api/admin/releases/:file', adminAuth('owner'), (req, res) => {
+    try { removeRelease(releasesDir, req.params.file); audit(req.admin, 'release.delete', req.params.file); ok(res, releaseState()); }
+    catch (e) { fail(res, e.status || 500, e.message); }
+  });
 
   // ------------------------------------------------------------- Notifications de l'APK admin
   // Chaque téléphone reçoit une clé de notification, créée depuis le tableau de bord (dans l'APK admin, automatiquement).

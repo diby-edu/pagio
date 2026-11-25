@@ -69,7 +69,7 @@ console.log(lo ? `LibreOffice détecté : ${lo}` : 'LibreOffice non détecté : 
 // TRUST_PROXY=1 derrière un proxy HTTPS (Caddy, Nginx) : indispensable pour que les limites par adresse IP
 // s'appliquent au visiteur et non au proxy. À laisser vide si le serveur est joint directement.
 const trustProxy = /^\d+$/.test(process.env.TRUST_PROXY || '') ? Number(process.env.TRUST_PROXY) : false;
-const app = createApp({ db, secret, distDir: DIST_DIR, dataDir: DATA_DIR, trustProxy });
+const app = createApp({ db, secret, distDir: DIST_DIR, dataDir: DATA_DIR, trustProxy, releasesDir: process.env.RELEASES_DIR || null });
 
 // Sauvegarde automatique quotidienne (réglages dans le tableau de bord › Sauvegardes).
 const backupsDir = path.join(DATA_DIR, 'backups');

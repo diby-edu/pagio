@@ -589,4 +589,7 @@
     <string name="prem_pay_mail">Write to us</string>
     <string name="prem_mail_subject">Pagio Premium: %1$s plan</string>
     <string name="prem_mail_body">Hello,\n\nI would like to go Pagio Premium.\nPlan: %1$s (%2$s)\nPagio account: %3$s\n\nPlease send me the mobile money payment instructions.</string>
+    <string name="update_title">Pagio %1$s is available</string>
+    <string name="update_no_notes">Improvements and fixes.</string>
+    <string name="later">Later</string>
 </resources>

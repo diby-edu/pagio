@@ -589,4 +589,7 @@
     <string name="prem_pay_mail">Nous écrire</string>
     <string name="prem_mail_subject">Pagio Premium : formule %1$s</string>
     <string name="prem_mail_body">Bonjour,\n\nJe souhaite passer à Pagio Premium.\nFormule : %1$s (%2$s)\nCompte Pagio : %3$s\n\nMerci de m’envoyer les instructions de paiement mobile money.</string>
+    <string name="update_title">Pagio %1$s est disponible</string>
+    <string name="update_no_notes">Améliorations et corrections.</string>
+    <string name="later">Plus tard</string>
 </resources>

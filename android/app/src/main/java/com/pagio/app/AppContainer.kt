@@ -118,7 +118,7 @@ class AppContainer(val context: Context) {
             .put("daily_free", v.dailyFree).put("max_pages", v.maxPages).put("pdf_premium", v.pdfPremium)) }
         fun lim(l: com.pagio.cloud.PlanLimits) = JSONObject().put("daily_tasks", l.dailyTasks).put("max_files", l.maxFiles).put("max_mb", l.maxMb).put("ai_credits", l.aiCredits)
         return JSONObject().put("tools", tools).put("announcement", c.announcement).put("announcement_level", c.announcementLevel)
-            .put("min_version_code", c.minVersionCode).put("latest_version_name", c.latestVersionName).put("update_url", c.updateUrl)
+            .put("min_version_code", c.minVersionCode).put("latest_version_name", c.latestVersionName).put("update_url", c.updateUrl).put("release_notes", c.releaseNotes)
             .put("plans", JSONObject().put("free", lim(c.freeLimits)).put("premium", lim(c.premiumLimits)))
             .put("ai_enabled", c.aiEnabled).put("server_conversion", c.serverConversion).put("support_email", c.supportEmail)
             .put("prices", JSONObject().put("currency", c.prices.currency).put("week", c.prices.week).put("month", c.prices.month).put("year", c.prices.year)

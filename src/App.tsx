@@ -7,6 +7,7 @@ import Tools from './pages/Tools';
 import Plans from './pages/Plans';
 import AiSettings from './pages/AiSettings';
 import AppControl from './pages/AppControl';
+import Releases from './pages/Releases';
 import Feedback from './pages/Feedback';
 import Events from './pages/Events';
 import Audit from './pages/Audit';
@@ -53,6 +54,7 @@ const PAGES: Page[] = [
   { id: 'tools', label: 'Outils et limites', icon: '▦', group: 'appli', min: 'support', el: (a) => <Tools admin={a} /> },
   { id: 'conversions', label: 'Conversions', icon: '⇄', group: 'appli', min: 'support', el: () => <Conversions /> },
   { id: 'app', label: "Pilotage de l'application", icon: '⚙', group: 'appli', min: 'admin', el: () => <AppControl /> },
+  { id: 'releases', label: "Versions de l'appli", icon: '⇪', group: 'appli', min: 'admin', el: (a) => <Releases owner={a.role === 'owner'} /> },
   { id: 'ai', label: "Réglages de l'IA", icon: '✦', group: 'ia', min: 'admin', el: () => <AiSettings /> },
   { id: 'aiusage', label: 'Consommation IA', icon: '◔', group: 'ia', min: 'support', el: () => <AiUsage /> },
   { id: 'stats', label: 'Statistiques', icon: '▤', group: 'suivi', min: 'support', el: () => <Stats /> },

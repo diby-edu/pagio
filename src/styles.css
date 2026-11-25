@@ -142,6 +142,10 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; margin: 2px
 .global-results button:hover, .global-results button:focus-visible { background: rgba(91, 75, 219, .08); }
 @media (max-width: 900px) { .global-search { width: 100%; margin: 8px 0 0; order: 3; } .topbar { flex-wrap: wrap; } }
 
+/* Cases à cocher avec texte (formulaires) */
+label.check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; line-height: 1.4; cursor: pointer; }
+label.check input { margin-top: 3px; width: 16px; height: 16px; flex: none; }
+
 /* Notifications de Pagio Admin : un bloc par téléphone, cases à cocher */
 .notify-device { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 10px; }
 .notify-kinds { border: 0; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; }

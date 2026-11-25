@@ -1,5 +1,6 @@
 package com.pagio.app.ui.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -125,11 +126,27 @@ fun HomeScreen(onTool: (Tool) -> Unit, onOpenFile: (File) -> Unit, onSeeAll: () 
         }
         if (config.minVersionCode > 0 && BuildConfig.VERSION_CODE < config.minVersionCode) Unit
         else if (isNewerVersion(config.latestVersionName, BuildConfig.VERSION_NAME)) item(span = { GridItemSpan(maxLineSpan) }) {
-            Banner(Icons.Outlined.SystemUpdate, stringResource(R.string.update_available, config.latestVersionName), MaterialTheme.colorScheme.tertiaryContainer, null)
+            // Toucher le bandeau : ce qui change dans la nouvelle version, et le bouton pour la télécharger.
+            var showNotes by remember { mutableStateOf(false) }
+            val ctx = LocalContext.current
+            Banner(Icons.Outlined.SystemUpdate, stringResource(R.string.update_available, config.latestVersionName), MaterialTheme.colorScheme.tertiaryContainer, null) { showNotes = true }
+            if (showNotes) androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showNotes = false },
+                icon = { Icon(Icons.Outlined.SystemUpdate, null) },
+                title = { Text(stringResource(R.string.update_title, config.latestVersionName)) },
+                text = { Text(config.releaseNotes.ifBlank { stringResource(R.string.update_no_notes) }) },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        showNotes = false
+                        runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(config.updateUrl.ifBlank { "https://pagio.site/telecharger/pagio.apk" }))) }
+                    }) { Text(stringResource(R.string.update_now)) }
+                },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { showNotes = false }) { Text(stringResource(R.string.later)) } },
+            )
         }
         if (config.announcement.isNotBlank() && !dismissed) item(span = { GridItemSpan(maxLineSpan) }) {
             Banner(if (config.announcementLevel == "warning") Icons.Outlined.ErrorOutline else Icons.Outlined.Campaign, config.announcement,
-                if (config.announcementLevel == "warning") MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer) { dismissed = true }
+                if (config.announcementLevel == "warning") MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer, onClose = { dismissed = true })
         }
         item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle(stringResource(R.string.favorites), Modifier.padding(horizontal = 16.dp)) { TextButton(onClick = onSeeAll) { Text(stringResource(R.string.all_tools)) } } }
         items(favorites, key = { "fav_" + it.id }) { t -> Box(Modifier.padding(horizontal = 4.dp)) { ToolTile(t, Modifier.padding(horizontal = 12.dp), favorite = true) { onTool(t) } } }
@@ -169,8 +186,8 @@ private fun QuickAction(tool: Tool, modifier: Modifier, onTool: (Tool) -> Unit) 
 }
 
 @Composable
-private fun Banner(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, color: Color, onClose: (() -> Unit)?) {
-    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = color)) {
+private fun Banner(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, color: Color, onClose: (() -> Unit)?, onClick: (() -> Unit)? = null) {
+    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier), colors = CardDefaults.cardColors(containerColor = color)) {
         Row(Modifier.padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null); Spacer(Modifier.width(10.dp))
             Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
