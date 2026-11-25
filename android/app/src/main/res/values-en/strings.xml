@@ -290,7 +290,8 @@
     <string name="popular">Most used</string>
     <string name="ppt_image">Faithful image of each page</string>
     <string name="ppt_text">Editable text</string>
-    <string name="premium_info">Premium is granted by the administrator (or by subscription once payments are enabled). It removes daily limits and adds AI credits.</string>
+    <string name="premium_info">With a Premium subscription (monthly or yearly): no daily limits, AI credits renewed every month, Premium tools (AI assistant, translation, invoice reading…), scans saved as PDF and larger files. The free account stays usable, with its limits.</string>
+    <string name="premium_active_info">Your Premium subscription is active: no daily limits, AI credits renewed every month and all Premium tools.</string>
     <string name="premium_until">Premium until %1$s</string>
     <string name="previous">Previous</string>
     <string name="privacy">Privacy</string>

@@ -290,7 +290,8 @@
     <string name="popular">Les plus utilisés</string>
     <string name="ppt_image">Image fidèle de chaque page</string>
     <string name="ppt_text">Texte modifiable</string>
-    <string name="premium_info">L\'offre Premium est attribuée par l\'administrateur (ou après abonnement, quand le paiement est activé). Elle lève les limites quotidiennes et ajoute des crédits IA.</string>
+    <string name="premium_info">Avec un abonnement Premium (au mois ou à l\'année) : plus aucune limite quotidienne, des crédits IA renouvelés chaque mois, les outils Premium (assistant IA, traduction, lecture de factures…), le scan enregistré en PDF et des fichiers plus lourds. Le compte gratuit reste utilisable, avec ses limites.</string>
+    <string name="premium_active_info">Votre abonnement Premium est actif : aucune limite quotidienne, crédits IA renouvelés chaque mois et tous les outils Premium.</string>
     <string name="premium_until">Premium jusqu\'au %1$s</string>
     <string name="previous">Précédent</string>
     <string name="privacy">Confidentialité</string>

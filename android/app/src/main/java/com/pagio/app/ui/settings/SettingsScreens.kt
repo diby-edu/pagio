@@ -285,7 +285,7 @@ fun AccountScreen(onBack: () -> Unit) {
             // Adresse pas encore confirmée : explication et bouton pour renvoyer l'e-mail.
             if (!acc.emailVerified) {
                 var verifyMsg by remember { mutableStateOf<String?>(null) }
-                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(Modifier.padding(16.dp)) {
                         Text(stringResource(R.string.verify_title), style = MaterialTheme.typography.titleSmall)
                         Text(stringResource(R.string.verify_text, acc.email), style = MaterialTheme.typography.bodySmall)
@@ -301,7 +301,7 @@ fun AccountScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            InfoCard(stringResource(R.string.premium_info))
+            InfoCard(stringResource(if (acc.isPremium) R.string.premium_active_info else R.string.premium_info))
             // Code promo
             var code by remember { mutableStateOf("") }
             var codeMsg by remember { mutableStateOf<String?>(null) }

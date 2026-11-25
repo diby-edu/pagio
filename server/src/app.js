@@ -2032,7 +2032,9 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const s = getSettings(db);
     const prev = s.notify_state && typeof s.notify_state === 'object' ? s.notify_state : null;
     const active = alerts().filter((a) => a.level !== 'info' && !['two_factor', 'feedback'].includes(a.code));
-    const keys = Object.fromEntries(active.map((a) => [`${a.code}|${a.message}`, a]));
+    // Repérée par son code (et son niveau) : une alerte dont seul le chiffre change (« disque plein dans 4 jours » → « 5 jours »)
+    // n'est pas signalée de nouveau ; elle l'est si elle disparaît puis revient, ou si elle devient urgente.
+    const keys = Object.fromEntries(active.map((a) => [`${a.code}|${a.level}`, a]));
     const incidents = availability()?.incidents || [];
     const lastIncident = incidents.reduce((m, i) => Math.max(m, Number(i.debut) || 0), 0);
     let n = 0;
