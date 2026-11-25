@@ -17,8 +17,8 @@ Ce qui est déjà en place est résumé tout en bas (« Fait »). Tout le reste 
 | A7 | ~~Copie de sécurité hors du serveur~~ **fait le 24/11** (clés + base sur clé USB ; à refaire une fois par mois) | — | — |
 | A8 | **Hostinger** : vérifier que le moyen de paiement est à jour — le VPS **expire le 20/12/2026** (renouvellement automatique activé) | Éviter l'arrêt du VPS | 2 min |
 | A9 | Si disponibles : **RCCM** et **adresse du siège** de KODY BUSINESS | Mentions légales complètes | — |
-| A10 | **Google Search Console** : créer la propriété `pagio.site` (je pose ensuite la ligne de vérification chez Hostinger) | Référencement | 5 min |
-| A11 | **Google Analytics** : créer une propriété « Pagio », copier l'identifiant `G-XXXX` dans l'administration | Statistiques Google | 5 min |
+| A10 | ~~Google Search Console~~ **fait le 25/11** (plan du site lu, 87 pages) — créer la propriété `pagio.site` (je pose ensuite la ligne de vérification chez Hostinger) | Référencement | 5 min |
+| A11 | ~~Google Analytics~~ **fait le 25/11** (G-87ZZEEXYD5, compte kodybusinessci) — créer une propriété « Pagio », copier l'identifiant `G-XXXX` dans l'administration | Statistiques Google | 5 min |
 | A12 | Plus tard : **compte Play Console** (25 $, D-U-N-S pour KODY BUSINESS), fiche, produits (`docs/GOOGLE.md`, partie B) | Publication Play Store | — |
 | A13 | Plus tard : **compte chez un agrégateur de paiement** (CinetPay, PayDunya…) pour mobile money et carte | Paiement sur le site | — |
 
@@ -50,35 +50,35 @@ renouveler les certificats expirés de vos **autres sites** (`numerik360.com`, `
 
 ### Étape 1 ter — Tableau de bord « complet » (demandé le 24/11/2026)
 Statistiques très détaillées (le plus de données possible, sans le contenu des documents) :
-- [ ] **Utilisateurs** : actifs par jour / semaine / mois, nouveaux, **rétention** (combien reviennent après 1, 7, 30 jours),
+- [x] **Utilisateurs** : actifs par jour / semaine / mois, nouveaux, **rétention** (combien reviennent après 1, 7, 30 jours),
       parcours *installation → compte → Premium* (taux de conversion), désinstallations estimées.
-- [ ] **Appareils** : pays et villes, langue, marque et modèle, version d'Android, version de Pagio, taille d'écran.
-- [ ] **Outils** : utilisations par outil, par jour et par heure, durée moyenne, taux d'erreur, limites gratuites atteintes,
+- [x] **Appareils** : pays et villes, langue, marque et modèle, version d'Android, version de Pagio, taille d'écran.
+- [x] **Outils** : utilisations par outil, par jour et par heure, durée moyenne, taux d'erreur, limites gratuites atteintes,
       tailles et nombres de pages traités, ce qui pousse à passer Premium.
-- [ ] **Site** : visites, pages vues, provenance (Google, Facebook, WhatsApp…), pays, mobile ou ordinateur, outils en ligne utilisés.
-- [ ] **Argent** : revenus par jour / offre / moyen de paiement, abonnements actifs, renouvellements, résiliations, coût de l'IA,
+- [x] **Site** : visites, pages vues, provenance (Google, Facebook, WhatsApp…), pays, mobile ou ordinateur, outils en ligne utilisés.
+- [x] **Argent** : revenus par jour / offre / moyen de paiement, abonnements actifs, renouvellements, résiliations, coût de l'IA,
       marge.
-- [ ] Filtres partout (période, pays, version, offre), **export CSV / Excel**, **rapport hebdomadaire par e-mail**.
+- [x] Filtres partout (période, pays, version, offre), **export CSV / Excel**, **rapport hebdomadaire par e-mail**.
 Gestion complète :
-- [ ] **Codes promo** (remise, Premium offert N jours, nombre d'utilisations), **parrainage**.
-- [ ] **Campagnes e-mail** aux utilisateurs (Brevo), avec désinscription.
-- [ ] **Support** : répondre aux messages depuis le tableau de bord (réponse envoyée par e-mail), statuts, modèles de réponse.
+- [x] **Codes promo** (remise, Premium offert N jours, nombre d'utilisations), **parrainage**.
+- [x] **Campagnes e-mail** aux utilisateurs (Brevo), avec désinscription.
+- [x] **Support** : répondre aux messages depuis le tableau de bord (réponse envoyée par e-mail), statuts, modèles de réponse.
 - [ ] **Contenus** sans toucher au code : textes et FAQ du site, tarifs affichés, modèles de documents, écrans de présentation.
 - [ ] **Versions** : envoyer une nouvelle APK depuis le tableau de bord, notes de version, mise à jour obligatoire.
-- [ ] **Sécurité** : historique des connexions, activités suspectes, blocage d'adresses IP, demandes RGPD (export / suppression).
-- [ ] **Recherche globale** (utilisateur, paiement, message), **droits fins** par rôle.
+- [x] **Sécurité** : historique des connexions, activités suspectes, blocage d'adresses IP, demandes RGPD (export / suppression).
+- [x] **Recherche globale** (utilisateur, paiement, message). — [ ] Reste : **droits fins** par rôle.
 
 ### Notifications de l'APK admin par Firebase (demandé le 24/11/2026)
 Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seulement à **Pagio Admin**.
 - [ ] Aujourd'hui, Pagio Admin vérifie toutes les 15 minutes (et Android peut retarder). Avec Firebase, l'alerte arrive
       **en quelques secondes** : panne, nouveau message d'utilisateur, nouveau paiement, nouvel abonné Premium, plafond IA proche.
-- [ ] Vous : **console.firebase.google.com** → ajouter Firebase au projet `pagio-515720` (compte kodybusiness), application
+- [x] Vous : **console.firebase.google.com** → ajouter Firebase au projet `pagio-515720` (compte kodybusiness), application
       Android `com.pagio.admin` → je récupère `google-services.json`.
 - [ ] Moi : réception dans Pagio Admin, envoi par le serveur (Firebase Cloud Messaging, gratuit), choix des alertes dans le
       tableau de bord ; la vérification toutes les 15 minutes reste en secours.
 
 ### Étape 2 — Page d'accueil, référencement, statistiques
-- [ ] Section **Tarifs** sur pagio.site : 3 offres en cartes, avantages Gratuit / Premium, prix lus dans l'administration.
+- [x] Section **Tarifs** sur pagio.site : 3 offres en cartes, avantages Gratuit / Premium, prix lus dans l'administration.
 - [x] **Liste des outils mise à jour** : l'application en compte **40** aujourd'hui (le site en annonce 36), plus les nouveaux
       (carte d'identité, dossier de candidature, modèles) ; **nombre calculé automatiquement** à partir de la liste du serveur.
 - [x] **Une page par outil** (FR/EN), ex. `pagio.site/pdf-en-word/` : présentation **explicite mais brève** (à quoi il sert,
@@ -90,12 +90,12 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
       outil est cliquable** et ouvre directement l'outil dans le navigateur (ou sa page « avec l'application » s'il n'est pas
       encore en ligne, et le scanner).
 - [x] SEO technique : `sitemap.xml`, `robots.txt`, données structurées (application), versions FR/EN déclarées, titres et descriptions.
-- [ ] **Google Search Console** (après A10) et **Google Analytics** (identifiant réglable, après A11), en mode « sans cookies tant
+- [x] **Google Search Console** (après A10) et **Google Analytics** (identifiant réglable, après A11), en mode « sans cookies tant
       que la personne n'a pas accepté », petit bandeau discret.
-- [ ] **Statistiques intégrées** au tableau de bord, sans cookies : visites, pages, pays, provenance, outils les plus utilisés.
+- [x] **Statistiques intégrées** au tableau de bord, sans cookies : visites, pages, pays, provenance, outils les plus utilisés.
 
 ### Étape 3 — Version 2.1.0 de l'application
-- [ ] **Animation du logo** à chaque ouverture (moins d'une seconde) + **3 à 4 écrans de présentation** au premier lancement
+- [x] **Animation du logo** à chaque ouverture (moins d'une seconde) + **3 à 4 écrans de présentation** au premier lancement
       (avec « Passer »).
 - [x] Après votre essai (A1) : **publication** de la 2.1.0 (`publier-apk.sh`, bouton du site).
 
