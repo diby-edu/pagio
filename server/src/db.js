@@ -203,6 +203,14 @@ export function openDb(file) {
   addColumn('users', 'pending_discount', 'TEXT');
   // Désinscription des campagnes e-mail (lien en bas de chaque campagne).
   addColumn('users', 'marketing_unsub', 'INTEGER NOT NULL DEFAULT 0');
+  // Notifications de Pagio Admin : préférences (cases à cocher) et jeton Firebase de chaque téléphone.
+  addColumn('notify_devices', 'prefs', 'TEXT');
+  addColumn('notify_devices', 'fcm_token', 'TEXT');
+  addColumn('notify_devices', 'fcm_at', 'INTEGER');
+  db.exec(`CREATE TABLE IF NOT EXISTS notify_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, kind TEXT NOT NULL, level TEXT NOT NULL,
+      title TEXT NOT NULL, body TEXT NOT NULL, device_id INTEGER);
+    CREATE INDEX IF NOT EXISTS idx_notify_events_ts ON notify_events(ts);`);
   // Offre gratuite : opérations par jour pour chaque outil (0 = illimité) et pages maximum par scan (0 = illimité).
   const hadDailyFree = db.prepare('PRAGMA table_info(tools)').all().some((c) => c.name === 'daily_free');
   addColumn('tools', 'daily_free', 'INTEGER NOT NULL DEFAULT 0');

@@ -22,7 +22,8 @@ import kotlin.concurrent.thread
 
 /**
  * Vérification toutes les 15 minutes (le minimum qu'Android autorise en arrière-plan) : lit le flux de notifications
- * d'admin.pagio.site et prévient de ce qui est nouveau — alerte du serveur, message d'utilisateur, panne réparée.
+ * d'admin.pagio.site et montre les nouveaux événements cochés dans le tableau de bord (alertes, pannes réparées,
+ * messages, paiements, Premium, inscriptions). Avec Firebase, ils arrivent en plus tout de suite (PushService).
  * Si le serveur ne répond pas deux fois de suite (≈ 30 min) alors qu'Internet fonctionne : « Pagio ne répond pas ».
  */
 class NotifyJob : JobService() {
@@ -37,6 +38,8 @@ class NotifyJob : JobService() {
         private const val JOB_ID = 4242
         const val CH_ALERTS = "alertes"
         const val CH_MESSAGES = "messages"
+        const val CH_BUSINESS = "activite"
+        const val CH_QUIET = "silencieux"
 
         fun schedule(context: Context) {
             val job = JobInfo.Builder(JOB_ID, ComponentName(context, NotifyJob::class.java))
@@ -55,6 +58,10 @@ class NotifyJob : JobService() {
                 .apply { description = context.getString(R.string.channel_alerts_d) })
             nm.createNotificationChannel(NotificationChannel(CH_MESSAGES, context.getString(R.string.channel_messages), NotificationManager.IMPORTANCE_DEFAULT)
                 .apply { description = context.getString(R.string.channel_messages_d) })
+            nm.createNotificationChannel(NotificationChannel(CH_BUSINESS, context.getString(R.string.channel_business), NotificationManager.IMPORTANCE_DEFAULT)
+                .apply { description = context.getString(R.string.channel_business_d) })
+            nm.createNotificationChannel(NotificationChannel(CH_QUIET, context.getString(R.string.channel_quiet), NotificationManager.IMPORTANCE_LOW)
+                .apply { description = context.getString(R.string.channel_quiet_d) })
         }
 
         private fun online(context: Context): Boolean {
@@ -69,7 +76,8 @@ class NotifyJob : JobService() {
             val key = store.notifyKey ?: return
             val cert = ClientCert.load(context) ?: return // pas de certificat autorisé : rien à vérifier
             if (!online(context)) return
-            val conn = (URL(BuildConfig.ADMIN_URL + "/api/admin/notify/feed").openConnection() as HttpsURLConnection).apply {
+            val since = store.lastEventId
+            val conn = (URL(BuildConfig.ADMIN_URL + "/api/admin/notify/feed" + (if (since >= 0) "?since=$since" else "")).openConnection() as HttpsURLConnection).apply {
                 sslSocketFactory = ClientCert.socketFactory(cert)
                 connectTimeout = 20_000; readTimeout = 20_000
                 setRequestProperty("x-pagio-notify", key)
@@ -92,49 +100,35 @@ class NotifyJob : JobService() {
             val feed = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
             if (store.downNotified) notify(context, CH_ALERTS, 2, context.getString(R.string.up_title), context.getString(R.string.up_text))
             store.failures = 0; store.downNotified = false
-            val first = store.lastFeedbackId < 0 && store.lastIncident < 0 && store.seenAlerts.isEmpty()
 
-            // Alertes : chacune notifiée une fois tant qu'elle dure (les messages des utilisateurs sont traités à part).
-            val alerts = feed.optJSONArray("alerts")
-            val current = mutableSetOf<String>()
-            for (i in 0 until (alerts?.length() ?: 0)) {
-                val a = alerts!!.getJSONObject(i)
-                if (a.optString("code") == "feedback") continue
-                val id = a.optString("code") + "|" + a.optString("message")
-                current += id
-                if (!first && id !in store.seenAlerts) {
-                    val title = if (a.optString("level") == "critical") "⚠ Pagio : urgent" else "Pagio : à surveiller"
-                    notify(context, CH_ALERTS, id.hashCode(), title, a.optString("message"))
+            // Événements cochés dans le tableau de bord (alertes, pannes réparées, messages, paiements, Premium,
+            // inscriptions, essai). Ceux déjà montrés par Firebase ne reviennent pas.
+            if (since < 0) {
+                store.lastEventId = feed.optLong("last_event") // première lecture : on part d'ici, sans l'historique
+            } else {
+                val evs = feed.optJSONArray("events")
+                var max = since
+                for (i in 0 until (evs?.length() ?: 0)) {
+                    val e = evs!!.getJSONObject(i)
+                    val id = e.optLong("id")
+                    if (id > max) max = id
+                    showEvent(context, id, e.optString("kind"), e.optString("level"), e.optString("title"), e.optString("body"), e.optBoolean("silent"))
                 }
+                store.lastEventId = maxOf(max, feed.optLong("scanned_to", max))
             }
-            store.seenAlerts = current
+            runCatching { Push.sync(context) } // Firebase : configuration et jeton du téléphone
+        }
 
-            // Messages des utilisateurs.
-            val fb = feed.optJSONArray("feedback")
-            var maxId = store.lastFeedbackId
-            for (i in 0 until (fb?.length() ?: 0)) {
-                val m = fb!!.getJSONObject(i)
-                val id = m.optLong("id")
-                if (id > maxId) maxId = id
-                if (!first && id > store.lastFeedbackId) notify(context, CH_MESSAGES, 10_000 + id.toInt(), context.getString(R.string.message_title), m.optString("message"))
+        /** Affiche un événement (une seule fois, qu'il arrive par Firebase ou par le flux). */
+        fun showEvent(context: Context, id: Long, kind: String, level: String, title: String, body: String, silent: Boolean) {
+            if (!Store(context).markShown(id)) return
+            val channel = when {
+                silent -> CH_QUIET
+                kind == "critical" || kind == "warning" || kind == "outage" || kind == "test" -> CH_ALERTS
+                kind == "feedback" -> CH_MESSAGES
+                else -> CH_BUSINESS
             }
-            store.lastFeedbackId = maxOf(maxId, 0)
-
-            // Pannes réparées par le gardien.
-            val inc = feed.optJSONArray("incidents")
-            var last = store.lastIncident
-            for (i in 0 until (inc?.length() ?: 0)) {
-                val o = inc!!.getJSONObject(i)
-                val start = o.optLong("debut")
-                if (start > last) last = start
-                if (!first && start > store.lastIncident) {
-                    val s = o.optLong("duree_s")
-                    val d = if (s < 60) "$s s" else "${(s + 59) / 60} min"
-                    val how = context.getString(if (o.optBoolean("redemarre")) R.string.outage_restarted else R.string.outage_alone)
-                    notify(context, CH_ALERTS, (start / 1000).toInt(), context.getString(R.string.outage_title), context.getString(R.string.outage_text, d, how))
-                }
-            }
-            store.lastIncident = maxOf(last, 0)
+            notify(context, channel, (100_000 + id % 1_000_000).toInt(), title, body)
         }
 
         private fun notify(context: Context, channel: String, id: Int, title: String, text: String) {

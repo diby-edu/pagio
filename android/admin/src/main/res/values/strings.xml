@@ -5,6 +5,10 @@
     <string name="channel_alerts_d">Panne, certificat, disque, erreurs : ce qui demande votre attention.</string>
     <string name="channel_messages">Messages des utilisateurs</string>
     <string name="channel_messages_d">Nouveaux messages reçus dans Avis et support.</string>
+    <string name="channel_business">Activité (paiements, Premium, inscriptions)</string>
+    <string name="channel_business_d">Paiements enregistrés, nouveaux comptes Premium et nouvelles inscriptions.</string>
+    <string name="channel_quiet">Notifications de nuit (sans son)</string>
+    <string name="channel_quiet_d">Ce qui arrive entre 22 h et 7 h quand « Silence la nuit » est coché (sauf les urgences).</string>
     <string name="down_title">Pagio ne répond pas</string>
     <string name="down_text">Le serveur ne répond plus depuis au moins 30 minutes. Le gardien tente de le redémarrer.</string>
     <string name="up_title">Pagio répond de nouveau</string>

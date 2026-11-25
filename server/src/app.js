@@ -15,6 +15,7 @@ import { aiComplete, convertWithLibreOffice, libreOfficeAvailable, pdfTool, PDF_
 import { listBackups, createBackup, backupPath, restoreBackup, importBackup, verifyBackup } from './backup.js';
 import { verifyGoogleToken } from './google.js';
 import { visitorId, isBot, parseUA, classifySource, countryOf } from './sitestats.js';
+import { NOTIFY_KINDS, parsePrefs, cleanPrefs, wants, isQuietHour, parseFirebaseJson, fcmTokenSource, fcmSend } from './notify.js';
 import { sendWithBrevo, pingBrevo, messages, newToken, hashToken, resetForm, messagePage, page } from './mail.js';
 
 const DAY = 86_400_000;
@@ -29,7 +30,7 @@ const emailOk = (e) => typeof e === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.tes
  * trustProxy : nombre de proxys de confiance devant le serveur (1 derrière Caddy/Nginx), pour connaître la vraie adresse IP.
  * sendMail : fonction d'envoi des e-mails (Brevo par défaut ; remplacée dans les tests).
  */
-export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now(), sendMail = sendWithBrevo, checkMailKey = pingBrevo, verifyGoogle = verifyGoogleToken, campaignDelayMs = 300 }) {
+export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now(), sendMail = sendWithBrevo, checkMailKey = pingBrevo, verifyGoogle = verifyGoogleToken, campaignDelayMs = 300, pushFetch = fetch }) {
   const app = express();
   app.disable('x-powered-by');
   if (trustProxy) app.set('trust proxy', trustProxy);
@@ -124,9 +125,57 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   }
 
   /** Historique des offres : chaque passage Gratuit ↔ Premium ou changement d'échéance est conservé. */
-  const planChange = (userId, actor, oldPlan, newPlan, until, reason) =>
+  const planChange = (userId, actor, oldPlan, newPlan, until, reason) => {
     db.prepare('INSERT INTO plan_history (ts, user_id, actor, old_plan, new_plan, premium_until, reason) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(Date.now(), userId, actor ?? null, oldPlan, newPlan, until ?? null, reason ?? null);
+    if (newPlan === 'premium' && oldPlan !== 'premium') {
+      const email = db.prepare('SELECT email FROM users WHERE id = ?').get(userId)?.email || 'un compte';
+      notifyEvent('premium', 'info', 'Nouveau Premium', `${email}${until ? ` jusqu'au ${until}` : ''}${reason ? ` — ${reason}` : ''}`);
+    }
+  };
+
+  // ------------------------------------------------------------- Notifications de Pagio Admin (événements)
+  // Chaque événement est gardé 30 jours : l'APK le lit (flux toutes les 15 min) et, si Firebase est réglé, il est
+  // aussi envoyé tout de suite aux téléphones qui ont coché sa catégorie.
+  const fcmToken = fcmTokenSource(pushFetch);
+  const firebaseConf = () => {
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'firebase'").get();
+    let f = {}; try { f = row ? JSON.parse(row.value) : {}; } catch { f = {}; }
+    return f && typeof f === 'object' ? f : {};
+  };
+  const firebaseService = () => {
+    const f = firebaseConf();
+    if (!f.service?.private_key) return null;
+    try { return { ...f.service, private_key: reveal(db, f.service.private_key) }; } catch { return null; }
+  };
+  async function pushEvent(ev, onlyDevice = null) {
+    const service = firebaseService();
+    if (!service) return 0;
+    const devices = db.prepare('SELECT * FROM notify_devices WHERE revoked = 0 AND fcm_token IS NOT NULL').all()
+      .filter((d) => (onlyDevice ? d.id === onlyDevice : wants(parsePrefs(d.prefs), ev.kind)));
+    if (!devices.length) return 0;
+    let sent = 0;
+    try {
+      const access = await fcmToken(service);
+      for (const d of devices) {
+        const quiet = ev.level !== 'critical' && parsePrefs(d.prefs).quiet && isQuietHour(ev.ts);
+        const data = { id: String(ev.id), kind: ev.kind, level: ev.level, title: ev.title, body: ev.body, silent: quiet ? '1' : '0' };
+        const r = await fcmSend(pushFetch, access, service.project_id, d.fcm_token, data).catch((e) => { logServerError(db, 'notifications', e); return 'error'; });
+        if (r === 'unregistered') db.prepare('UPDATE notify_devices SET fcm_token = NULL WHERE id = ?').run(d.id);
+        if (r === 'ok') sent++;
+      }
+    } catch (e) { logServerError(db, 'notifications', e); }
+    return sent;
+  }
+  function notifyEvent(kind, level, title, body, onlyDevice = null) {
+    const ts = Date.now();
+    const r = db.prepare('INSERT INTO notify_events (ts, kind, level, title, body, device_id) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(ts, kind, level, String(title).slice(0, 120), String(body).slice(0, 400), onlyDevice);
+    const ev = { id: Number(r.lastInsertRowid), ts, kind, level, title: String(title).slice(0, 120), body: String(body).slice(0, 400) };
+    app.locals.lastPush = pushEvent(ev, onlyDevice); // promesse gardée pour les tests ; jamais bloquante
+    return ev;
+  }
+  app.locals.notifyEvent = notifyEvent;
 
   // Les badges sont datés à la seconde près : on arrondit pour qu'une connexion faite juste après reste valable.
   const validAfterNow = () => Math.floor(Date.now() / 1000) * 1000;
@@ -551,6 +600,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (!feedbackLimit(`f:${req.ip}`)) return fail(res, 429, 'Trop de messages envoyés. Réessayez dans une heure.');
     db.prepare('INSERT INTO feedback (ts, kind, message, email, user_id) VALUES (?, ?, ?, ?, ?)')
       .run(Date.now(), String(kind || 'contact').slice(0, 20), String(message).slice(0, 5000), String(email || '').slice(0, 200), req.user?.id ?? null);
+    notifyEvent('feedback', 'info', 'Nouveau message', String(message).trim().slice(0, 200));
     ok(res, { message: 'Merci ! Votre message a bien été envoyé.' });
   });
 
@@ -581,6 +631,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     db.prepare('INSERT INTO users (id, email, name, password_hash, ai_credits, created_at, referred_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(id, email, String(req.body?.name || '').slice(0, 80), passwordHash, s.plans.free.ai_credits || 0, Date.now(), referrerId(req.body?.ref));
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    notifyEvent('signup', 'info', 'Nouvelle inscription', `${email}${u.referred_by ? ' (parrainage)' : ''}`);
     if (linksReady(s) && s.mail.verify_signup) sendVerification(s, u, req);
     ok(res, { token: signToken({ kind: 'user', sub: id }, secret, 90 * 86400), user: selfUser(u) });
   });
@@ -616,6 +667,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       db.prepare('INSERT INTO users (id, email, name, password_hash, ai_credits, created_at, email_verified, referred_by) VALUES (?, ?, ?, ?, ?, ?, 1, ?)')
         .run(id, g.email, g.name, await hashPasswordAsync(crypto.randomBytes(24).toString('base64url')), s.plans.free.ai_credits || 0, Date.now(), referrerId(req.body?.ref));
       u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+      notifyEvent('signup', 'info', 'Nouvelle inscription', `${g.email} (Google)`);
     } else if (!u.email_verified) {
       db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(u.id); // Google vient de confirmer l'adresse
     }
@@ -1169,6 +1221,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(Date.now(), u.id, u.email, kind, offer, amount, method, reference, days, credits, kind === 'premium' ? until : null, req.admin.email, note || null);
       db.exec('COMMIT');
       if (!gift && amount > 0) rewardReferrer(db.prepare('SELECT * FROM users WHERE id = ?').get(u.id));
+      if (!gift && amount > 0) notifyEvent('payment', 'info', 'Nouveau paiement', `${Number(amount).toLocaleString('fr-FR')} F — ${u.email} (${method}${kind === 'premium' ? `, Premium ${days} j` : `, ${credits} crédits IA`})`);
       audit(req.admin, gift ? 'payment.gift' : 'payment.record', u.email, { kind, offer, amount, method, days, credits, premium_until: kind === 'premium' ? until : undefined });
       ok(res, { payment: paymentRow(db.prepare('SELECT * FROM payments WHERE id = ?').get(r.lastInsertRowid)), user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(u.id)) });
     } catch (e) {
@@ -1374,7 +1427,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   const masked = (s) => {
     const key = aiConfig(s).api_key;
     const mk = mailConfig(s).api_key;
-    const { mail_alert_state: _state, ...rest } = s;
+    const { mail_alert_state: _state, firebase: _fb, notify_state: _ns, ...rest } = s;
     return {
       ...rest,
       ai: { ...s.ai, api_key: key ? `••••${key.slice(-4)}` : '', has_key: !!key, key_from_env: !!process.env.AI_API_KEY, key_error: !!s.ai.key_error },
@@ -1827,7 +1880,10 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
   // Seule l'empreinte de la clé est en base. Comme tout /api/admin, le flux n'existe que sur admin.pagio.site (certificat d'appareil).
   const notifyLimit = rateLimiter(120, HOUR);
   app.get('/api/admin/notify/devices', adminAuth(), (req, res) => ok(res, {
-    devices: db.prepare('SELECT d.id, d.name, d.created_at, d.last_seen, a.email admin_email FROM notify_devices d JOIN admins a ON a.id = d.admin_id WHERE d.revoked = 0 ORDER BY d.created_at DESC').all(),
+    kinds: NOTIFY_KINDS,
+    firebase: { client: !!firebaseConf().client?.app_id, service: !!firebaseService() },
+    devices: db.prepare('SELECT d.id, d.admin_id, d.name, d.created_at, d.last_seen, d.prefs, d.fcm_token IS NOT NULL push, d.fcm_at, a.email admin_email FROM notify_devices d JOIN admins a ON a.id = d.admin_id WHERE d.revoked = 0 ORDER BY d.created_at DESC').all()
+      .map(({ prefs, push, admin_id, ...d }) => ({ ...d, push: !!push, mine: admin_id === req.admin.id, prefs: parsePrefs(prefs) })),
   }));
   app.post('/api/admin/notify/devices', adminAuth(), (req, res) => {
     const name = String(req.body?.name || '').trim().slice(0, 60) || 'Téléphone';
@@ -1844,6 +1900,72 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     audit(req.admin, 'notify.device_revoke', d.name);
     ok(res, { revoked: true });
   });
+  const ownDevice = (req, res) => {
+    const d = db.prepare('SELECT * FROM notify_devices WHERE id = ? AND revoked = 0').get(Number(req.params.id));
+    if (!d) { fail(res, 404, 'Téléphone introuvable'); return null; }
+    if (d.admin_id !== req.admin.id && ROLES[req.admin.role] < ROLES.admin) { fail(res, 403, 'Droits insuffisants pour cette action'); return null; }
+    return d;
+  };
+  /** Cases à cocher d'un téléphone : ce qu'il reçoit (et s'il reste silencieux la nuit). */
+  app.put('/api/admin/notify/devices/:id/prefs', adminAuth(), (req, res) => {
+    const d = ownDevice(req, res); if (!d) return;
+    const prefs = cleanPrefs(req.body);
+    db.prepare('UPDATE notify_devices SET prefs = ? WHERE id = ?').run(JSON.stringify(prefs), d.id);
+    audit(req.admin, 'notify.prefs', d.name, prefs);
+    ok(res, { prefs });
+  });
+  /** Notification d'essai, envoyée à ce seul téléphone (quelles que soient ses cases). */
+  app.post('/api/admin/notify/devices/:id/test', adminAuth(), async (req, res) => {
+    const d = ownDevice(req, res); if (!d) return;
+    notifyEvent('test', 'info', 'Essai Pagio Admin', 'Les notifications arrivent bien sur ce téléphone.', d.id);
+    const sent = await app.locals.lastPush;
+    ok(res, { instant: sent > 0, message: sent > 0 ? 'Notification envoyée : elle doit arriver dans quelques secondes.' : 'Notification prête : elle arrivera à la prochaine vérification (15 min au plus), Firebase n’étant pas encore actif sur ce téléphone.' });
+  });
+
+  /** Réglage Firebase (propriétaire) : on colle google-services.json puis la clé de compte de service. */
+  app.get('/api/admin/firebase', adminAuth('owner'), (req, res) => {
+    const f = firebaseConf();
+    ok(res, { client: f.client ? { project_id: f.client.project_id, app_id: f.client.app_id } : null, service: f.service ? { project_id: f.service.project_id, client_email: f.service.client_email } : null });
+  });
+  app.put('/api/admin/firebase', adminAuth('owner'), (req, res) => {
+    let part;
+    try { part = parseFirebaseJson(req.body?.json); } catch (e) { return fail(res, 400, e.message); }
+    const f = firebaseConf();
+    if (part.client) f.client = part.client;
+    if (part.service) f.service = { ...part.service, private_key: protect(db, part.service.private_key) };
+    setSetting(db, 'firebase', f);
+    audit(req.admin, 'firebase.update', part.client ? 'google-services.json' : 'clé de compte de service');
+    ok(res, { saved: part.client ? 'client' : 'service' });
+  });
+  app.delete('/api/admin/firebase', adminAuth('owner'), (req, res) => {
+    db.prepare("DELETE FROM settings WHERE key = 'firebase'").run();
+    db.prepare('UPDATE notify_devices SET fcm_token = NULL').run();
+    audit(req.admin, 'firebase.delete', null);
+    ok(res, { ok: true });
+  });
+
+  /** Côté téléphone (clé de notification) : d'abord la configuration Firebase, puis l'enregistrement de son jeton. */
+  const notifyDevice = (req, res) => {
+    const token = String(req.get('x-pagio-notify') || '');
+    if (!notifyLimit(`n:${req.ip}`)) { fail(res, 429, 'Trop de requêtes'); return null; }
+    const d = token && db.prepare('SELECT * FROM notify_devices WHERE token_hash = ? AND revoked = 0').get(hashToken(token));
+    if (!d) { fail(res, 401, 'Clé de notification inconnue ou révoquée'); return null; }
+    if (!db.prepare('SELECT 1 FROM admins WHERE id = ? AND active = 1').get(d.admin_id)) { fail(res, 401, 'Administrateur désactivé'); return null; }
+    return d;
+  };
+  app.get('/api/admin/notify/firebase', (req, res) => {
+    if (!notifyDevice(req, res)) return;
+    const c = firebaseConf().client;
+    ok(res, c?.app_id && firebaseService() ? { enabled: true, ...c } : { enabled: false });
+  });
+  app.post('/api/admin/notify/push-token', (req, res) => {
+    const d = notifyDevice(req, res); if (!d) return;
+    const t = String(req.body?.token || '');
+    if (!/^[\w:.-]{20,4096}$/.test(t)) return fail(res, 400, 'Jeton invalide');
+    db.prepare('UPDATE notify_devices SET fcm_token = ?, fcm_at = ? WHERE id = ?').run(t, Date.now(), d.id);
+    ok(res, { ok: true });
+  });
+
   /** Flux lu toutes les 15 minutes par l'APK admin : alertes en cours, messages des utilisateurs, pannes récentes. */
   app.get('/api/admin/notify/feed', (req, res) => {
     const token = String(req.get('x-pagio-notify') || '');
@@ -1854,11 +1976,23 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     if (!a) return fail(res, 401, 'Administrateur désactivé');
     db.prepare('UPDATE notify_devices SET last_seen = ? WHERE id = ?').run(Date.now(), d.id);
     const av = availability();
+    const prefs = parsePrefs(d.prefs);
+    // `since` absent (première lecture, ou APK 1.0.0) : seulement le numéro du dernier événement, pour partir de là.
+    const since = req.query.since === undefined ? -1 : Math.max(0, Number(req.query.since) || 0);
+    const quiet = prefs.quiet && isQuietHour();
+    const rows = since >= 0 ? db.prepare('SELECT id, ts, kind, level, title, body FROM notify_events WHERE id > ? AND (device_id IS NULL OR device_id = ?) ORDER BY id LIMIT 100').all(since, d.id) : [];
     ok(res, {
       now: Date.now(),
-      alerts: alerts().filter((x) => x.level !== 'info' || x.code === 'feedback').map(({ code, level, message }) => ({ code, level, message })),
-      feedback: db.prepare("SELECT id, ts, kind, substr(message, 1, 140) message FROM feedback WHERE status = 'nouveau' ORDER BY ts DESC LIMIT 20").all(),
-      incidents: (av?.incidents || []).slice(0, 10),
+      prefs,
+      // Nouveau flux : événements cochés (et l'essai envoyé à ce téléphone), du plus ancien au plus récent.
+      last_event: db.prepare('SELECT COALESCE(MAX(id), 0) n FROM notify_events').get().n,
+      events: rows.filter((e) => (e.kind === 'test' ? true : wants(prefs, e.kind))).map((e) => ({ ...e, silent: quiet && e.level !== 'critical' })),
+      // Jusqu'où le flux a été lu (événements décochés compris) : le téléphone reprend après ce numéro.
+      scanned_to: rows.length ? rows.at(-1).id : Math.max(since, 0),
+      // Ancien flux (APK 1.0.0), lui aussi limité aux cases cochées.
+      alerts: alerts().filter((x) => x.level !== 'info' && wants(prefs, x.level === 'critical' ? 'critical' : 'warning')).map(({ code, level, message }) => ({ code, level, message })),
+      feedback: prefs.kinds.feedback ? db.prepare("SELECT id, ts, kind, substr(message, 1, 140) message FROM feedback WHERE status = 'nouveau' ORDER BY ts DESC LIMIT 20").all() : [],
+      incidents: prefs.kinds.outage ? (av?.incidents || []).slice(0, 10) : [],
     });
   });
 
@@ -1878,6 +2012,34 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     setSetting(db, 'mail_key_check', { ts: Date.now(), ok: r.ok, status: r.status, message: r.message });
     if (!r.ok && (!last || last.ok)) logServerError(db, 'email', new Error(r.message));
     return r;
+  };
+
+  /**
+   * Chaque minute : une alerte qui apparaît (urgente ou à surveiller) et une panne réparée par le gardien deviennent
+   * des événements de notification. Une même alerte n'est signalée qu'une fois tant qu'elle dure. Au tout premier
+   * passage, l'état actuel est seulement mémorisé (pas de rafale de vieilles alertes).
+   */
+  app.locals.notifyTick = () => {
+    const s = getSettings(db);
+    const prev = s.notify_state && typeof s.notify_state === 'object' ? s.notify_state : null;
+    const active = alerts().filter((a) => a.level !== 'info' && !['two_factor', 'feedback'].includes(a.code));
+    const keys = Object.fromEntries(active.map((a) => [`${a.code}|${a.message}`, a]));
+    const incidents = availability()?.incidents || [];
+    const lastIncident = incidents.reduce((m, i) => Math.max(m, Number(i.debut) || 0), 0);
+    let n = 0;
+    if (prev) {
+      for (const [k, a] of Object.entries(keys)) {
+        if (prev.alerts?.includes(k)) continue;
+        notifyEvent(a.level === 'critical' ? 'critical' : 'warning', a.level === 'critical' ? 'critical' : 'warning', a.level === 'critical' ? '⚠ Pagio : urgent' : 'Pagio : à surveiller', a.message); n++;
+      }
+      for (const i of incidents.filter((x) => Number(x.debut) > (prev.last_incident || 0)).sort((a, b) => a.debut - b.debut)) {
+        const sec = Number(i.duree_s) || 0;
+        notifyEvent('outage', 'warning', 'Panne réparée', `Pagio a été coupé ${sec < 60 ? `${sec} s` : `${Math.ceil(sec / 60)} min`} ; ${i.redemarre ? 'le gardien l’a redémarré' : 'il est revenu tout seul'}.`); n++;
+      }
+    }
+    const next = { alerts: Object.keys(keys), last_incident: Math.max(lastIncident, prev?.last_incident || 0) };
+    if (JSON.stringify(next) !== JSON.stringify(prev)) setSetting(db, 'notify_state', next);
+    return n;
   };
 
   /**
@@ -2077,7 +2239,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
    */
   app.locals.purgeOld = (now = Date.now()) => {
     const out = {};
-    const rules = [['events', 395], ['site_hits', 395], ['user_logins', 90], ['ai_usage', 395], ['conversions', 395], ['server_errors', 183], ['feedback', 730]];
+    const rules = [['events', 395], ['site_hits', 395], ['user_logins', 90], ['ai_usage', 395], ['conversions', 395], ['server_errors', 183], ['feedback', 730], ['notify_events', 30]];
     for (const [t, days] of rules) out[t] = Number(db.prepare(`DELETE FROM ${t} WHERE ts < ?`).run(now - days * DAY).changes);
     return out;
   };

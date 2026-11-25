@@ -6,13 +6,13 @@ import { openDb, setSecretsKey } from '../src/db.js';
 import { hashPassword, deriveKey } from '../src/security.js';
 import { createApp } from '../src/app.js';
 
-export async function boot({ secretsKey, sendMail, checkMailKey, verifyGoogle } = {}) {
+export async function boot({ secretsKey, sendMail, checkMailKey, verifyGoogle, pushFetch } = {}) {
   const db = openDb(':memory:');
   if (secretsKey) setSecretsKey(db, deriveKey(secretsKey));
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pagio-test-'));
   db.prepare("INSERT INTO admins (email, name, password_hash, role, created_at) VALUES ('owner@test.fr', 'O', ?, 'owner', ?)").run(hashPassword('motdepasse-admin'), Date.now());
   db.prepare("INSERT INTO admins (email, name, password_hash, role, created_at) VALUES ('support@test.fr', 'S', ?, 'support', ?)").run(hashPassword('motdepasse-support'), Date.now());
-  const app = createApp({ db, secret: 'test-secret', dataDir, campaignDelayMs: 0, ...(sendMail ? { sendMail } : {}), ...(checkMailKey ? { checkMailKey } : {}), ...(verifyGoogle ? { verifyGoogle } : {}) });
+  const app = createApp({ db, secret: 'test-secret', dataDir, campaignDelayMs: 0, ...(sendMail ? { sendMail } : {}), ...(checkMailKey ? { checkMailKey } : {}), ...(verifyGoogle ? { verifyGoogle } : {}), ...(pushFetch ? { pushFetch } : {}) });
   const http = app.listen(0);
   await new Promise((r) => http.once('listening', r));
   const base = `http://127.0.0.1:${http.address().port}`;

@@ -3,6 +3,7 @@ import { api, download, fmtBytes, fmtNum } from '../api';
 import { Alert, Card, useFlash } from '../ui';
 import { AlertList, ServerAlert } from './AlertList';
 import { SystemMetrics, Thresholds } from './SystemMetrics';
+import { FirebaseCard, NotifyDevicesCard } from './NotifyCards';
 
 interface Machine { disk: { total_mb: number; free_mb: number } | null; cpus: number; load: number[]; platform: string; mem_total_mb: number; mem_free_mb: number }
 interface Availability {
@@ -14,7 +15,6 @@ interface Sys {
   node: string; uptime_s: number; db_file: string; db_bytes: number; libreoffice: boolean; memory_mb: number; counts: Record<string, number>;
   machine: Machine; alerts: ServerAlert[]; backups: { count: number; bytes: number } | null; availability: Availability | null;
 }
-interface NotifyDevice { id: number; name: string; created_at: number; last_seen: number | null; admin_email: string }
 
 const when = (ms: number) => new Date(ms).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 const dur = (s: number) => (s < 60 ? `${s} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min`);
@@ -50,29 +50,6 @@ function AvailabilityCard({ av }: { av: Availability | null }) {
           <tbody>{av.incidents.map((i) => <tr key={i.debut}><td>{when(i.debut)}</td><td>{dur(i.duree_s)}</td><td>{i.redemarre ? 'Redémarrage automatique' : 'Retour seul'}</td></tr>)}</tbody>
         </table></div>
       </>}
-    </Card>
-  );
-}
-
-/** Téléphones qui reçoivent les notifications de l'APK admin (clé créée automatiquement à la connexion dans l'APK). */
-function NotifyDevicesCard({ show }: { show: (m: string, tone?: 'error') => void }) {
-  const [list, setList] = useState<NotifyDevice[] | null>(null);
-  const load = () => api<{ devices: NotifyDevice[] }>('GET', '/api/admin/notify/devices').then((r) => setList(r.devices)).catch(() => setList([]));
-  useEffect(() => { load(); }, []);
-  return (
-    <Card title="Téléphones notifiés (APK admin)">
-      {!list ? <p className="muted">Chargement…</p> : list.length === 0
-        ? <p className="muted">Aucun téléphone. Installez l'APK admin et connectez-vous : il apparaîtra ici et recevra les notifications (panne, alertes, messages des utilisateurs).</p>
-        : <div className="table-wrap"><table className="table">
-          <thead><tr><th>Téléphone</th><th>Administrateur</th><th>Dernière vérification</th><th /></tr></thead>
-          <tbody>{list.map((d) => (
-            <tr key={d.id}><td>{d.name}</td><td>{d.admin_email}</td><td>{d.last_seen ? when(d.last_seen) : 'jamais'}</td>
-              <td><button className="btn small danger" onClick={async () => {
-                if (!confirm(`Ne plus envoyer de notifications à « ${d.name} » ?`)) return;
-                try { await api('DELETE', `/api/admin/notify/devices/${d.id}`); show('Téléphone retiré'); load(); } catch (e) { show((e as Error).message, 'error'); }
-              }}>Retirer</button></td></tr>
-          ))}</tbody>
-        </table></div>}
     </Card>
   );
 }
@@ -121,6 +98,7 @@ export default function System({ go }: { go?: (page: string) => void }) {
       <div className="grid2">
         <AvailabilityCard av={s.availability} />
         <NotifyDevicesCard show={show} />
+        <FirebaseCard show={show} />
       </div>
       <div className="grid2">
         <Card title="État de la machine" actions={<button className="btn small" onClick={load}>Actualiser</button>}>

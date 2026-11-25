@@ -17,6 +17,7 @@ camerax = "1.4.2"
 bouncycastle = "1.78.1"
 reorderable = "2.4.3"
 junit = "4.13.2"
+firebaseBom = "34.2.0"
 androidxJunit = "1.2.1"
 androidxTestRunner = "1.6.2"
 androidxTestCore = "1.6.1"
@@ -51,6 +52,8 @@ bouncycastle-pkix = { group = "org.bouncycastle", name = "bcpkix-jdk15to18", ver
 bouncycastle-prov = { group = "org.bouncycastle", name = "bcprov-jdk15to18", version.ref = "bouncycastle" }
 reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }

@@ -2,7 +2,8 @@ import java.util.Properties
 
 // Pagio Admin : application à part, jamais publiée, qui affiche le tableau de bord d'admin.pagio.site sur le téléphone
 // (certificat d'appareil + mot de passe + double authentification, comme sur PC) et envoie des notifications.
-// Aucune bibliothèque en plus : uniquement le système Android (WebView, KeyChain, JobScheduler).
+// Bibliothèques : le système Android (WebView, KeyChain, JobScheduler) et Firebase Messaging pour les notifications
+// instantanées. Firebase est configuré à distance (réglage collé dans le tableau de bord) : pas de google-services.json ici.
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -21,8 +22,8 @@ android {
         applicationId = "com.pagio.admin"
         minSdk = 26
         targetSdk = 36
-        versionName = "1.0.0"
-        versionCode = 10000
+        versionName = "1.1.0"
+        versionCode = 10100
         buildConfigField("String", "ADMIN_URL", "\"${project.findProperty("pagio.adminUrl") ?: "https://admin.pagio.site"}\"")
     }
 
@@ -53,4 +54,9 @@ android {
 
 kotlin {
     compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+}
+
+dependencies {
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 }

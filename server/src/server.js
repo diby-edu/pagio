@@ -95,6 +95,11 @@ const alertTick = () => app.locals.sendAlertEmails().catch((e) => logServerError
 setTimeout(alertTick, 60_000).unref();
 setInterval(alertTick, 10 * 60_000).unref();
 
+// Notifications de Pagio Admin : nouvelles alertes et pannes réparées transformées en notifications, chaque minute.
+const notifyTick = () => { try { app.locals.notifyTick(); } catch (e) { logServerError(db, 'notifications', e); } };
+setTimeout(notifyTick, 45_000).unref();
+setInterval(notifyTick, 60_000).unref();
+
 // Durées de conservation de la politique de confidentialité : vieilles données effacées chaque jour.
 const purgeTick = () => { try { const r = app.locals.purgeOld(); if (Object.values(r).some(Boolean)) console.log('Données anciennes effacées :', JSON.stringify(r)); } catch (e) { logServerError(db, 'serveur', e); } };
 setTimeout(purgeTick, 120_000).unref();

@@ -43,8 +43,33 @@ class Store(context: Context) {
         get() = p.getBoolean("down_notified", false)
         set(v) = p.edit().putBoolean("down_notified", v).apply()
 
+    /** Configuration Firebase reçue du serveur (identifiants publics de l'application, en JSON). */
+    var firebaseConfig: String?
+        get() = p.getString("firebase_config", null)
+        set(v) = p.edit().putString("firebase_config", v).apply()
+
+    /** Dernier jeton Firebase transmis au serveur (pour ne le renvoyer que s'il change). */
+    var pushTokenSent: String?
+        get() = p.getString("push_token_sent", null)
+        set(v) = p.edit().putString("push_token_sent", v).apply()
+
+    /** Numéro du dernier événement lu dans le flux (-1 : jamais lu, on part du présent). */
+    var lastEventId: Long
+        get() = p.getLong("last_event", -1)
+        set(v) = p.edit().putLong("last_event", v).apply()
+
+    /** Événements déjà affichés (par Firebase ou par le flux) : un événement n'est jamais montré deux fois. */
+    @Synchronized fun markShown(id: Long): Boolean {
+        val set = p.getStringSet("shown_events", emptySet()).orEmpty()
+        if (id.toString() in set) return false
+        val next = (set.mapNotNull { it.toLongOrNull() } + id).sortedDescending().take(200).map { it.toString() }.toSet()
+        p.edit().putStringSet("shown_events", next).commit()
+        return true
+    }
+
     /** Nouvelle clé (nouvelle connexion) : on repart de zéro, sans renotifier l'historique. */
     fun resetNotifications() {
-        p.edit().remove("seen_alerts").remove("last_feedback").remove("last_incident").remove("failures").remove("down_notified").apply()
+        p.edit().remove("seen_alerts").remove("last_feedback").remove("last_incident").remove("failures").remove("down_notified")
+            .remove("last_event").remove("shown_events").remove("push_token_sent").apply()
     }
 }
