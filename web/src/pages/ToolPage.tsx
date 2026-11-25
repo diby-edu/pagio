@@ -100,22 +100,31 @@ export default function ToolPage({ id, config, user, onUser, go }: { id: string;
         case 'fill_forms': r = file(await p2.fillForm(f, formValues, flatten)); break;
         case 'metadata': if (!meta) throw new Error(t('working')); r = file(await p2.writeMeta(f, meta)); break;
         case 'strip_metadata': r = file(await p2.stripMeta(f)); break;
-        case 'compress': case 'repair': case 'protect': case 'unlock': case 'html_to_pdf': {
+        case 'compress': case 'repair': case 'protect': case 'unlock': case 'html_to_pdf': case 'ocr': {
           const op = tool!.id;
           if (op === 'protect' && password.length < 4) throw new Error(t('pw_short'));
           if (op === 'protect' && password !== password2) throw new Error(t('pw_mismatch'));
           if (op === 'unlock' && !password) throw new Error(t('pw_needed'));
           const headers: Record<string, string> = { authorization: `Bearer ${session.token}`, 'content-type': 'application/octet-stream' };
           if (op === 'protect' || op === 'unlock') headers['x-pdf-password'] = password;
-          const q = `name=${encodeURIComponent(f.name)}${op === 'compress' ? `&level=${level}` : ''}`;
+          const q = `name=${encodeURIComponent(f.name)}${op === 'compress' ? `&level=${level}` : ''}${op === 'ocr' ? `&lang=${document.documentElement.lang === 'en' ? 'eng' : 'fra'}` : ''}`;
           const resp = await fetch(`/api/pdf/${op}?${q}`, { method: 'POST', headers, body: f });
           if (!resp.ok) throw new ApiError(resp.status, (await resp.json().catch(() => ({}))).error || `Erreur ${resp.status}`);
           const bytes = new Uint8Array(await resp.arrayBuffer());
-          const suffix = ({ compress: '_compresse', repair: '_repare', protect: '_protege', unlock: '_deverrouille', html_to_pdf: '' } as Record<string, string>)[op];
+          const suffix = ({ compress: '_compresse', repair: '_repare', protect: '_protege', unlock: '_deverrouille', html_to_pdf: '', ocr: '_texte' } as Record<string, string>)[op];
           r = file({ name: f.name.replace(/\.[^.]+$/, '') + suffix + '.pdf', bytes, type: 'application/pdf' });
           const n = resp.headers.get('x-pagio-note');
           if (op === 'compress') setNote(n === 'already_small' ? t('already_small') : t('gain', Math.round((1 - bytes.length / f.size) * 100)));
           else if (n === 'rebuilt') setNote(t('rebuilt'));
+          break;
+        }
+        case 'pdf_to_word': case 'pdf_to_ppt': {
+          const to = tool!.id === 'pdf_to_word' ? 'docx' : 'pptx';
+          const resp = await fetch(`/api/convert?to=${to}&name=${encodeURIComponent(f.name)}`, { method: 'POST', headers: { authorization: `Bearer ${session.token}`, 'content-type': 'application/octet-stream' }, body: f });
+          if (!resp.ok) throw new ApiError(resp.status, (await resp.json().catch(() => ({}))).error || `Erreur ${resp.status}`);
+          const type = to === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+          r = file({ name: f.name.replace(/\.[^.]+$/, '') + '.' + to, bytes: new Uint8Array(await resp.arrayBuffer()), type });
+          setNote(t('conv_note'));
           break;
         }
         case 'office_to_pdf': {

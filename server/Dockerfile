@@ -13,7 +13,7 @@ RUN npm run build
 
 FROM node:24-bookworm-slim
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc libreoffice-impress fonts-dejavu fonts-liberation qpdf ghostscript \
+ && apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc libreoffice-impress fonts-dejavu fonts-liberation qpdf ghostscript ocrmypdf tesseract-ocr-fra tesseract-ocr-eng \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --system --uid 1500 --no-create-home --shell /usr/sbin/nologin conversion
 WORKDIR /srv/pagio

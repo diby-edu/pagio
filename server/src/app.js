@@ -812,7 +812,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const t0 = Date.now();
     const name = String(req.query.name || 'document').slice(0, 150);
     try {
-      const out = await pdfTool(op, req.body, { level: String(req.query.level || 'medium'), password: String(req.headers['x-pdf-password'] || ''), name });
+      const out = await pdfTool(op, req.body, { level: String(req.query.level || 'medium'), lang: String(req.query.lang || 'fra'), password: String(req.headers['x-pdf-password'] || ''), name });
       db.prepare('INSERT INTO conversions (ts, user_id, source_ext, target, bytes, ms, ok) VALUES (?, ?, ?, ?, ?, ?, 1)')
         .run(Date.now(), req.user?.id ?? null, path.extname(name).slice(1, 10), op, req.body.length, Date.now() - t0);
       res.setHeader('Content-Type', 'application/pdf');

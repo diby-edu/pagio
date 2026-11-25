@@ -7,6 +7,10 @@ export function setLang(l: Lang) { lang = l; store.set('pagio.lang', l); documen
 document.documentElement.lang = lang;
 
 const FR = {
+  t_ocr: 'OCR : rendre le texte lisible', d_ocr: 'Reconnaître le texte d’un PDF scanné pour pouvoir le rechercher et le copier.',
+  t_pdf_to_word: 'PDF en Word', d_pdf_to_word: 'Transformer un PDF en document Word modifiable.',
+  t_pdf_to_ppt: 'PDF en PowerPoint', d_pdf_to_ppt: 'Transformer un PDF en présentation PowerPoint.',
+  conv_note: 'La mise en page est reprise au mieux ; vérifiez le résultat avant de l’envoyer. Pour un document scanné, passez d’abord par l’OCR.',
   t_compress: 'Compresser', d_compress: 'Réduire le poids d\'un PDF pour l\'envoyer par e-mail ou WhatsApp.',
   t_repair: 'Réparer', d_repair: 'Récupérer un PDF abîmé qui ne s\'ouvre plus.',
   t_protect: 'Protéger par mot de passe', d_protect: 'Chiffrer un PDF : il faudra le mot de passe pour l\'ouvrir.',
@@ -71,6 +75,10 @@ const FR = {
 };
 type Key = keyof typeof FR;
 const EN: Record<Key, string> = {
+  t_ocr: 'OCR: make text readable', d_ocr: 'Recognise the text of a scanned PDF so you can search and copy it.',
+  t_pdf_to_word: 'PDF to Word', d_pdf_to_word: 'Turn a PDF into an editable Word document.',
+  t_pdf_to_ppt: 'PDF to PowerPoint', d_pdf_to_ppt: 'Turn a PDF into a PowerPoint presentation.',
+  conv_note: 'The layout is kept as well as possible; check the result before sending it. For a scanned document, run OCR first.',
   t_compress: 'Compress', d_compress: 'Make a PDF lighter to send it by email or WhatsApp.',
   t_repair: 'Repair', d_repair: 'Recover a damaged PDF that no longer opens.',
   t_protect: 'Password protect', d_protect: 'Encrypt a PDF: the password will be needed to open it.',

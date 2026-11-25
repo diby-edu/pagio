@@ -123,7 +123,7 @@ const run = (cmd, args, opts) => new Promise((res, rej) => execFile(cmd, args, {
 }));
 
 const GS_LEVELS = { low: '/printer', medium: '/ebook', high: '/screen' };
-export const PDF_OPS = ['compress', 'repair', 'protect', 'unlock', 'html_to_pdf'];
+export const PDF_OPS = ['compress', 'repair', 'protect', 'unlock', 'html_to_pdf', 'ocr'];
 
 /** Lance un outil PDF du serveur. opts : { level, password, name }. Renvoie { bytes, note }. */
 export async function pdfTool(op, buffer, opts = {}) {
@@ -158,6 +158,17 @@ export async function pdfTool(op, buffer, opts = {}) {
       if (pw.length < 4) throw Object.assign(new Error('Mot de passe trop court (4 caractères minimum)'), { status: 400 });
       const owner = crypto.randomUUID();
       await run('qpdf', ['--encrypt', pw, owner, '256', '--', input, output], asUser);
+    } else if (op === 'ocr') {
+      // Texte invisible ajouté sous l'image des pages scannées ; les pages qui ont déjà du texte sont laissées telles quelles.
+      const lang = opts.lang === 'eng' ? 'eng+fra' : 'fra+eng';
+      const env = { ...(asUser.env || { PATH: process.env.PATH }), TMPDIR: dir, HOME: dir, OMP_THREAD_LIMIT: '1' };
+      try {
+        await run('ocrmypdf', ['--skip-text', '--rotate-pages', '--deskew', '--output-type', 'pdf', '--jobs', '1', '-l', lang, input, output], { ...asUser, env, timeout: 300_000 });
+      } catch (e) {
+        if (e.code === 6) throw Object.assign(new Error('Ce PDF contient déjà du texte : pas besoin d’OCR.'), { status: 400 });
+        if (e.code === 8) throw Object.assign(new Error('Ce PDF est protégé par un mot de passe : déverrouillez-le d’abord.'), { status: 400 });
+        throw e;
+      }
     } else if (op === 'unlock') {
       const pwFile = path.join(dir, 'pw.txt');
       fs.writeFileSync(pwFile, String(opts.password || ''));

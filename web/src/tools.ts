@@ -28,6 +28,9 @@ export const TOOLS: WebTool[] = [
   { id: 'protect', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: '🔒', color: '#4535c9' },
   { id: 'unlock', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: '🔓', color: '#7a5cf0' },
   { id: 'html_to_pdf', where: 'server', accept: 'text/html,.html,.htm', multiple: false, icon: '</>', color: '#0ea5e9' },
+  { id: 'ocr', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: 'A', color: '#9333ea' },
+  { id: 'pdf_to_word', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: 'W', color: '#2563eb' },
+  { id: 'pdf_to_ppt', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: 'P', color: '#e5484d' },
   { id: 'office_to_pdf', where: 'server', accept: '.doc,.docx,.odt,.rtf,.xls,.xlsx,.ods,.csv,.ppt,.pptx,.odp,.txt', multiple: false, icon: 'W', color: '#2563eb' },
   { id: 'assistant', where: 'server', accept: 'application/pdf,.pdf', multiple: false, icon: '✦', color: '#9333ea' },
 ];
