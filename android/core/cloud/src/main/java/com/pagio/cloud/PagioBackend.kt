@@ -133,6 +133,12 @@ class PagioBackend(var baseUrl: String, var token: String? = null) {
 
     suspend fun deleteAccount() { request("DELETE", "/api/me", auth = true) }
 
+    /** Code promo : renvoie le message à afficher (Premium activé, crédits ajoutés, remise enregistrée). */
+    suspend fun redeem(code: String): String = request("POST", "/api/me/redeem", JSONObject().put("code", code), auth = true).optString("message")
+
+    /** Parrainage : lien personnel, jours offerts au parrain, nombre d'inscrits et de payants. */
+    suspend fun referral(): JSONObject = request("GET", "/api/me/referral", auth = true)
+
     /** Demande au serveur s'il reste des tâches au quota du jour (offre gratuite). */
     suspend fun consumeTask(tool: String, files: Int, totalBytes: Long): JSONObject =
         request("POST", "/api/me/tasks", JSONObject().put("tool", tool).put("files", files).put("bytes", totalBytes), auth = true)

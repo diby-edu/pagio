@@ -506,4 +506,23 @@
     <string name="scan_flash_on">Turn flash on</string>
     <string name="scan_flash_off">Turn flash off</string>
     <string name="scan_pdf_premium_only">Saving as PDF is part of the Premium plan. Your scan will be saved as images.</string>
+    <string name="intro1_t">All your PDFs, in your pocket</string>
+    <string name="intro1_d">Merge, compress, convert, sign, protect… 40 tools, most of them offline.</string>
+    <string name="intro2_t">Scan in a second</string>
+    <string name="intro2_d">Take a photo of a document: Pagio finds the edges, straightens the page and makes it sharp, like a real scanner.</string>
+    <string name="intro3_t">Your files stay with you</string>
+    <string name="intro3_d">The tools work on your phone. Your documents are only sent if you use an online feature, then deleted right away.</string>
+    <string name="intro4_t">AI assistant and Premium</string>
+    <string name="intro4_d">Summarize a long document, ask it questions. Free to start; Premium removes the limits.</string>
+    <string name="intro_skip">Skip</string>
+    <string name="intro_start">Get started</string>
+    <string name="intro_page">Page %1$d of %2$d</string>
+    <string name="promo_title">Have a code?</string>
+    <string name="promo_code">Promo code</string>
+    <string name="promo_apply">Apply</string>
+    <string name="ref_title">Invite your friends</string>
+    <string name="ref_text">When someone who signed up with your link goes Premium, you get %1$d days of Premium free.</string>
+    <string name="ref_share">Share my link</string>
+    <string name="ref_share_text">All your PDFs in your pocket, for free: %1$s</string>
+    <string name="ref_stats">%1$d signed up with your link, %2$d went Premium.</string>
 </resources>

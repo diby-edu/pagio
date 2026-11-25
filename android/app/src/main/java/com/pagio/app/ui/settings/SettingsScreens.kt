@@ -283,6 +283,34 @@ fun AccountScreen(onBack: () -> Unit) {
                 Text(stringResource(R.string.limits_line, if (lim.dailyTasks > 0) lim.dailyTasks.toString() else "∞", if (lim.maxMb > 0) "${lim.maxMb} Mo" else "∞"), style = MaterialTheme.typography.bodySmall)
             } }
             InfoCard(stringResource(R.string.premium_info))
+            // Code promo
+            var code by remember { mutableStateOf("") }
+            var codeMsg by remember { mutableStateOf<String?>(null) }
+            Text(stringResource(R.string.promo_title), style = MaterialTheme.typography.titleSmall)
+            androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(code, { code = it.uppercase().take(30) }, label = { Text(stringResource(R.string.promo_code)) }, singleLine = true, modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
+                Button(enabled = code.length >= 3 && !busy, onClick = {
+                    scope.launch { busy = true; codeMsg = try { c.backend.redeem(code).also { code = ""; c.reloadAccount() } } catch (e: Exception) { humanError(e) }; busy = false }
+                }) { Text(stringResource(R.string.promo_apply)) }
+            }
+            codeMsg?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary) }
+            // Parrainage
+            var ref by remember { mutableStateOf<org.json.JSONObject?>(null) }
+            LaunchedEffect(acc.email) { ref = runCatching { c.backend.referral() }.getOrNull() }
+            ref?.takeIf { it.optBoolean("enabled") }?.let { r ->
+                val ctx = LocalContext.current
+                val link = r.optString("link")
+                Text(stringResource(R.string.ref_title), style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.ref_text, r.optInt("referrer_days")), style = MaterialTheme.typography.bodySmall)
+                Button(onClick = {
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                        .putExtra(android.content.Intent.EXTRA_TEXT, ctx.getString(R.string.ref_share_text, link))
+                    ctx.startActivity(android.content.Intent.createChooser(send, null))
+                    c.track("referral_share")
+                }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.ref_share)) }
+                Text(stringResource(R.string.ref_stats, r.optInt("invited"), r.optInt("rewarded")), style = MaterialTheme.typography.bodySmall)
+            }
             OutlinedButton(onClick = { scope.launch { c.logout() } }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.log_out)) }
             TextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.delete_account), color = MaterialTheme.colorScheme.error) }
         } else {

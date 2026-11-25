@@ -114,6 +114,14 @@ class MainActivity : ComponentActivity() {
             PagioTheme(settings?.theme ?: com.pagio.app.data.ThemeMode.SYSTEM, settings?.dynamicColor ?: false) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     PagioRoot(incoming) { incoming = emptyList() }
+                    // Présentation au tout premier lancement, puis animation du logo à chaque ouverture (pas après une rotation).
+                    var intro by rememberSaveable { mutableStateOf(!com.pagio.app.ui.intro.IntroPrefs.seen(this@MainActivity)) }
+                    var splash by rememberSaveable { mutableStateOf(true) }
+                    if (intro) com.pagio.app.ui.intro.Onboarding { skipped ->
+                        com.pagio.app.ui.intro.IntroPrefs.markSeen(this@MainActivity); intro = false
+                        c.track("onboarding_done", mapOf("skipped" to skipped))
+                    }
+                    if (splash) com.pagio.app.ui.intro.SplashOverlay { splash = false }
                 }
             }
         }

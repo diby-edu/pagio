@@ -506,4 +506,23 @@
     <string name="scan_flash_on">Allumer le flash</string>
     <string name="scan_flash_off">Éteindre le flash</string>
     <string name="scan_pdf_premium_only">L\'enregistrement en PDF est réservé à l\'offre Premium. Votre scan sera enregistré en images.</string>
+    <string name="intro1_t">Tous vos PDF, dans votre poche</string>
+    <string name="intro1_d">Fusionner, compresser, convertir, signer, protéger… 40 outils, la plupart sans connexion.</string>
+    <string name="intro2_t">Scannez en une seconde</string>
+    <string name="intro2_d">Photographiez un document : Pagio trouve les bords, redresse la page et la rend nette comme un vrai scanner.</string>
+    <string name="intro3_t">Vos fichiers restent chez vous</string>
+    <string name="intro3_d">Les outils travaillent sur votre téléphone. Vos documents ne sont envoyés que si vous utilisez une fonction en ligne, puis effacés aussitôt.</string>
+    <string name="intro4_t">L\'assistant IA et Premium</string>
+    <string name="intro4_d">Résumez un long document, posez-lui des questions. Gratuit pour commencer ; Premium enlève les limites.</string>
+    <string name="intro_skip">Passer</string>
+    <string name="intro_start">Commencer</string>
+    <string name="intro_page">Page %1$d sur %2$d</string>
+    <string name="promo_title">Vous avez un code ?</string>
+    <string name="promo_code">Code promo</string>
+    <string name="promo_apply">Valider</string>
+    <string name="ref_title">Parrainez vos proches</string>
+    <string name="ref_text">Quand une personne inscrite avec votre lien prend Premium, vous recevez %1$d jours de Premium offerts.</string>
+    <string name="ref_share">Partager mon lien</string>
+    <string name="ref_share_text">Tous vos PDF dans votre poche, gratuitement : %1$s</string>
+    <string name="ref_stats">%1$d inscrit(s) avec votre lien, dont %2$d ont pris Premium.</string>
 </resources>
