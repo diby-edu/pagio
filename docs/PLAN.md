@@ -101,7 +101,7 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
 
 - [x] **Version 2.3.0** (25/11) : bannière et écran **Pagio Premium** animés (avantages, comparaison, formules, bouton
       d'abonnement fixe ; il ouvre un e-mail en attendant le paiement de l'étape 7), e-mail de bienvenue, application en portrait.
-      Reste : **publication** après votre accord.
+      **Publiée le 25/11** pour tous (pagio.site/telecharger/pagio.apk), avec notes de version.
 
 ### Étape 4 — Tous les outils en ligne (sauf le scanner, réservé au téléphone)
 - [x] **Vague 1, dans le navigateur** (fait le 25/11) : diviser, organiser (miniatures), extraire le texte, PDF en images,
