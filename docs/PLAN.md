@@ -116,7 +116,8 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
       **28 outils sur 40 sont maintenant utilisables en ligne.**
 
 ### Étape 5 — Nouveaux outils retenus
-- [ ] **Carte d'identité recto verso sur une page** (gratuit, illimité : attire du monde).
+- [x] **Carte d'identité recto verso sur une page** (fait le 25/11 : en ligne, gratuit, illimité ; taille réelle ou agrandie,
+      2 exemplaires possibles, noir et blanc ; page « carte-identite-recto-verso » pour Google). À ajouter dans l'application Android.
 - [ ] **Dossier de candidature** : CV + diplômes + lettre en un seul PDF, **sous la taille maximale** demandée (1 Mo, 2 Mo…).
 - [ ] **Modèles de documents administratifs** : attestations, demandes, procurations, lettres de démission… (formulaire → PDF) ;
       quelques modèles gratuits, tous en Premium ; une page par modèle pour le référencement.
