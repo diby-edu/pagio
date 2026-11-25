@@ -106,3 +106,16 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--violet); ou
 .foot a { color: var(--muted); }
 @media (max-width: 560px) { .hero { padding-top: 30px; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Vague 1 : miniatures, signature, formulaires, aperçu du texte */
+.wide { flex-basis: 100%; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+.thumb { margin: 0; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--card, #fff); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.thumb img { width: 100%; height: auto; border-radius: 6px; box-shadow: 0 1px 4px rgba(20, 21, 43, .12); transition: transform .2s; }
+.thumb figcaption { font-size: .85rem; font-weight: 600; }
+.thumb-actions { display: flex; gap: 2px; }
+.signpad { width: 100%; max-width: 600px; aspect-ratio: 600 / 220; border: 2px dashed var(--line); border-radius: 14px; background: #fff; touch-action: none; cursor: crosshair; display: block; }
+.form-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.form-fields label { display: flex; flex-direction: column; gap: 4px; font-size: .9rem; word-break: break-word; }
+label.check { flex-direction: row; align-items: center; gap: 8px; }
+.text-preview { flex-basis: 100%; max-height: 320px; overflow: auto; white-space: pre-wrap; background: var(--card, #fff); border: 1px solid var(--line); border-radius: 12px; padding: 12px; font-size: .85rem; }

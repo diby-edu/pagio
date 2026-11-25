@@ -30,7 +30,7 @@ export default function App() {
   const switchLang = (l: Lang) => { setLang(l); setLangState(l); };
 
   let page;
-  if (path.startsWith('/outil/')) page = <ToolPage id={path.slice(7)} config={config} user={user} onUser={setUser} go={go} />;
+  if (path.startsWith('/outil/')) page = <ToolPage key={path} id={path.slice(7)} config={config} user={user} onUser={setUser} go={go} />;
   // Déjà connecté : les pages de connexion mènent au compte (pas de formulaire qui ferait croire à une déconnexion).
   else if (checking && (path === '/connexion' || path === '/inscription' || path === '/compte')) page = <div className="page-loading" aria-busy="true" />;
   else if (user && (path === '/connexion' || path === '/inscription')) page = <Account user={user} onChanged={refreshUser} onSignOut={signOut} />;
