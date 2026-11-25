@@ -282,6 +282,25 @@ fun AccountScreen(onBack: () -> Unit) {
                 val lim = if (acc.isPremium) config.premiumLimits else config.freeLimits
                 Text(stringResource(R.string.limits_line, if (lim.dailyTasks > 0) lim.dailyTasks.toString() else "∞", if (lim.maxMb > 0) "${lim.maxMb} Mo" else "∞"), style = MaterialTheme.typography.bodySmall)
             } }
+            // Adresse pas encore confirmée : explication et bouton pour renvoyer l'e-mail.
+            if (!acc.emailVerified) {
+                var verifyMsg by remember { mutableStateOf<String?>(null) }
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(stringResource(R.string.verify_title), style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.verify_text, acc.email), style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(8.dp))
+                        androidx.compose.foundation.layout.Row {
+                            OutlinedButton(enabled = !busy, onClick = {
+                                scope.launch { busy = true; verifyMsg = try { c.backend.resendVerification() } catch (e: Exception) { humanError(e) }; busy = false }
+                            }) { Text(stringResource(R.string.verify_resend)) }
+                            Spacer(Modifier.width(8.dp))
+                            TextButton(enabled = !busy, onClick = { scope.launch { busy = true; c.reloadAccount(); busy = false } }) { Text(stringResource(R.string.verify_done)) }
+                        }
+                        verifyMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+                    }
+                }
+            }
             InfoCard(stringResource(R.string.premium_info))
             // Code promo
             var code by remember { mutableStateOf("") }

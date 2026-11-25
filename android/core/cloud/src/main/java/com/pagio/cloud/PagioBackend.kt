@@ -69,13 +69,14 @@ data class RemoteConfig(
 }
 
 data class Account(val id: String, val email: String, val name: String, val plan: String, val aiCredits: Int,
-                   val tasksToday: Int, val premiumUntil: String?) {
+                   val tasksToday: Int, val premiumUntil: String?, val emailVerified: Boolean = true) {
     val isPremium: Boolean get() = plan == "premium"
 
     companion object {
         fun parse(o: JSONObject) = Account(
             o.getString("id"), o.getString("email"), o.optString("name"), o.optString("plan", "free"),
             o.optInt("ai_credits"), o.optInt("tasks_today"), o.optString("premium_until").ifBlank { null },
+            o.optBoolean("email_verified", true),
         )
     }
 }
@@ -132,6 +133,9 @@ class PagioBackend(var baseUrl: String, var token: String? = null) {
         request("POST", "/api/auth/forgot", JSONObject().put("email", email)).optString("message")
 
     suspend fun deleteAccount() { request("DELETE", "/api/me", auth = true) }
+
+    /** Renvoie l'e-mail de confirmation de l'adresse ; renvoie le message à afficher. */
+    suspend fun resendVerification(): String = request("POST", "/api/auth/resend-verification", JSONObject(), auth = true).optString("message")
 
     /** Code promo : renvoie le message à afficher (Premium activé, crédits ajoutés, remise enregistrée). */
     suspend fun redeem(code: String): String = request("POST", "/api/me/redeem", JSONObject().put("code", code), auth = true).optString("message")

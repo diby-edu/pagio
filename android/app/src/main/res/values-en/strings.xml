@@ -525,4 +525,8 @@
     <string name="ref_share">Share my link</string>
     <string name="ref_share_text">All your PDFs in your pocket, for free: %1$s</string>
     <string name="ref_stats">%1$d signed up with your link, %2$d went Premium.</string>
+    <string name="verify_title">Confirm your email address</string>
+    <string name="verify_text">An email was sent to %1$s. Open it and tap the link (also check Spam or Promotions). This protects your account and lets you recover your password.</string>
+    <string name="verify_resend">Resend email</string>
+    <string name="verify_done">Done</string>
 </resources>
