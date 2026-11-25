@@ -46,7 +46,10 @@ export default function AppControl() {
           <Field label="Connexion avec Google : identifiant client" hint="Google Cloud › API et services › Identifiants › ID client OAuth (type « Application Web », origines https://pagio.site et https://www.pagio.site). Vide = bouton masqué.">
             <input value={s.google_client_id ?? ''} placeholder="123456789-xxxx.apps.googleusercontent.com" onChange={(e) => setS({ ...s, google_client_id: e.target.value })} />
           </Field>
-          <button className="btn primary" onClick={() => submit(['registration_open', 'conversion_enabled', 'support_email', 'google_client_id'], 'Services enregistrés')}>Enregistrer</button>
+          <Field label="Google Analytics : identifiant de mesure" hint="Analytics › Administration › Flux de données › pagio.site (commence par G-). Chargé seulement après l'accord du visiteur (bandeau). Vide = désactivé.">
+            <input value={s.ga_id ?? ''} placeholder="G-XXXXXXXXXX" onChange={(e) => setS({ ...s, ga_id: e.target.value })} />
+          </Field>
+          <button className="btn primary" onClick={() => submit(['registration_open', 'conversion_enabled', 'support_email', 'google_client_id', 'ga_id'], 'Services enregistrés')}>Enregistrer</button>
         </Card>
       </div>
       <Card title="Protection contre les abus">

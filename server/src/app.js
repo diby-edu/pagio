@@ -229,6 +229,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
       server_conversion: !!(s.conversion_enabled && libreOfficeAvailable()),
       registration_open: s.registration_open,
       google_client_id: s.google_client_id || '',
+      ga_id: s.ga_id || '',
       prices: { currency: 'XOF', week: s.sales.price_week, month: s.sales.price_month, year: s.sales.price_year,
         ai_pack_credits: s.sales.ai_pack_credits, ai_pack_price: s.sales.ai_pack_price, premium_ai_credits: s.plans.premium.ai_credits },
     });
@@ -1330,7 +1331,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const b = req.body || {};
     const current = getSettings(db);
     const allowed = ['maintenance', 'maintenance_message', 'announcement', 'announcement_level', 'min_version_code', 'latest_version_name',
-      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup', 'mail', 'google_client_id', 'sales', 'monitor', 'referral'];
+      'update_url', 'support_email', 'conversion_enabled', 'plans', 'ai', 'registration_open', 'limits', 'backup', 'mail', 'google_client_id', 'sales', 'monitor', 'referral', 'ga_id'];
     const changed = [];
     for (const k of allowed) {
       if (!(k in b)) continue;
@@ -1371,6 +1372,10 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
         if (/^https?:\/\/admin\./i.test(v.public_url)) return fail(res, 400, "L'adresse publique doit être celle du site ouvert aux utilisateurs (ex. https://pagio.site), pas celle de l'administration");
         if (v.api_key !== current.mail.api_key) setSetting(db, 'mail_key_check', null); // nouvelle clé : nouvelle vérification
         if (v.enabled && (!v.from_email || !(v.api_key || process.env.MAIL_API_KEY))) return fail(res, 400, "Pour activer les e-mails, renseignez la clé Brevo et l'adresse d'expéditeur");
+      }
+      if (k === 'ga_id') {
+        v = String(v || '').trim().toUpperCase();
+        if (v && !/^G-[A-Z0-9]{4,20}$/.test(v)) return fail(res, 400, 'Identifiant Google Analytics invalide (il commence par G-)');
       }
       if (k === 'referral') {
         const c = { ...current.referral, ...(v || {}) };

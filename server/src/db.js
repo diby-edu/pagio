@@ -41,6 +41,8 @@ export const DEFAULT_SETTINGS = {
   registration_open: true,
   // Connexion « avec Google » : identifiant client OAuth (Google Cloud › Identifiants). Vide = bouton masqué.
   google_client_id: '',
+  // Google Analytics 4 (identifiant G-XXXX) : chargé sur pagio.site seulement après l'accord du visiteur. Vide = désactivé.
+  ga_id: '',
   // Protection contre les abus (0 = illimité, sauf convert_max_mb plafonné à 100 par le serveur).
   limits: {
     convert_require_account: false, // true : la conversion en ligne exige un compte connecté

@@ -205,6 +205,29 @@ section { padding: 110px 0; }
   box-shadow: 0 30px 80px -20px rgba(122, 92, 240, .8); animation: pulse 3.2s ease-in-out infinite; }
 @keyframes pulse { 50% { box-shadow: 0 30px 110px -10px rgba(255, 122, 102, .7); transform: scale(1.04); } }
 .checks { display: grid; gap: 16px; margin-top: 30px; }
+/* Tarifs */
+.prices { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; align-items: stretch; }
+.price { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 26px; border-radius: 24px; background: var(--card); border: 1px solid var(--line); }
+.price.best { border: 2px solid var(--violet); box-shadow: var(--shadow); }
+.price .tag { position: absolute; top: -12px; left: 24px; background: var(--grad); color: #fff; font-size: .75rem; font-weight: 800; padding: 4px 12px; border-radius: 999px; }
+.price h3 { font-size: 1.1rem; }
+.price .amount b { font-size: 2rem; letter-spacing: -.02em; }
+.price .amount span { color: var(--muted); margin-left: 6px; }
+.price .save { margin: -6px 0 0; color: var(--teal); font-weight: 700; font-size: .9rem; }
+.price ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.price li { padding-left: 24px; position: relative; color: var(--muted); font-size: .95rem; }
+.price li::before { content: "✓"; position: absolute; left: 0; color: var(--teal); font-weight: 800; }
+.price ul.prem li { color: var(--ink); }
+.pbtn { display: block; text-align: center; padding: 12px 16px; border-radius: 14px; font-weight: 700; text-decoration: none; color: var(--ink); background: var(--glass); border: 1px solid var(--line); }
+.pbtn.main { background: var(--grad); color: #fff; border: 0; }
+.pbtn:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; }
+.pay-note { margin-top: 22px; color: var(--muted); text-align: center; }
+/* Bandeau d'accord Google Analytics (affiché seulement si un identifiant est réglé dans l'administration) */
+.consent { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 60; max-width: 560px; margin: 0 auto; padding: 16px 18px; border-radius: 18px;
+  background: var(--bg, #fff); border: 1px solid var(--line); box-shadow: 0 20px 50px -15px rgba(20, 21, 43, .35); display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; font-size: .93rem; }
+.consent p { margin: 0; flex: 1 1 260px; }
+.consent button { font: inherit; font-weight: 700; padding: 9px 16px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: inherit; cursor: pointer; }
+.consent button.ok { background: var(--ink, #14152b); color: var(--bg, #fff); }
 .check { display: flex; gap: 16px; padding: 18px 20px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); }
 .check .ic { width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--teal) 16%, transparent); color: var(--teal); display: grid; place-items: center; flex: none; }
 .check b { display: block; margin-bottom: 2px; }
@@ -290,6 +313,7 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
     <a class="brand" href="#top"><img src="favicon.svg" alt="">Pagio</a>
     <nav aria-label="Sections">
       <a href="#outils" data-i18n="nav_tools">Outils</a>
+      <a href="#tarifs" data-i18n="nav_price">Tarifs</a>
       <a href="#confidentialite" data-i18n="nav_privacy">Confidentialité</a>
       <a href="#ia" data-i18n="nav_ai">Assistant IA</a>
       <a class="nav-signin" href="/app/#/connexion" data-i18n="nav_signin">Se connecter</a>
@@ -405,6 +429,61 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
     </div>
   </section>
 
+  <section id="tarifs">
+    <div class="wrap">
+      <div class="head reveal"><span class="kicker" data-i18n="k_price">Tarifs</span><h2 data-i18n="h_price">Gratuit pour commencer. Premium quand vous voulez.</h2><p data-i18n="p_price">Tous les outils sont gratuits avec une limite par jour. Premium enlève les limites et ajoute l'assistant IA.</p></div>
+      <div class="prices">
+        <article class="price reveal">
+          <h3 data-i18n="pr_free">Gratuit</h3>
+          <div class="amount"><b>0 F</b></div>
+          <ul>
+            <li data-i18n="pf1">Tous les outils, 5 fois par jour chacun</li>
+            <li data-i18n="pf2">Scanner : 10 par jour, en images</li>
+            <li data-i18n="pf3">Sans compte, sans publicité</li>
+            <li data-i18n="pf4">Vos fichiers restent sur votre téléphone</li>
+          </ul>
+          <a class="pbtn" href="#telecharger" data-i18n="pr_free_cta">Télécharger</a>
+        </article>
+        <article class="price reveal" style="--d:.08s">
+          <h3 data-i18n="pr_week">Premium semaine</h3>
+          <div class="amount"><b data-price="week">1 000 F</b><span data-i18n="per_week">/ semaine</span></div>
+          <ul class="prem">
+            <li data-i18n="pp1">Tous les outils, sans limite</li>
+            <li data-i18n="pp2">Scanner en PDF, jusqu'à 100 pages</li>
+            <li data-i18n="pp3">Assistant IA avec crédits inclus</li>
+            <li data-i18n="pp4">Sans la mention « Créé avec Pagio »</li>
+          </ul>
+          <a class="pbtn" href="mailto:contact@pagio.site?subject=Premium%20semaine" data-i18n="pr_cta">Passer Premium</a>
+        </article>
+        <article class="price best reveal" style="--d:.16s">
+          <span class="tag" data-i18n="pr_best">Le plus choisi</span>
+          <h3 data-i18n="pr_month">Premium mois</h3>
+          <div class="amount"><b data-price="month">3 000 F</b><span data-i18n="per_month">/ mois</span></div>
+          <ul class="prem">
+            <li data-i18n="pp1">Tous les outils, sans limite</li>
+            <li data-i18n="pp2">Scanner en PDF, jusqu'à 100 pages</li>
+            <li><span data-i18n="pp3b">Assistant IA :</span> <span data-price="credits">300</span> <span data-i18n="pp3c">crédits par mois</span></li>
+            <li data-i18n="pp4">Sans la mention « Créé avec Pagio »</li>
+          </ul>
+          <a class="pbtn main" href="mailto:contact@pagio.site?subject=Premium%20mois" data-i18n="pr_cta">Passer Premium</a>
+        </article>
+        <article class="price reveal" style="--d:.24s">
+          <h3 data-i18n="pr_year">Premium année</h3>
+          <div class="amount"><b data-price="year">30 000 F</b><span data-i18n="per_year">/ an</span></div>
+          <p class="save" data-save></p>
+          <ul class="prem">
+            <li data-i18n="pp1">Tous les outils, sans limite</li>
+            <li data-i18n="pp2">Scanner en PDF, jusqu'à 100 pages</li>
+            <li><span data-i18n="pp3b">Assistant IA :</span> <span data-price="credits">300</span> <span data-i18n="pp3c">crédits par mois</span></li>
+            <li data-i18n="pp4">Sans la mention « Créé avec Pagio »</li>
+          </ul>
+          <a class="pbtn" href="mailto:contact@pagio.site?subject=Premium%20ann%C3%A9e" data-i18n="pr_cta">Passer Premium</a>
+        </article>
+      </div>
+      <p class="pay-note reveal" data-i18n="pay_note">Paiement par Orange Money, Wave, MTN, Moov ou virement : écrivez-nous (bouton « Passer Premium »), votre Premium est activé dès réception. Paiement en ligne bientôt.</p>
+    </div>
+  </section>
+
   <section id="telecharger">
     <div class="wrap">
       <div class="final reveal">
@@ -437,6 +516,13 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
 (() => {
   const T = {
     fr: {
+      nav_price: 'Tarifs', k_price: 'Tarifs', h_price: 'Gratuit pour commencer. Premium quand vous voulez.', p_price: "Tous les outils sont gratuits avec une limite par jour. Premium enlève les limites et ajoute l'assistant IA.",
+      pr_free: 'Gratuit', pf1: 'Tous les outils, 5 fois par jour chacun', pf2: 'Scanner : 10 par jour, en images', pf3: 'Sans compte, sans publicité', pf4: 'Vos fichiers restent sur votre téléphone', pr_free_cta: 'Télécharger',
+      pr_week: 'Premium semaine', pr_month: 'Premium mois', pr_year: 'Premium année', per_week: '/ semaine', per_month: '/ mois', per_year: '/ an', pr_best: 'Le plus choisi',
+      pp1: 'Tous les outils, sans limite', pp2: "Scanner en PDF, jusqu'à 100 pages", pp3: 'Assistant IA avec crédits inclus', pp3b: 'Assistant IA :', pp3c: 'crédits par mois', pp4: 'Sans la mention « Créé avec Pagio »', pr_cta: 'Passer Premium',
+      pay_note: 'Paiement par Orange Money, Wave, MTN, Moov ou virement : écrivez-nous (bouton « Passer Premium »), votre Premium est activé dès réception. Paiement en ligne bientôt.',
+      save: (p) => `soit ${p} % d'économie sur 12 mois`,
+      consent: "Nous aimerions mesurer la fréquentation du site avec Google Analytics (cookies). C'est facultatif.", consent_ok: 'Accepter', consent_no: 'Refuser', consent_more: 'En savoir plus',
       nav_tools: 'Outils', nav_privacy: 'Confidentialité', nav_ai: 'Assistant IA', nav_online: 'Outils en ligne', nav_signin: 'Se connecter', nav_account: 'Mon compte', nav_cta: 'Télécharger', apk_small: 'Télécharger pour Android', apk: 'Fichier APK', apk_note: "Android 8 ou plus récent. Au premier lancement, autorisez l'installation depuis votre navigateur. Le bouton donne toujours la dernière version.",
       pill_tag: 'Android', pill: '40 outils PDF, la plupart sans connexion', h1a: 'Tous vos PDF.', h1b: 'Dans votre poche.',
       lead: "Scannez une feuille en une seconde, fusionnez, compressez, signez, convertissez et faites résumer vos documents par l'IA. Une seule application, pensée pour aller vite.",
@@ -463,6 +549,13 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
       f_priv: 'Confidentialité', f_terms: "Conditions d'utilisation", f_del: 'Suppression de compte', f_legal: 'Mentions légales',
     },
     en: {
+      nav_price: 'Pricing', k_price: 'Pricing', h_price: 'Free to start. Premium whenever you want.', p_price: 'All tools are free with a daily limit. Premium removes the limits and adds the AI assistant.',
+      pr_free: 'Free', pf1: 'All tools, 5 times a day each', pf2: 'Scanner: 10 a day, as images', pf3: 'No account, no ads', pf4: 'Your files stay on your phone', pr_free_cta: 'Download',
+      pr_week: 'Premium week', pr_month: 'Premium month', pr_year: 'Premium year', per_week: '/ week', per_month: '/ month', per_year: '/ year', pr_best: 'Most popular',
+      pp1: 'All tools, unlimited', pp2: 'Scan to PDF, up to 100 pages', pp3: 'AI assistant with credits included', pp3b: 'AI assistant:', pp3c: 'credits a month', pp4: 'No "Made with Pagio" mark', pr_cta: 'Go Premium',
+      pay_note: 'Pay by Orange Money, Wave, MTN, Moov or bank transfer: write to us ("Go Premium" button), your Premium is activated as soon as we receive it. Online payment coming soon.',
+      save: (p) => `save ${p}% over 12 months`,
+      consent: 'We would like to measure site traffic with Google Analytics (cookies). It is optional.', consent_ok: 'Accept', consent_no: 'Decline', consent_more: 'Learn more',
       nav_tools: 'Tools', nav_privacy: 'Privacy', nav_ai: 'AI assistant', nav_online: 'Online tools', nav_signin: 'Sign in', nav_account: 'My account', nav_cta: 'Download', apk_small: 'Download for Android', apk: 'APK file', apk_note: 'Android 8 or newer. On first launch, allow installs from your browser. The button always gets the latest version.',
       pill_tag: 'Android', pill: '40 PDF tools, most of them offline', h1a: 'All your PDFs.', h1b: 'In your pocket.',
       lead: 'Scan a page in a second, then merge, compress, sign, convert and let AI summarise your documents. One app, built for speed.',
@@ -522,12 +615,45 @@ footer .legal a:hover, footer .legal a:focus-visible { color: var(--ink); text-d
     box.querySelectorAll('.reveal').forEach((el) => io.observe(el));
   }
 
+  // Prix et Google Analytics : réglés dans l'administration (/api/app/config).
+  let conf = null;
+  const fmtF = (n) => `${Number(n).toLocaleString('fr-FR')} F`;
+  function prices() {
+    if (!conf?.prices) return;
+    const p = conf.prices;
+    document.querySelectorAll('[data-price]').forEach((el) => { const k = el.dataset.price; el.textContent = k === 'credits' ? p.premium_ai_credits : fmtF(p[k]); });
+    const save = p.month ? Math.round((1 - p.year / (p.month * 12)) * 100) : 0;
+    document.querySelectorAll('[data-save]').forEach((el) => { el.textContent = save > 0 ? T[lang].save(save) : ''; });
+  }
+  function analytics() {
+    const id = conf?.ga_id;
+    if (!id) return;
+    let choice = null; try { choice = localStorage.getItem('pagio.consent'); } catch { /* indisponible */ }
+    const load = () => {
+      const s = document.createElement('script'); s.async = true; s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`; document.head.appendChild(s);
+      window.dataLayer = window.dataLayer || []; window.gtag = function () { window.dataLayer.push(arguments); };
+      window.gtag('js', new Date()); window.gtag('config', id);
+    };
+    if (choice === 'oui') return load();
+    if (choice === 'non' || document.querySelector('.consent')) return;
+    const box = document.createElement('div'); box.className = 'consent'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Cookies');
+    box.innerHTML = `<p>${esc(T[lang].consent)} <a href="/confidentialite/">${esc(T[lang].consent_more)}</a></p><button type="button" data-c="non">${esc(T[lang].consent_no)}</button><button type="button" class="ok" data-c="oui">${esc(T[lang].consent_ok)}</button>`;
+    box.addEventListener('click', (e) => {
+      const c = e.target.closest('button')?.dataset.c; if (!c) return;
+      try { localStorage.setItem('pagio.consent', c); } catch { /* indisponible */ }
+      box.remove(); if (c === 'oui') load();
+    });
+    document.body.appendChild(box);
+  }
+  fetch('/api/app/config').then((r) => r.json()).then((c) => { conf = c; prices(); analytics(); }).catch(() => {});
+
   function apply() {
     document.documentElement.lang = lang;
     document.querySelectorAll('[data-i18n]').forEach((el) => { const v = T[lang][el.dataset.i18n]; if (typeof v === 'string') el.textContent = v; });
     document.querySelectorAll('.lang button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
     document.title = lang === 'fr' ? 'Pagio — Tous vos PDF, dans votre poche' : 'Pagio — All your PDFs, in your pocket';
     renderTools();
+    prices();
     typer.start();
   }
 

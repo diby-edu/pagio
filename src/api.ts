@@ -41,7 +41,7 @@ export const fmtMoney = (n: number) => `${Math.round(n).toLocaleString('fr-FR')}
 export interface Settings {
   maintenance: boolean; maintenance_message: string; announcement: string; announcement_level: string;
   min_version_code: number; latest_version_name: string; update_url: string; support_email: string;
-  conversion_enabled: boolean; registration_open: boolean; google_client_id?: string;
+  conversion_enabled: boolean; registration_open: boolean; google_client_id?: string; ga_id?: string;
   plans: { free: PlanLimits; premium: PlanLimits };
   sales: Sales;
   ai: { enabled: boolean; provider: 'openai' | 'anthropic' | 'gemini'; base_url: string; model: string; api_key: string; has_key?: boolean; key_from_env?: boolean; key_error?: boolean; cost_per_request: number; max_tokens: number };
