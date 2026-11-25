@@ -96,7 +96,7 @@ private fun SettingRow(icon: ImageVector, title: String, subtitle: String? = nul
 }
 
 @Composable
-fun SettingsScreen(onAccount: () -> Unit, onAi: () -> Unit, onServer: () -> Unit, onAbout: () -> Unit) {
+fun SettingsScreen(onAccount: () -> Unit, onAi: () -> Unit, onServer: () -> Unit, onAbout: () -> Unit, onPremium: () -> Unit = {}) {
     val context = LocalContext.current
     val c = context.container
     val s by c.settings.settings.collectAsState(initial = null)
@@ -121,6 +121,10 @@ fun SettingsScreen(onAccount: () -> Unit, onAi: () -> Unit, onServer: () -> Unit
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
+        }
+        if (account?.isPremium != true) {
+            Spacer(Modifier.height(12.dp))
+            com.pagio.app.ui.premium.PremiumBanner(onClick = onPremium)
         }
         SectionTitle(stringResource(R.string.appearance))
         Text(stringResource(R.string.theme), style = MaterialTheme.typography.bodyLarge)
@@ -257,7 +261,7 @@ fun ServerSettingsScreen(onBack: () -> Unit) {
 }
 
 @Composable
-fun AccountScreen(onBack: () -> Unit) {
+fun AccountScreen(onBack: () -> Unit, onPremium: () -> Unit = {}) {
     val c = LocalContext.current.container
     val scope = rememberCoroutineScope()
     val account by c.account.collectAsState()
@@ -301,7 +305,8 @@ fun AccountScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            InfoCard(stringResource(if (acc.isPremium) R.string.premium_active_info else R.string.premium_info))
+            if (acc.isPremium) InfoCard(stringResource(R.string.premium_active_info))
+            else com.pagio.app.ui.premium.PremiumBanner(onClick = onPremium)
             // Code promo
             var code by remember { mutableStateOf("") }
             var codeMsg by remember { mutableStateOf<String?>(null) }

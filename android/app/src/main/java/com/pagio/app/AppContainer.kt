@@ -120,7 +120,9 @@ class AppContainer(val context: Context) {
         return JSONObject().put("tools", tools).put("announcement", c.announcement).put("announcement_level", c.announcementLevel)
             .put("min_version_code", c.minVersionCode).put("latest_version_name", c.latestVersionName).put("update_url", c.updateUrl)
             .put("plans", JSONObject().put("free", lim(c.freeLimits)).put("premium", lim(c.premiumLimits)))
-            .put("ai_enabled", c.aiEnabled).put("server_conversion", c.serverConversion).put("support_email", c.supportEmail).toString()
+            .put("ai_enabled", c.aiEnabled).put("server_conversion", c.serverConversion).put("support_email", c.supportEmail)
+            .put("prices", JSONObject().put("currency", c.prices.currency).put("week", c.prices.week).put("month", c.prices.month).put("year", c.prices.year)
+                .put("ai_pack_credits", c.prices.aiPackCredits).put("ai_pack_price", c.prices.aiPackPrice).put("premium_ai_credits", c.prices.premiumAiCredits)).toString()
     }
 
     suspend fun login(email: String, password: String, register: Boolean, name: String = ""): Account {

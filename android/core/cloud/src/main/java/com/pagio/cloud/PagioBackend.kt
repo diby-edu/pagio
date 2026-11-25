@@ -17,6 +17,10 @@ data class ToolFlag(val enabled: Boolean = true, val premium: Boolean = false, v
 
 data class PlanLimits(val dailyTasks: Int = 0, val maxFiles: Int = 0, val maxMb: Int = 0, val aiCredits: Int = 0)
 
+/** Prix de Premium réglés dans le tableau de bord (francs CFA) ; 0 = offre non proposée. */
+data class Prices(val currency: String = "XOF", val week: Int = 0, val month: Int = 0, val year: Int = 0,
+                  val aiPackCredits: Int = 0, val aiPackPrice: Int = 0, val premiumAiCredits: Int = 0)
+
 /** Configuration distante de l'application. Valeurs par défaut = fonctionnement hors ligne complet. */
 data class RemoteConfig(
     val maintenance: Boolean = false,
@@ -32,6 +36,7 @@ data class RemoteConfig(
     val aiEnabled: Boolean = false,
     val serverConversion: Boolean = false,
     val supportEmail: String = "",
+    val prices: Prices = Prices(),
     val fetchedAt: Long = 0,
 ) {
     fun tool(id: String): ToolFlag = tools[id] ?: ToolFlag()
@@ -62,6 +67,10 @@ data class RemoteConfig(
                 aiEnabled = json.optBoolean("ai_enabled"),
                 serverConversion = json.optBoolean("server_conversion"),
                 supportEmail = json.optString("support_email"),
+                prices = json.optJSONObject("prices")?.let { p ->
+                    Prices(p.optString("currency", "XOF"), p.optInt("week"), p.optInt("month"), p.optInt("year"),
+                        p.optInt("ai_pack_credits"), p.optInt("ai_pack_price"), p.optInt("premium_ai_credits"))
+                } ?: Prices(),
                 fetchedAt = fetchedAt,
             )
         }

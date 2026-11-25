@@ -40,6 +40,7 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density"
             android:theme="@style/Theme.Pagio">
             <intent-filter>

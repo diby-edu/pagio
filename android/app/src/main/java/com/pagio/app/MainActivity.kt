@@ -342,8 +342,9 @@ fun PagioRoot(incoming: List<Uri>, onIncomingHandled: () -> Unit) {
             composable("home") { HomeScreen(onTool = ::openTool, onOpenFile = { nav.navigate(viewerRoute(it)) }, onSeeAll = { nav.navigate("tools") }) }
             composable("tools") { ToolsScreen(onTool = ::openTool) }
             composable("files") { FilesScreen(onOpenFile = { nav.navigate(viewerRoute(it)) }, onTool = ::openTool) }
-            composable("settings") { SettingsScreen({ nav.navigate("account") }, { nav.navigate("ai") }, { nav.navigate("server") }, { nav.navigate("about") }) }
-            composable("account") { AccountScreen { nav.popBackStack() } }
+            composable("settings") { SettingsScreen({ nav.navigate("account") }, { nav.navigate("ai") }, { nav.navigate("server") }, { nav.navigate("about") }, onPremium = { nav.navigate("premium") }) }
+            composable("account") { AccountScreen(onBack = { nav.popBackStack() }, onPremium = { nav.navigate("premium") }) }
+            composable("premium") { com.pagio.app.ui.premium.PremiumScreen(onBack = { nav.popBackStack() }, onLogin = { nav.navigate("account") }) }
             composable("ai") { AiSettingsScreen { nav.popBackStack() } }
             composable("server") { ServerSettingsScreen { nav.popBackStack() } }
             composable("about") { AboutScreen { nav.popBackStack() } }
