@@ -100,14 +100,20 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
 - [x] Après votre essai (A1) : **publication** de la 2.1.0 (`publier-apk.sh`, bouton du site).
 
 ### Étape 4 — Tous les outils en ligne (sauf le scanner, réservé au téléphone)
-- [ ] **Vague 1, dans le navigateur** : diviser, réorganiser (miniatures), extraire le texte, PDF en images, extraire les images,
-      texte en PDF, créer un PDF, modifier, signer, remplir un formulaire, en-tête et pied de page, propriétés, effacer les métadonnées.
-- [ ] **Vague 2, par le serveur** : compresser, réparer, protéger, déverrouiller, remplacer du texte, masquer une information,
-      signature numérique et vérification, HTML en PDF.
-- [ ] **Vague 3** : OCR, PDF en Word / Excel / PowerPoint.
-- [ ] **File d'attente** des traitements lourds (un à la fois sur le VPS à 1 cœur), **Premium prioritaire** ; limites gratuites
-      (ex. 2 par jour, 10 Mo, 20 pages). Passer au VPS **KVM 2** quand l'usage augmente.
-- [ ] Chaque outil réglable dans *Outils et limites* (activé, **Premium seulement**, limites) : les nouveaux y apparaissent seuls.
+- [x] **Vague 1, dans le navigateur** (fait le 25/11) : diviser, organiser (miniatures), extraire le texte, PDF en images,
+      texte en PDF, créer un PDF, signer, remplir un formulaire, en-tête et pied de page, propriétés, nettoyer les métadonnées.
+      - [ ] Reste : **extraire les images**, **modifier** (écrire n'importe où sur la page).
+- [x] **Vague 2, par le serveur** (fait le 25/11, qpdf + Ghostscript) : compresser (3 niveaux), réparer, protéger, déverrouiller,
+      HTML en PDF (liens externes retirés par sécurité).
+      - [ ] Reste : **remplacer du texte**, **masquer une information** (caviardage), **signature numérique et vérification**.
+- [x] **Vague 3** (fait le 25/11) : **OCR** (français et anglais, OCRmyPDF), **PDF en Word**, **PDF en PowerPoint**.
+      Correction au passage : LibreOffice refusait d'ouvrir les PDF sous le compte sans droits (mauvais groupe) ; PDF en Word
+      remarche aussi pour l'application Android.
+      - [ ] Reste : **PDF en Excel** (LibreOffice ne sait pas : passera par l'extraction de tableaux, étape 6).
+- [x] **File d'attente** des traitements lourds : 2 à la fois, **Premium passe devant**, 30 en attente au plus, 2 min d'attente
+      maximum ; visible dans *Système* (en attente, servis, refusés). Passer au VPS **KVM 2** quand l'usage augmente.
+- [x] Chaque outil serveur respecte *Outils et limites* (désactivé, Premium seulement, taille maximale) ; compte obligatoire.
+      **28 outils sur 40 sont maintenant utilisables en ligne.**
 
 ### Étape 5 — Nouveaux outils retenus
 - [ ] **Carte d'identité recto verso sur une page** (gratuit, illimité : attire du monde).
