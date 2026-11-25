@@ -114,6 +114,13 @@ ${tops.map((t) => `<p style="font-size:14px">${esc(t)}</p>`).join('')}${url ? bu
 <blockquote style="margin:18px 0 0;padding:10px 14px;border-left:3px solid #d9d7ea;color:#77758a;white-space:pre-wrap;font-size:13px">${esc(original)}</blockquote>`)
       .replace('Message automatique : merci de ne pas y répondre.', 'Vous pouvez répondre directement à cet e-mail.'),
   }),
+  // Campagne : message libre (sauts de ligne gardés), lien de désinscription obligatoire en bas.
+  campaign: (subject, body, name, unsub) => ({
+    subject,
+    text: `${name ? `Bonjour ${name},\n\n` : ''}${body}\n\n—\nPagio · pagio.site\nNe plus recevoir ces e-mails : ${unsub}`,
+    html: layout(subject, `${name ? `<p>Bonjour ${esc(name)},</p>` : ''}<div style="white-space:pre-wrap">${esc(body).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>')}</div>`)
+      .replace('Message automatique : merci de ne pas y répondre.', `Vous recevez cet e-mail car vous avez un compte Pagio. <a href="${esc(unsub)}" style="color:#77758a">Ne plus recevoir ces e-mails</a>`),
+  }),
   alerts: (list, url) => ({
     subject: `Pagio : ${list.length} alerte(s) sur le serveur`,
     text: `Le serveur Pagio signale :\n\n${list.map((a) => `- [${a.level === 'critical' ? 'URGENT' : 'À surveiller'}] ${a.message}`).join('\n')}\n\n${url ? `Tableau de bord : ${url}\n\n` : ''}Chaque alerte n'est renvoyée qu'une fois par jour tant qu'elle dure.`,

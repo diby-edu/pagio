@@ -21,6 +21,9 @@ import Mail from './pages/Mail';
 import Sales from './pages/Sales';
 import Stats from './pages/Stats';
 import Promo from './pages/Promo';
+import Campaigns from './pages/Campaigns';
+import Security from './pages/Security';
+import GlobalSearch from './GlobalSearch';
 
 type Go = (page: string) => void;
 type Page = { id: string; label: string; icon: string; group: string; min: Admin['role']; el: (a: Admin, go: Go) => JSX.Element };
@@ -44,6 +47,7 @@ const PAGES: Page[] = [
   { id: 'users', label: 'Utilisateurs', icon: '◉', group: 'clients', min: 'support', el: (a) => <Users admin={a} /> },
   { id: 'sales', label: 'Ventes et revenus', icon: '₣', group: 'clients', min: 'support', el: (a) => <Sales canEdit={a.role !== 'support'} /> },
   { id: 'promo', label: 'Codes promo et parrainage', icon: '%', group: 'clients', min: 'support', el: (a) => <Promo canEdit={a.role !== 'support'} /> },
+  { id: 'campaigns', label: 'Campagnes e-mail', icon: '✉', group: 'clients', min: 'admin', el: (a) => <Campaigns email={a.email} /> },
   { id: 'plans', label: 'Offres et tarifs', icon: '★', group: 'clients', min: 'admin', el: () => <Plans /> },
   { id: 'feedback', label: 'Avis et support', icon: '✉', group: 'clients', min: 'support', el: () => <Feedback /> },
   { id: 'tools', label: 'Outils et limites', icon: '▦', group: 'appli', min: 'support', el: (a) => <Tools admin={a} /> },
@@ -58,6 +62,7 @@ const PAGES: Page[] = [
   { id: 'mail', label: 'E-mails', icon: '@', group: 'serveur', min: 'admin', el: (a) => <Mail admin={a} /> },
   { id: 'backups', label: 'Sauvegardes', icon: '⛃', group: 'serveur', min: 'admin', el: (a) => <Backups admin={a} /> },
   { id: 'system', label: 'Système', icon: '⛁', group: 'serveur', min: 'admin', el: (_a, go) => <System go={go} /> },
+  { id: 'security', label: 'Sécurité', icon: '⛨', group: 'securite', min: 'admin', el: () => <Security /> },
   { id: 'admins', label: 'Administrateurs', icon: '⚑', group: 'securite', min: 'owner', el: (a) => <Admins admin={a} /> },
   { id: 'account', label: 'Mon compte et sécurité', icon: '☺', group: 'securite', min: 'support', el: (a) => <Account admin={a} /> },
 ];
@@ -143,6 +148,7 @@ export default function App() {
         <header className="topbar">
           <button className="btn ghost menu-btn" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu" aria-expanded={menuOpen}>☰</button>
           <h1>{current.label}</h1>
+          <GlobalSearch go={setPage} />
         </header>
         <div className="page">{current.el(admin, setPage)}</div>
       </main>

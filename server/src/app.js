@@ -15,7 +15,7 @@ import { aiComplete, convertWithLibreOffice, libreOfficeAvailable } from './serv
 import { listBackups, createBackup, backupPath, restoreBackup, importBackup, verifyBackup } from './backup.js';
 import { verifyGoogleToken } from './google.js';
 import { visitorId, isBot, parseUA, classifySource, countryOf } from './sitestats.js';
-import { sendWithBrevo, pingBrevo, messages, newToken, hashToken, resetForm, messagePage } from './mail.js';
+import { sendWithBrevo, pingBrevo, messages, newToken, hashToken, resetForm, messagePage, page } from './mail.js';
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -29,7 +29,7 @@ const emailOk = (e) => typeof e === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.tes
  * trustProxy : nombre de proxys de confiance devant le serveur (1 derrière Caddy/Nginx), pour connaître la vraie adresse IP.
  * sendMail : fonction d'envoi des e-mails (Brevo par défaut ; remplacée dans les tests).
  */
-export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now(), sendMail = sendWithBrevo, checkMailKey = pingBrevo, verifyGoogle = verifyGoogleToken }) {
+export function createApp({ db, secret, distDir, dataDir = null, trustProxy = false, startedAt = Date.now(), sendMail = sendWithBrevo, checkMailKey = pingBrevo, verifyGoogle = verifyGoogleToken, campaignDelayMs = 300 }) {
   const app = express();
   app.disable('x-powered-by');
   if (trustProxy) app.set('trust proxy', trustProxy);
@@ -48,6 +48,15 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     next();
   });
   app.use('/api', express.json({ limit: '2mb' }));
+  // Adresses IP bloquées depuis le tableau de bord (Sécurité) : API publiques refusées. L'administration n'est jamais bloquée.
+  app.use('/api', (req, res, next) => {
+    if (req.path.startsWith('/admin')) return next();
+    const list = getSettings(db).blocked_ips;
+    if (!list?.length) return next();
+    const ip = String(req.ip || '').replace(/^::ffff:/, '');
+    const blocked = list.some((b) => (b.endsWith('.x') ? ip.startsWith(b.slice(0, -1)) : b.endsWith('::x') ? ip.startsWith(b.slice(0, -1)) : ip === b));
+    return blocked ? res.status(403).json({ error: 'Accès refusé' }) : next();
+  });
 
   const loginLimit = rateLimiter(10, 15 * 60_000);
   // Limite par adresse IP, tous comptes confondus : empêche d'essayer un mot de passe courant sur des milliers de comptes.
@@ -360,6 +369,134 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     });
   });
 
+  // ------------------------------------------------------------- Campagnes e-mail
+  // Envoi à un segment d'utilisateurs, avec lien de désinscription personnel (sans connexion). Les désinscrits ne
+  // reçoivent plus aucune campagne ; les e-mails de service (mot de passe, réponses du support) restent envoyés.
+  const unsubToken = (id) => crypto.createHmac('sha256', secret).update(`unsub:${id}`).digest('base64url').slice(0, 22);
+  const unsubUrl = (s, id) => `${publicUrl(s) || 'https://pagio.site'}/api/desabonnement?u=${encodeURIComponent(id)}&t=${unsubToken(id)}`;
+  const SEGMENTS = {
+    all: { label: 'Tous les comptes', where: '1 = 1', args: () => [] },
+    free: { label: 'Gratuits', where: "plan = 'free'", args: () => [] },
+    premium: { label: 'Premium', where: "plan = 'premium'", args: () => [] },
+    expiring: { label: 'Premium expirant dans 7 jours', where: "plan = 'premium' AND premium_until BETWEEN ? AND ?", args: () => [today(), addDays(today(), 7)] },
+    inactive: { label: 'Inactifs depuis 30 jours', where: '(last_seen IS NULL OR last_seen < ?)', args: () => [Date.now() - 30 * DAY] },
+    new7: { label: 'Inscrits ces 7 derniers jours', where: 'created_at >= ?', args: () => [Date.now() - 7 * DAY] },
+  };
+  const segmentUsers = (seg) => {
+    const g = SEGMENTS[seg];
+    return db.prepare(`SELECT id, email, name FROM users WHERE banned = 0 AND marketing_unsub = 0 AND ${g.where}`).all(...g.args());
+  };
+  app.get('/api/desabonnement', (req, res) => {
+    const id = String(req.query.u || '');
+    const okTok = id && crypto.timingSafeEqual(Buffer.from(unsubToken(id).padEnd(22)), Buffer.from(String(req.query.t || '').padEnd(22).slice(0, 22)));
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    if (!okTok || !db.prepare('SELECT 1 FROM users WHERE id = ?').get(id)) return res.status(400).send(page('Lien invalide', '<h1>Lien invalide</h1><p>Ce lien de désinscription est incomplet ou ne correspond à aucun compte.</p>'));
+    db.prepare('UPDATE users SET marketing_unsub = 1 WHERE id = ?').run(id);
+    res.send(page('Désinscription', '<h1>C\'est fait</h1><p class="ok">Vous ne recevrez plus les e-mails d\'information de Pagio.</p><p class="muted">Les e-mails liés à votre compte (mot de passe oublié, réponses du support) restent envoyés.</p>'));
+  });
+  app.get('/api/admin/campaigns', adminAuth('admin'), (req, res) => ok(res, {
+    segments: Object.fromEntries(Object.entries(SEGMENTS).map(([k, v]) => [k, { label: v.label, count: segmentUsers(k).length }])),
+    campaigns: db.prepare('SELECT * FROM campaigns ORDER BY ts DESC LIMIT 50').all(),
+    unsubscribed: db.prepare('SELECT COUNT(*) n FROM users WHERE marketing_unsub = 1').get().n,
+  }));
+  app.post('/api/admin/campaigns', adminAuth('admin'), async (req, res) => {
+    const s = getSettings(db);
+    if (!mailReady(s)) return fail(res, 400, 'Les e-mails ne sont pas activés (page E-mails).');
+    const subject = String(req.body?.subject || '').trim().slice(0, 150);
+    const body = String(req.body?.body || '').trim().slice(0, 10000);
+    if (subject.length < 3 || body.length < 10) return fail(res, 400, 'Objet et message obligatoires');
+    // Essai : à une seule adresse, sans rien enregistrer.
+    if (req.body?.test_to) {
+      if (!emailOk(req.body.test_to)) return fail(res, 400, "Adresse d'essai invalide");
+      try { await sendMail(mailConfig(s), { to: req.body.test_to, ...messages.campaign(subject, body, '', unsubUrl(s, 'essai')) }); } catch (e) { return fail(res, 502, e.message); }
+      return ok(res, { test: true });
+    }
+    const seg = SEGMENTS[req.body?.segment] ? req.body.segment : null;
+    if (!seg) return fail(res, 400, 'Choisissez à qui envoyer');
+    const list = segmentUsers(seg);
+    if (list.length === 0) return fail(res, 400, 'Personne dans ce groupe');
+    const id = db.prepare('INSERT INTO campaigns (ts, admin_email, subject, body, segment, recipients, sent, failed, status) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?)')
+      .run(Date.now(), req.admin.email, subject, body, seg, list.length, 'en cours').lastInsertRowid;
+    audit(req.admin, 'campaign.send', SEGMENTS[seg].label, { id: Number(id), recipients: list.length, subject });
+    ok(res, { id: Number(id), recipients: list.length });
+    // Envoi en arrière-plan, un e-mail toutes les 300 ms (limites de Brevo), avec le compte des réussites et des échecs.
+    (async () => {
+      let sent = 0; let failed = 0;
+      for (const u of list) {
+        try { await sendMail(mailConfig(s), { to: u.email, ...messages.campaign(subject, body, u.name, unsubUrl(s, u.id)) }); sent++; }
+        catch (e) { failed++; if (failed <= 3) logServerError(db, 'email', e); }
+        if ((sent + failed) % 10 === 0) db.prepare('UPDATE campaigns SET sent = ?, failed = ? WHERE id = ?').run(sent, failed, id);
+        await new Promise((r) => setTimeout(r, campaignDelayMs));
+      }
+      db.prepare("UPDATE campaigns SET sent = ?, failed = ?, status = 'terminée' WHERE id = ?").run(sent, failed, id);
+    })();
+  });
+
+  // ------------------------------------------------------------- Sécurité
+  // Connexions des utilisateurs (90 jours) : réussites et échecs, adresse IP tronquée, appareil. Sert à repérer les abus.
+  const shortIp = (ip) => String(ip || '').replace(/^::ffff:/, '').replace(/(\d+\.\d+\.\d+)\.\d+$/, '$1.x').replace(/^([0-9a-f]+:[0-9a-f]+:[0-9a-f]+):.*$/i, '$1::x');
+  function recordLogin(req, userId, email, okLogin, method) {
+    db.prepare('INSERT INTO user_logins (ts, user_id, email, ip, ua, ok, method) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(Date.now(), userId ?? null, String(email || '').slice(0, 200), shortIp(req.ip), String(req.headers['user-agent'] || '').slice(0, 200), okLogin ? 1 : 0, method);
+  }
+  app.locals.recordLogin = recordLogin;
+  app.get('/api/admin/security', adminAuth('admin'), (req, res) => {
+    const since = Date.now() - DAY;
+    ok(res, {
+      blocked_ips: getSettings(db).blocked_ips,
+      failed_24h: db.prepare('SELECT ip, COUNT(*) n, COUNT(DISTINCT email) accounts, MAX(ts) last FROM user_logins WHERE ok = 0 AND ts >= ? GROUP BY ip ORDER BY n DESC LIMIT 20').all(since),
+      logins: db.prepare('SELECT * FROM user_logins ORDER BY ts DESC LIMIT 200').all(),
+      admin_logins: db.prepare("SELECT ts, admin_email, action, target FROM audit WHERE action LIKE 'admin.login%' ORDER BY ts DESC LIMIT 50").all(),
+    });
+  });
+  app.put('/api/admin/security/blocked', adminAuth('admin'), (req, res) => {
+    const list = Array.isArray(req.body?.ips) ? [...new Set(req.body.ips.map((x) => String(x).trim()).filter((x) => /^[0-9a-fA-F:.x/]{3,45}$/.test(x)))].slice(0, 500) : null;
+    if (!list) return fail(res, 400, 'Liste invalide');
+    setSetting(db, 'blocked_ips', list);
+    audit(req.admin, 'security.blocked_ips', null, { count: list.length });
+    ok(res, { blocked_ips: list });
+  });
+  // Droit d'accès / portabilité : toutes les données d'un compte, en un fichier JSON.
+  const exportUser = (id) => {
+    const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!u) return null;
+    const { password_hash: _p, reset_token: _r, verify_token: _v, ...account } = u;
+    return {
+      exported_at: new Date().toISOString(), account,
+      plan_history: db.prepare('SELECT ts, old_plan, new_plan, premium_until, reason FROM plan_history WHERE user_id = ?').all(id),
+      payments: db.prepare('SELECT ts, kind, offer, amount, currency, method, reference, days, credits, premium_until, refunded FROM payments WHERE user_id = ?').all(id),
+      usage_events: db.prepare('SELECT ts, name, tool, ok, app_version, props FROM events WHERE user_id = ?').all(id),
+      ai_usage: db.prepare('SELECT ts, credits, chars_in, chars_out, ok FROM ai_usage WHERE user_id = ?').all(id),
+      conversions: db.prepare('SELECT ts, source_ext, target, bytes, ok FROM conversions WHERE user_id = ?').all(id),
+      support_messages: db.prepare('SELECT ts, kind, message, status FROM feedback WHERE user_id = ? OR lower(email) = ?').all(id, u.email),
+      logins: db.prepare('SELECT ts, ip, ua, ok, method FROM user_logins WHERE user_id = ?').all(id),
+    };
+  };
+  app.get('/api/admin/users/:id/export', adminAuth('admin'), (req, res) => {
+    const data = exportUser(req.params.id);
+    if (!data) return fail(res, 404, 'Utilisateur introuvable');
+    audit(req.admin, 'user.export', data.account.email);
+    res.setHeader('Content-Disposition', `attachment; filename="pagio-donnees-${req.params.id.slice(0, 8)}.json"`);
+    ok(res, data);
+  });
+  app.get('/api/me/export', userAuth(true), (req, res) => {
+    res.setHeader('Content-Disposition', 'attachment; filename="mes-donnees-pagio.json"');
+    ok(res, exportUser(req.user.id));
+  });
+
+  // ------------------------------------------------------------- Recherche globale
+  app.get('/api/admin/search', adminAuth(), (req, res) => {
+    const q = String(req.query.q || '').trim().toLowerCase();
+    if (q.length < 2) return ok(res, { users: [], payments: [], feedback: [], promo: [] });
+    const like = `%${q}%`;
+    ok(res, {
+      users: db.prepare('SELECT id, email, name, plan, premium_until FROM users WHERE lower(email) LIKE ? OR lower(name) LIKE ? OR id = ? OR ref_code = ? LIMIT 10').all(like, like, q, q.toUpperCase()),
+      payments: db.prepare('SELECT id, ts, user_email, amount, method, reference FROM payments WHERE lower(user_email) LIKE ? OR lower(reference) LIKE ? ORDER BY ts DESC LIMIT 10').all(like, like),
+      feedback: db.prepare('SELECT id, ts, email, substr(message, 1, 120) message, status FROM feedback WHERE lower(message) LIKE ? OR lower(email) LIKE ? ORDER BY ts DESC LIMIT 10').all(like, like),
+      promo: db.prepare('SELECT code, kind, value, uses FROM promo_codes WHERE lower(code) LIKE ? LIMIT 10').all(like),
+    });
+  });
+
   // Tableau de bord : fréquentation du site sur la période.
   app.get('/api/admin/site-stats', adminAuth(), (req, res) => {
     const days = int(req.query.days, 1, 395, 30);
@@ -431,8 +568,9 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     const password = String(req.body?.password || '');
     const u = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
     const good = u ? await verifyPasswordAsync(password, u.password_hash) : await verifyAgainstNothing(password);
-    if (!good) return fail(res, 401, 'E-mail ou mot de passe incorrect');
-    if (u.banned) return fail(res, 403, 'Compte suspendu. Contactez le support.');
+    if (!good) { recordLogin(req, u?.id, email, false, 'mot de passe'); return fail(res, 401, 'E-mail ou mot de passe incorrect'); }
+    if (u.banned) { recordLogin(req, u.id, email, false, 'compte suspendu'); return fail(res, 403, 'Compte suspendu. Contactez le support.'); }
+    recordLogin(req, u.id, email, true, 'mot de passe');
     db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Date.now(), u.id);
     ok(res, { token: signToken({ kind: 'user', sub: u.id }, secret, 90 * 86400), user: selfUser(effective(u)) });
   });
@@ -458,7 +596,8 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     } else if (!u.email_verified) {
       db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(u.id); // Google vient de confirmer l'adresse
     }
-    if (u.banned) return fail(res, 403, 'Compte suspendu. Contactez le support.');
+    if (u.banned) { recordLogin(req, u.id, u.email, false, 'Google (compte suspendu)'); return fail(res, 403, 'Compte suspendu. Contactez le support.'); }
+    recordLogin(req, u.id, u.email, true, 'Google');
     db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Date.now(), u.id);
     u = db.prepare('SELECT * FROM users WHERE id = ?').get(u.id);
     ok(res, { token: signToken({ kind: 'user', sub: u.id }, secret, 90 * 86400), user: selfUser(effective(u)) });
@@ -540,6 +679,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
     // Les ventes restent dans les comptes (montants), sans l'identité de l'acheteur.
     db.prepare('UPDATE payments SET user_id = NULL, user_email = NULL, reference = NULL, note = NULL WHERE user_id = ?').run(id);
     db.prepare('DELETE FROM promo_redemptions WHERE user_id = ?').run(id);
+    db.prepare('UPDATE user_logins SET user_id = NULL, email = NULL WHERE user_id = ?').run(id);
     db.prepare('UPDATE users SET referred_by = NULL WHERE referred_by = ?').run(id);
   }
 
@@ -1874,7 +2014,7 @@ export function createApp({ db, secret, distDir, dataDir = null, trustProxy = fa
    */
   app.locals.purgeOld = (now = Date.now()) => {
     const out = {};
-    const rules = [['events', 395], ['site_hits', 395], ['ai_usage', 395], ['conversions', 395], ['server_errors', 183], ['feedback', 730]];
+    const rules = [['events', 395], ['site_hits', 395], ['user_logins', 90], ['ai_usage', 395], ['conversions', 395], ['server_errors', 183], ['feedback', 730]];
     for (const [t, days] of rules) out[t] = Number(db.prepare(`DELETE FROM ${t} WHERE ts < ?`).run(now - days * DAY).changes);
     return out;
   };

@@ -6,7 +6,8 @@ import { PaymentForm } from './Sales';
 const PAGE = 50;
 
 export default function Users({ admin }: { admin: Admin }) {
-  const [q, setQ] = useState('');
+  // Ouverture depuis la recherche globale : la liste est filtrée sur l'adresse choisie.
+  const [q, setQ] = useState(() => { const v = sessionStorage.getItem('pagio-admin-users-q') || ''; sessionStorage.removeItem('pagio-admin-users-q'); return v; });
   const [plan, setPlan] = useState('');
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<{ total: number; users: User[] } | null>(null);
@@ -178,6 +179,7 @@ function UserPanel({ user, canEdit, onClose, onChanged, onError }: {
               if (!confirm(`Supprimer définitivement ${user.email} ?`)) return;
               try { await api('DELETE', `/api/admin/users/${user.id}`); onChanged(null, 'Utilisateur supprimé'); } catch (e) { onError((e as Error).message); }
             }}>Supprimer le compte</button>
+            <button className="btn" onClick={() => download(`/api/admin/users/${user.id}/export`, `pagio-donnees-${user.email}.json`).catch((e) => onError((e as Error).message))}>Exporter ses données</button>
           </div>
         </>}
         {activity && <>

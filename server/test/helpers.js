@@ -12,7 +12,7 @@ export async function boot({ secretsKey, sendMail, checkMailKey, verifyGoogle } 
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pagio-test-'));
   db.prepare("INSERT INTO admins (email, name, password_hash, role, created_at) VALUES ('owner@test.fr', 'O', ?, 'owner', ?)").run(hashPassword('motdepasse-admin'), Date.now());
   db.prepare("INSERT INTO admins (email, name, password_hash, role, created_at) VALUES ('support@test.fr', 'S', ?, 'support', ?)").run(hashPassword('motdepasse-support'), Date.now());
-  const app = createApp({ db, secret: 'test-secret', dataDir, ...(sendMail ? { sendMail } : {}), ...(checkMailKey ? { checkMailKey } : {}), ...(verifyGoogle ? { verifyGoogle } : {}) });
+  const app = createApp({ db, secret: 'test-secret', dataDir, campaignDelayMs: 0, ...(sendMail ? { sendMail } : {}), ...(checkMailKey ? { checkMailKey } : {}), ...(verifyGoogle ? { verifyGoogle } : {}) });
   const http = app.listen(0);
   await new Promise((r) => http.once('listening', r));
   const base = `http://127.0.0.1:${http.address().port}`;

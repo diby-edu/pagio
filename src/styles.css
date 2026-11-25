@@ -131,3 +131,13 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; margin: 2px
 .drawer-backdrop { position: fixed; inset: 0; background: rgba(20,21,43,.35); z-index: 40; display: flex; justify-content: flex-end; }
 .drawer { width: min(520px, 100vw); height: 100vh; overflow-y: auto; background: #fff; padding: 22px; display: flex; flex-direction: column; gap: 8px; }
 .message { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; } .message p { margin: 8px 0 0; white-space: pre-wrap; }
+
+/* Recherche globale (en-tête) */
+.global-search { position: relative; margin-left: auto; width: min(380px, 50vw); }
+.global-search input { width: 100%; }
+.global-results { position: absolute; right: 0; top: calc(100% + 6px); width: min(520px, 90vw); max-height: 70vh; overflow: auto; z-index: 40;
+  background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 40px rgba(20, 21, 43, .15); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.global-results b { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 8px 8px 2px; }
+.global-results button { all: unset; cursor: pointer; padding: 7px 8px; border-radius: 8px; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.global-results button:hover, .global-results button:focus-visible { background: rgba(91, 75, 219, .08); }
+@media (max-width: 900px) { .global-search { width: 100%; margin: 8px 0 0; order: 3; } .topbar { flex-wrap: wrap; } }

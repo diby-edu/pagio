@@ -56,6 +56,8 @@ export const DEFAULT_SETTINGS = {
   // Tarifs (décidés le 23/11/2026), en francs CFA. Les crédits IA inclus chaque mois sont ceux de l'offre Premium (plans.premium.ai_credits).
   // play_markup_pct : majoration des prix saisis dans Google Play (Google prélève 15 %). Coût de l'IA : prix du fournisseur en
   // dollars par million de jetons (environ 4 caractères par jeton) et taux du dollar en francs CFA.
+  // Adresses IP bloquées (accès aux API publiques refusé), ex. « 41.202.12.7 » ou « 41.202.12.x ».
+  blocked_ips: [],
   // Parrainage : jours de Premium offerts au parrain au premier paiement de son filleul.
   referral: { enabled: true, referrer_days: 7 },
   // Réponses toutes prêtes du support (titre, texte), modifiables dans le tableau de bord.
@@ -82,7 +84,7 @@ export const OFFER_DAYS = { week: 7, month: 30, year: 365 };
 export const PAYMENT_METHODS = ['orange_money', 'wave', 'mtn', 'moov', 'cash', 'transfer', 'card', 'google_play', 'other', 'gift'];
 
 /** Tables recopiées lors d'une restauration (les sessions d'administration en cours sont conservées). */
-export const DATA_TABLES = ['admins', 'users', 'settings', 'tools', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'plan_history', 'server_errors', 'payments', 'site_hits', 'feedback_replies', 'promo_codes', 'promo_redemptions'];
+export const DATA_TABLES = ['admins', 'users', 'settings', 'tools', 'events', 'ai_usage', 'conversions', 'feedback', 'audit', 'plan_history', 'server_errors', 'payments', 'site_hits', 'feedback_replies', 'promo_codes', 'promo_redemptions', 'campaigns', 'user_logins'];
 
 /** Inscrit une erreur du serveur au journal consultable dans le tableau de bord. Ne lève jamais d'erreur. */
 export function logServerError(db, source, error, context = {}) {
@@ -134,6 +136,14 @@ export function openDb(file) {
       code TEXT PRIMARY KEY, kind TEXT NOT NULL, value INTEGER NOT NULL, max_uses INTEGER NOT NULL DEFAULT 0, uses INTEGER NOT NULL DEFAULT 0,
       expires TEXT, note TEXT, active INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS promo_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL, user_id TEXT, ts INTEGER NOT NULL);
+    -- Campagnes e-mail envoyées depuis le tableau de bord.
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, admin_email TEXT, subject TEXT NOT NULL, body TEXT NOT NULL, segment TEXT,
+      recipients INTEGER NOT NULL DEFAULT 0, sent INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0, status TEXT);
+    -- Connexions des utilisateurs (sécurité, 90 jours) : adresse IP tronquée, appareil, réussite.
+    CREATE TABLE IF NOT EXISTS user_logins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, user_id TEXT, email TEXT, ip TEXT, ua TEXT, ok INTEGER NOT NULL, method TEXT);
+    CREATE INDEX IF NOT EXISTS idx_user_logins_ts ON user_logins(ts);
     CREATE TABLE IF NOT EXISTS audit (
       id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, admin_email TEXT, action TEXT NOT NULL,
       target TEXT, details TEXT);
@@ -189,6 +199,8 @@ export function openDb(file) {
   addColumn('users', 'referred_by', 'TEXT');
   addColumn('users', 'referral_rewarded', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('users', 'pending_discount', 'TEXT');
+  // Désinscription des campagnes e-mail (lien en bas de chaque campagne).
+  addColumn('users', 'marketing_unsub', 'INTEGER NOT NULL DEFAULT 0');
   // Offre gratuite : opérations par jour pour chaque outil (0 = illimité) et pages maximum par scan (0 = illimité).
   const hadDailyFree = db.prepare('PRAGMA table_info(tools)').all().some((c) => c.name === 'daily_free');
   addColumn('tools', 'daily_free', 'INTEGER NOT NULL DEFAULT 0');
