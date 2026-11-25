@@ -13,3 +13,4 @@ android/apk/
 android/build-release.log
 android/*.log
 launcher/target/
+livraisons/

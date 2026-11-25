@@ -264,6 +264,12 @@ avec les mêmes modules que sur PC. Construction : `./gradlew.bat :admin:assembl
 4. À la connexion, le téléphone reçoit une **clé de notification** (lecture du flux seulement, empreinte seule en base) : il apparaît dans
    *Système › Téléphones notifiés*, où l'on peut le retirer. Toutes les 15 minutes, l'application lit `/api/admin/notify/feed` et notifie :
    alertes nouvelles, messages des utilisateurs, pannes réparées par le gardien, et « Pagio ne répond pas » après 30 minutes sans réponse.
+5. **Depuis la 1.1.0 (25/11/2026)** : *Système › Notifications sur téléphone* montre des **cases à cocher par téléphone** (alertes
+   urgentes, à surveiller, pannes réparées, messages, paiements, nouveaux Premium, inscriptions, silence la nuit 22 h – 7 h) et un
+   bouton **Envoyer un essai**. Le serveur transforme chaque fait en événement (`notify_events`, gardés 30 jours, alertes et pannes
+   relevées chaque minute) ; le flux (`?since=`) ne donne à chaque téléphone que ce qui est coché.
+   **Firebase (instantané)** : *Système › Firebase*, coller `google-services.json` puis la clé de compte de service (chiffrée en base) ;
+   le téléphone récupère la configuration à sa vérification suivante et envoie son jeton. Projet Firebase : `pagio-515720`.
 Retirer le téléphone : `/root/admin-appareils.sh retirer telephone` (plus d'accès) et *Système › Téléphones notifiés › Retirer*.
 
 ## Outils en ligne et connexion sur pagio.site (depuis le 23/11/2026)

@@ -74,7 +74,7 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
       **en quelques secondes** : panne, nouveau message d'utilisateur, nouveau paiement, nouvel abonné Premium, plafond IA proche.
 - [x] Vous : **console.firebase.google.com** → ajouter Firebase au projet `pagio-515720` (compte kodybusiness), application
       Android `com.pagio.admin` → je récupère `google-services.json`.
-- [ ] Moi : réception dans Pagio Admin, envoi par le serveur (Firebase Cloud Messaging, gratuit), choix des alertes dans le
+- [x] Moi (25/11, APK Admin 1.1.0) : réception dans Pagio Admin, envoi par le serveur (Firebase Cloud Messaging, gratuit), choix des alertes dans le
       tableau de bord ; la vérification toutes les 15 minutes reste en secours.
 
 ### Étape 2 — Page d'accueil, référencement, statistiques
