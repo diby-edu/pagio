@@ -70,7 +70,7 @@ Gestion complète :
 
 ### Notifications de l'APK admin par Firebase (demandé le 24/11/2026)
 Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seulement à **Pagio Admin**.
-- [ ] Aujourd'hui, Pagio Admin vérifie toutes les 15 minutes (et Android peut retarder). Avec Firebase, l'alerte arrive
+- [x] Aujourd'hui, Pagio Admin vérifie toutes les 15 minutes (et Android peut retarder). Avec Firebase, l'alerte arrive
       **en quelques secondes** : panne, nouveau message d'utilisateur, nouveau paiement, nouvel abonné Premium, plafond IA proche.
 - [x] Vous : **console.firebase.google.com** → ajouter Firebase au projet `pagio-515720` (compte kodybusiness), application
       Android `com.pagio.admin` → je récupère `google-services.json`.
@@ -98,6 +98,10 @@ Décision : **pas de notifications pour les utilisateurs** ; Firebase sert seule
 - [x] **Animation du logo** à chaque ouverture (moins d'une seconde) + **3 à 4 écrans de présentation** au premier lancement
       (avec « Passer »).
 - [x] Après votre essai (A1) : **publication** de la 2.1.0 (`publier-apk.sh`, bouton du site).
+
+- [x] **Version 2.3.0** (25/11) : bannière et écran **Pagio Premium** animés (avantages, comparaison, formules, bouton
+      d'abonnement fixe ; il ouvre un e-mail en attendant le paiement de l'étape 7), e-mail de bienvenue, application en portrait.
+      Reste : **publication** après votre accord.
 
 ### Étape 4 — Tous les outils en ligne (sauf le scanner, réservé au téléphone)
 - [x] **Vague 1, dans le navigateur** (fait le 25/11) : diviser, organiser (miniatures), extraire le texte, PDF en images,
